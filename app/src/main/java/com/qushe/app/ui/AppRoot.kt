@@ -313,11 +313,17 @@ fun AppRoot(container: AppContainer) {
             pendingSync = container.sessions.pendingSyncCount()
             syncNotice = when {
                 confirmed.isEmpty() -> {
-                    // 一直重试只会一直弹窗，而且永远失败。直接关掉自动同步，
-                    // 把判断权交回用户，并说清原因。
-                    container.prefs.autoSyncFavorites = false
-                    "系统没有记录这次收藏标记，这台设备的相册可能不使用它。" +
-                        "已自动关闭同步，避免每轮都白弹一次窗。"
+                    // ---- 如实说，不再偷偷关掉用户的开关 ----
+                    // 原来这里会 `autoSyncFavorites = false`，
+                    // 也就是**在用户不知情的情况下关掉一个设置** ——
+                    // 试失败一次就永久停同步，用户只会看到"收藏再也不同步了"，
+                    // 却不知道为什么（用户反馈"收藏夹似乎没有同步到系统"）。
+                    // 和 1.3.52 删掉「上滑删除」那条设置是同一个病根：
+                    // **替用户做决定 + 不告诉他**。
+                    // 现在只报事实：这次没写进去，可能是这台设备的相册
+                    // 不支持收藏标记，要不要继续由用户自己在开关里决定。
+                    "这台设备的相册没有记录这次收藏标记，本次没能写入系统。" +
+                        "仍然可以手动重试，或在设置里关掉自动写入。"
                 }
 
                 confirmed.size < adds.size ->
@@ -431,6 +437,7 @@ fun AppRoot(container: AppContainer) {
             deleted = result.markedDelete.size,
             favoritedDelta = result.favoriteAdded.size - result.favoriteRemoved.size,
             freedBytes = result.deleteBytes,
+            isVideo = result.kind == MediaKind.VIDEO,
         )
         // 落盘异步化：`seen` 几万条时主线程整文件重写是一次可感卡顿
         container.persistAsync()
@@ -569,6 +576,16 @@ fun AppRoot(container: AppContainer) {
                                 arrayOf(android.Manifest.permission.ACCESS_MEDIA_LOCATION)
                             )
                         },
+                        onSyncFavoritesNow = {
+                            // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
+                            // 只是由用户点一下触发，弹窗与结果提示完全一致 ——
+                            // 两条路各自实现一遍必然漂移。
+                            pendingSync = container.sessions.pendingSyncCount()
+                            if (pendingSync == 0) return@SettingsScreen "没有需要同步的收藏"
+                            startFavoriteSync()
+                            "已发起同步，请确认系统的弹窗"
+                        },
+                        pendingFavoriteSync = pendingSync,
                         onImportSystemFavorites = {
                             val keys = container.repo.allSystemFavoriteKeys()
                             val added = container.sessions.importSystemFavorites(keys)

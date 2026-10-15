@@ -102,6 +102,10 @@ data class SessionResult(
 /** 累计成果。刻意只记「已整理多少」，不记「还剩多少」。 */
 data class Stats(
     val reviewed: Int,
+    /** 照片这一类累计回顾了多少（与 [reviewedVideos] 分开统计）。 */
+    val reviewedPhotos: Int,
+    /** 视频这一类累计回顾了多少。 */
+    val reviewedVideos: Int,
     val deleted: Int,
     val favorited: Int,
     val freedBytes: Long,

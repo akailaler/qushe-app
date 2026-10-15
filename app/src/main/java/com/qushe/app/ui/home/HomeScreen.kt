@@ -137,7 +137,10 @@ fun HomeScreen(
                 .padding(vertical = 18.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            StatCell(stats.reviewed.toString(), "已回顾", TextPrimary)
+            // 「已回顾」拆成照片 / 视频两格：这两个是完全不同的习惯
+            // （照片随手刷、视频专门看），混成一个总数看不出任何东西。
+            StatCell(stats.reviewedPhotos.toString(), "照片", TextPrimary)
+            StatCell(stats.reviewedVideos.toString(), "视频", TextPrimary)
             StatCell(stats.deleted.toString(), "已删除", AccentDelete)
             StatCell(favoriteCount.toString(), "已收藏", AccentKeep)
             StatCell(formatSize(stats.freedBytes), "瘦身", AccentInfo)

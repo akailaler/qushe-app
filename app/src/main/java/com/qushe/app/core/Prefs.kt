@@ -122,6 +122,20 @@ class Prefs(context: Context) {
         get() = sp.getInt(KEY_REVIEWED_TOTAL, 0)
         set(value) = sp.edit().putInt(KEY_REVIEWED_TOTAL, value).apply()
 
+    /**
+     * 照片 / 视频**分开**累计的回顾数。
+     *
+     * 之前只有一个总数，于是首页那个计数看不出"我到底刷了多少照片、多少视频" ——
+     * 而这两个是完全不同的习惯（照片是随手刷、视频是专门看），混在一起没有意义。
+     */
+    var reviewedPhotoTotal: Int
+        get() = sp.getInt(KEY_REVIEWED_PHOTO_TOTAL, 0)
+        set(value) = sp.edit().putInt(KEY_REVIEWED_PHOTO_TOTAL, value).apply()
+
+    var reviewedVideoTotal: Int
+        get() = sp.getInt(KEY_REVIEWED_VIDEO_TOTAL, 0)
+        set(value) = sp.edit().putInt(KEY_REVIEWED_VIDEO_TOTAL, value).apply()
+
     var deletedTotal: Int
         get() = sp.getInt(KEY_DELETED_TOTAL, 0)
         set(value) = sp.edit().putInt(KEY_DELETED_TOTAL, value).apply()
@@ -140,6 +154,8 @@ class Prefs(context: Context) {
 
     fun stats(): Stats = Stats(
         reviewed = reviewedTotal,
+        reviewedPhotos = reviewedPhotoTotal,
+        reviewedVideos = reviewedVideoTotal,
         deleted = deletedTotal,
         favorited = favoritedTotal,
         freedBytes = freedBytesTotal,
@@ -151,8 +167,11 @@ class Prefs(context: Context) {
         deleted: Int,
         favoritedDelta: Int,
         freedBytes: Long,
+        isVideo: Boolean = false,
     ) {
         reviewedTotal += reviewed
+        // 分开记：截屏归到照片那一类（它们就是图片，且整理入口和照片是同一个）
+        if (isVideo) reviewedVideoTotal += reviewed else reviewedPhotoTotal += reviewed
         deletedTotal += deleted
         favoritedTotal = (favoritedTotal + favoritedDelta).coerceAtLeast(0)
         freedBytesTotal += freedBytes
@@ -178,6 +197,8 @@ class Prefs(context: Context) {
         private const val KEY_FAVORITES_VIEW_ONLY = "favorites_view_only"
         private const val KEY_HAPTICS = "haptics"
         private const val KEY_REVIEWED_TOTAL = "reviewed_total"
+        private const val KEY_REVIEWED_PHOTO_TOTAL = "reviewed_photo_total"
+        private const val KEY_REVIEWED_VIDEO_TOTAL = "reviewed_video_total"
         private const val KEY_DELETED_TOTAL = "deleted_total"
         private const val KEY_FAVORITED_TOTAL = "favorited_total"
         private const val KEY_FREED_BYTES = "freed_bytes"

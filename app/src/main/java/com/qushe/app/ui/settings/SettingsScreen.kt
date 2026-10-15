@@ -64,6 +64,10 @@ fun SettingsScreen(
     onOpenAppSettings: () -> Unit,
     /** 反向同步：把系统相册里的收藏导入本应用。返回一句给用户看的话。 */
     onImportSystemFavorites: suspend () -> String,
+    /** 正向同步：把本应用的收藏写入系统相册。返回一句给用户看的话。 */
+    onSyncFavoritesNow: suspend () -> String,
+    /** 还有多少项没写入系统相册。 */
+    pendingFavoriteSync: Int,
 ) {
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
@@ -392,6 +396,24 @@ fun SettingsScreen(
             }
 
             SettingBlock(
+                title = "立即同步收藏到系统相册",
+                subtitle = if (pendingFavoriteSync > 0) {
+                    "有 $pendingFavoriteSync 项还没写进系统相册，点这里立刻同步。"
+                } else {
+                    "取舍里的收藏与系统相册已经一致。"
+                },
+                onClick = {
+                    scope.launch { importNote = onSyncFavoritesNow() }
+                },
+            ) {
+                Text(
+                    text = if (pendingFavoriteSync > 0) "同步" else "已一致",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (pendingFavoriteSync > 0) AccentInfo else TextSecondary,
+                )
+            }
+
+            SettingBlock(
                 title = "同步系统收藏到这里",
                 subtitle = importNote ?: "把系统相册里已经标了星的内容也收进本应用的「收藏」。" +
                     "只加不删 —— 系统里没有的不会被移除。",
@@ -426,7 +448,8 @@ fun SettingsScreen(
                     .padding(vertical = 18.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                MiniStat(stats.reviewed.toString(), "已回顾", TextPrimary)
+                MiniStat(stats.reviewedPhotos.toString(), "照片", TextPrimary)
+            MiniStat(stats.reviewedVideos.toString(), "视频", TextPrimary)
                 MiniStat(stats.deleted.toString(), "已删除", AccentDelete)
                 MiniStat(stats.favorited.toString(), "已收藏", AccentKeep)
                 MiniStat(formatSize(stats.freedBytes), "瘦身", AccentInfo)
@@ -470,7 +493,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.63",
+                text = "取舍 1.3.64",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )
