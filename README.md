@@ -35,10 +35,28 @@
 
 **当前稳定版：`v1.3.54`（git tag）** —— 用户评价「比较完美」，后续以此为回归基准。
 
-APK 已随工程提供：`qushe-v1.3.70-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.71-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.71**（时间格式改为 state 驱动 + 小米相册收藏的最终结论）
+
+1. **修"胶囊不跟随时间格式设置"**：各页面原来直接读 `prefs.relativeDates`
+   —— SharedPreferences 读**不是 Compose 的可观察状态**，设置改完不触发重组，
+   表现是"切换几下才跟上"。现在由 `AppRoot` 持有 state，设置页改动时回调更新。
+
+2. **"同步到系统收藏"在小米上的最终结论：走不通，且 1.0 也走不通。**
+   - `adb` 实测：`content update --bind is_favorite:i:1` **能写进去**（回读确认）
+     ⇒ Provider 支持，平台没限制。
+   - 但**把一张照片设成 `is_favorite=1` 后，小米相册里不显示为已收藏**（用户实测）。
+   - 检索确认：**小米相册用自己的数据库** —— `/data/data/com.miui.gallery/databases/gallery.db`
+     的 `favorites` 表（`isFavorite` / `dateFavorite` / `sha1`）。**它根本不读
+     MediaStore 的 `IS_FAVORITE`。**
+   - 反编译 `qushe-v1.0.36-debug.apk`：里面同样是 `createFavoriteRequest` + `is_favorite`，
+     **没有"相册文件夹方案"的痕迹** ⇒ 1.0 和现在做的是同一件事，那时也不会生效。
+   - **`2026-10-11.md` 里 1.0.7 时就实测确认过"小米不认 IS_FAVORITE"**，
+     当时提的替代方案（复制到 `Pictures/取舍收藏/`）因为"占双份空间"没做。
 
 **1.3.70**（收藏同步：实测定位到真正的 bug —— LaunchedEffect 键自取消）
 
