@@ -18,12 +18,20 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putInt(KEY_GROUP_SIZE, value.coerceIn(10, 200)).apply()
 
     /**
-     * 手势方向。去留/回留的默认是「上滑删除、下滑收藏」，
-     * 但每个人对身体方向的直觉不一样，所以留一个开关。
+     * 上滑 = 删除。
+     *
+     * ---- 为什么钉死成 true（1.3.52）----
+     * 原来这里是个可选的开关（「上滑删除 / 上滑收藏」）。1.3.48 把那条设置删了 ——
+     * 因为整理页的收藏早就搬到左下角的星形按钮，"上滑收藏"那条路是死的。
+     * **但当时只删了 UI，没处理已经存下来的值**：把开关关过的设备从此读到的
+     * 永远是 false，而界面上再也改不回来 ⇒ 「回到那天」的瀑布流上滑变成了收藏，
+     * 而且格子不会消失（用户反馈"怎么是收藏、而且不消失"）。
+     *
+     * 所以这里直接返回常量：没有开关，也就没有"关过就回不来"的残留状态。
+     * 存量的 SharedPreferences 值不再被读取。
      */
-    var swipeUpDeletes: Boolean
-        get() = sp.getBoolean(KEY_SWIPE_UP_DELETES, true)
-        set(value) = sp.edit().putBoolean(KEY_SWIPE_UP_DELETES, value).apply()
+    val swipeUpDeletes: Boolean
+        get() = true
 
     /** 看过的条目在一轮之内不再重复出现。 */
     var onlyUnseen: Boolean

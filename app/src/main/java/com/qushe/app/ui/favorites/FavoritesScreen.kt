@@ -237,6 +237,14 @@ fun FavoritesScreen(
         reload()
     }
 
+    /** 「回到那天」里上滑标记的那些，在退出时一次性提交（走系统弹窗）。 */
+    fun commitDayDeletes() {
+        if (dayMarked.isEmpty()) return
+        val doomed = dayItems?.filter { it.storeKey() in dayMarked }.orEmpty()
+        dayMarked = emptySet()
+        if (doomed.isNotEmpty()) delete(doomed)
+    }
+
     /**
      * 预览里切换「喜欢」/「收藏」。
      *
@@ -494,18 +502,24 @@ fun FavoritesScreen(
                         isFavorite = { container.sessions.isFavorite(it) },
                         isLiked = { container.sessions.isLiked(it) },
                         onToggleLike = { container.sessions.toggleLike(it); markTick++ },
-                        onBack = { dayItems = null; dayLoading = false },
+                        // 退出时统一提交：和整理照片页"退出这一组才结算"是同一条规矩，
+                        // 也复用了本页预览已有的系统弹窗通道（delete()）。
+                        onBack = {
+                            commitDayDeletes()
+                            dayItems = null
+                            dayLoading = false
+                        },
                         onConfirm = {
                             val t = dayTarget
+                            commitDayDeletes()
                             dayItems = null
                             dayLoading = false
                             onOpenDaySession(t)
                         },
+                        // 上滑 = 删除（swipeUpDeletes 已钉死为 true）。
+                        // 这里**只标记**、让格子飞出去消失；真正动文件在退出时提交。
                         onMarkDelete = { target ->
-                            // 这里不是"标记待删"，而是**直接从当前列表里拿掉** ——
-                            // 收藏/喜欢页本来就是一个筛选出来的列表，删掉就是删掉。
                             dayMarked = dayMarked + target.storeKey()
-                            remove(target)
                         },
                         onMarkFavorite = { target ->
                             if (likeMode) container.sessions.toggleLike(target)
@@ -612,16 +626,21 @@ fun FavoritesScreen(
  */
 @Composable
 private fun SegChip(text: String, selected: Boolean, onClick: () -> Unit) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = if (selected) TextPrimary else TextTertiary,
+    // 配色与圆角**逐项照抄设置页的 `Chip`**（那边叫 `SettingsScreen.Chip`）——
+    // 两个都是二选一胶囊，长得不一样就会像两套控件。数值改一处记得改另一处。
+    Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(9.dp))
-            .background(if (selected) Surface2 else Surface1)
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) AccentKeep else Surface2)
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 7.dp),
-    )
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) Ink else TextSecondary,
+        )
+    }
 }
 
 /**
