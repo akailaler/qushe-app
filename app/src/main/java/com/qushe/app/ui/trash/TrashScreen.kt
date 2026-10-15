@@ -368,10 +368,11 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             ) {
                 Text(
+                    // 角标只留数字，单位已经在语境里了（回收站页 + 左上角位置）。
+                    // 「还剩」两个字在 1/3 列的格子里会把数字挤到换行。
                     text = when (daysLeft) {
                         0 -> "今天到期"
-                        1 -> "还剩 1 天"
-                        else -> "还剩 $daysLeft 天"
+                        else -> "$daysLeft 天"
                     },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (daysLeft <= 3) AccentDelete else TextPrimary,

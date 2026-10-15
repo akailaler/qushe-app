@@ -333,10 +333,14 @@ fun FavoritesScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
+                        // 没有待写入 ≠ 和系统相册一致 —— 系统相册里另外收藏的东西
+                        // 取舍这边根本没有（`IS_FAVORITE` 只认走 API 收藏的，
+                        // 相册里手动点星的不算）。所以不能写"一致"，
+                        // 要把「反向捞回来」的入口指出来，和设置页那条对齐。
                         text = if (pendingSync > 0) {
                             "写入 $pendingSync 项到系统相册"
                         } else {
-                            "已和系统相册一致"
+                            "取舍这边没有待写入的"
                         },
                         style = MaterialTheme.typography.bodyLarge,
                         color = if (pendingSync > 0) AccentKeep else TextSecondary,
@@ -348,8 +352,10 @@ fun FavoritesScreen(
                                 "每轮整理结束自动写入，也可以现在手动跑一次"
                             pendingSync > 0 ->
                                 "自动写入已关闭，需要手动点这里"
+                            autoSyncEnabled ->
+                                "系统相册里另有收藏？到「设置 → 同步系统收藏到这里」收进来"
                             else ->
-                                "已和系统相册一致"
+                                "自动写入已关闭；系统相册里另有收藏，可到设置里收进来"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = TextTertiary,

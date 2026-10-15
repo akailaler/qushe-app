@@ -194,9 +194,14 @@ fun PhotoSessionScreen(
     // 胶片条默认收起（用户要求"单击才弹出"）
     var filmstripVisible by remember { mutableStateOf(false) }
 
-    // 手势阶梯的第一级：双指放大后把图片以外的元素全部隐掉，进入"沉浸看图"。
-    // 缩回初始大小就恢复 —— 这样"放大 = 专心看这一张"的意图是自解释的，
-    // 不需要额外的按钮。再往下捏合（已到最小还继续捏）会触发「回到那天」。
+    // ---- chrome 的显隐：和瀑布流放大页（`DayZoomView`）**同一套** ----
+    //  · 单击画面      ⇒ 切换显隐
+    //  · 放大          ⇒ 隐藏（画面让位给照片）
+    //  · 缩回 1x       ⇒ **显示**（不是 toggle：用户刚松手的是一次"看图"动作）
+    //  · 进「回到那天」⇒ 隐藏（整个视图交接给日期视图）
+    //
+    // 之前只有"放大才隐藏"，单击没参与 —— 于是想安静看一张图只能先去放大，
+    // 规则和瀑布流放大页对不上（用户要求统一）。
     var chromeHidden by remember { mutableStateOf(false) }
 
     // ---- 「回到那天」----
@@ -767,6 +772,9 @@ fun PhotoSessionScreen(
                 hLimitPx = hLimitPx,
                 upDecision = upDecision,
                 onDragDir = { d -> if (pageDir != d) pageDir = d },
+                // 放大态把单指手势整条让给 ZoomableImage —— 否则长图放大后拖不动
+                zoomed = zoomed,
+                onTap = { chromeHidden = !chromeHidden },
                 onDecision = { decision ->
                     if (decision != SwipeDecision.NEXT) pageDir = 0
                     when (decision) {
@@ -854,6 +862,7 @@ fun PhotoSessionScreen(
                         // 注意别把参数名写成 zoomed —— 那会遮蔽外层的 var，
                         // 变成"给只读参数赋值"，编译直接报 'val' cannot be reassigned
                         zoomed = isZoomed
+                        // 放大 ⇒ 收起；缩回 1x ⇒ 强制显示（不是 toggle）。
                         chromeHidden = isZoomed
                     },
                     // 手势阶梯的第三级：已回到初始大小还继续捏合 → 「回到那天」
@@ -1305,6 +1314,21 @@ private fun DraggablePhoto(
      * 底下那张"下一张"要靠它决定**从哪一侧进来**（真正的翻页效果）。
      */
     onDragDir: (Int) -> Unit = {},
+    /**
+     * 照片是不是正被放大。
+     *
+     * **放大态这一层完全不参与单指手势**，全部让给 `ZoomableImage` ——
+     * 否则长图放大后就拖不动了（用户反馈）。原因是层级：这一层是**父节点**，
+     * 单指拖拽在 Main 阶段父节点先拿到事件并 `consume()`，
+     * 子节点（真正实现"看局部"的 `ZoomableImage`）根本收不到。
+     *
+     * 放弃之后不需要"还回来"的机制：`ZoomableImage` 一次手势内不会越权，
+     * 缩回 1x 之后下一次手势这一层照常接管（和收藏页预览的
+     * `HorizontalPager` + `ZoomableImage` 是同一套分工）。
+     */
+    zoomed: Boolean = false,
+    /** 这一次手势**没有拖过**（就是点了一下）。 */
+    onTap: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     // PointerInputScope 只继承 Density，并不是 CoroutineScope，
@@ -1347,6 +1371,21 @@ private fun DraggablePhoto(
                 val slop = viewConfiguration.touchSlop
                 awaitEachGesture {
                     val down = awaitFirstDown(requireUnconsumed = false)
+                    // 放大态：这一层**一个事件都不消费**，单指拖动整个让给
+                    // `ZoomableImage`（它才是"放大后拖动看细节"的那个）。
+                    // 第二根手指照旧走下面的 multiTouch 分支去捏合。
+                    if (zoomed) {
+                        val pointerId = down.id
+                        while (true) {
+                            val ev = awaitPointerEvent()
+                            if (ev.changes.none { it.pressed } ||
+                                ev.changes.none { it.id == pointerId && it.pressed }
+                            ) {
+                                break
+                            }
+                        }
+                        return@awaitEachGesture
+                    }
                     val startX = down.position.x
                     val startY = down.position.y
                     val tracker = VelocityTracker()
@@ -1451,6 +1490,14 @@ private fun DraggablePhoto(
                                 }
                             }
                         }
+                        // ---- 干净的一下（没拖过、也没第二根手指）⇒ 单击 ----
+                        //
+                        // 单击切 chrome 放在这里而不是 `ZoomableImage.onSingleTap`：
+                        // 后者要和双击判定共存 ⇒ 必然延后 280ms 才动手，
+                        // 摸上去是"钝"的。而这里在松手当帧就能判定。
+                        // 双击时这里会被调用两次（净效果为零），正好互不干扰 ——
+                        // 和瀑布流放大页（`DayZoomView`）用的是同一套分工。
+                        if (!multiTouch) onTap()
                         return@awaitEachGesture
                     }
 
