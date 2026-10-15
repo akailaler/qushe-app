@@ -33,10 +33,28 @@
 - `lintDebug` — **0 错误、0 警告**
 - 产出的 APK 已通过 `apkanalyzer` 校验（`com.qushe.app` / minSdk 30 / targetSdk 35）
 
-APK 已随工程提供：`qushe-v1.3.52-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.53-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.53**（删除动线与整理页逐字一致 + 修大图 chrome 不稳定）
+
+1. **「上滑之后没有正常消失、经常残留红色底」= 我在调用方多此一举地过滤了列表**。
+   `DayViewScreen` 自己就有一套删除动线：`markedKeys` → `removedFlags` →
+   `CellSlot` 把宽度收到 0 ⇒ 格子飞出去、同排左移补位（整理照片页一直走这条）。
+   我在 `FavoritesScreen` 里又用 `filterNot { in dayMarked }` 把项从 `items` 里剔了一遍，
+   等于**换成了另一套删除机制**：整排会重新布局，偶发留下收不干净的红底。
+   现在改成和整理页**逐字一致**的用法：`items = dayItems`，`markedKeys = dayMarked`。
+2. **大图里顶部/底部的图标和小字不稳定 —— 单击被切了两次**。
+   外层 `Box.clickable` 切一次，`ZoomableImage.onSingleTap` 在双击判定窗口（280ms）结束后
+   又切一次 ⇒ **净效果为零**，观感就是"按了没反应"。
+   现在 `onSingleTap` 不再传，单击切 chrome 只由外层 `clickable` 一条路负责；
+   双击只触发"喜欢"，不会连带把 chrome 切两次。
+3. **放大 / 缩回的 chrome 规则改成可预期**：
+   - 放大 ⇒ 收起
+   - 缩回 1x ⇒ **强制显示**（不是 toggle —— 否则"放大前收起过"的用户缩回来还是收着的）
+   - 单击 ⇒ 切换显隐
 
 **1.3.52**（上滑统一为删除 + 胶囊样式对齐）
 
