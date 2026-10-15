@@ -205,6 +205,23 @@ fun PhotoSessionScreen(
     // 规则和瀑布流放大页对不上（用户要求统一）。
     var chromeHidden by remember { mutableStateOf(false) }
 
+    // ---- chrome 三态：由 [advanceChromeStage] 单击推进 ----
+    // ① 胶片栏收 + chrome 显（默认，专注看当前这张）
+    // ② 胶片栏展 + chrome 显（要看全貌）
+    // ③ 胶片栏收 + chrome 隐（沉浸，屏幕上什么都不留）
+    //
+    // **必须自己记一个 stage**，不能拿 `filmstripVisible` 当前值当指针：
+    // 状态③（胶片栏收）和状态①（胶片栏也收）在这个变量上**取值相同**，
+    // 于是"③ 之后点一下"会算成去②、回不到①（用户反馈"只在 2 和 3 之间切换"）。
+    var chromeStage by remember { mutableIntStateOf(0) }
+
+    fun advanceChromeStage() {
+        val next = (chromeStage + 1) % 3
+        chromeStage = next
+        filmstripVisible = next == 1
+        chromeHidden = next == 2
+    }
+
     // ---- 「回到那天」----
     //
     // 触发后**直达当前这张照片所属的那一天**，不再让用户去日期列表里挑。
@@ -775,23 +792,6 @@ fun PhotoSessionScreen(
                 onDragDir = { d -> if (pageDir != d) pageDir = d },
                 // 放大态把单指手势整条让给 ZoomableImage —— 否则长图放大后拖不动
                 zoomed = zoomed,
-                // ---- 单击：chrome 与胶片栏**同进同退** ----
-                //
-                // 用户原话："应该把 chrome 的显隐逻辑都和胶片栏看齐"。
-                // 之前两者是两套开关（`chromeHidden` 只管图标、`filmstripVisible`
-                // 只管胶片条），点一下只动一边 ⇒ 看起来像"没反应"。
-                //
-                // 三态循环，用胶片栏当前状态当指针：
-                //   ① 胶片栏收 + chrome 显（默认，专注看当前这张）
-                //   ② 胶片栏展 + chrome 显（要看全貌）
-                //   ③ 胶片栏收 + chrome 隐（沉浸，屏幕上什么都不留）
-                // 再点一次回到 ①。
-                onTap = {
-                    val showFilmstrip = !filmstripVisible
-                    filmstripVisible = showFilmstrip
-                    // 收起胶片栏时顺手把 chrome 也收掉 —— 这才是"点一下进沉浸"。
-                    chromeHidden = !showFilmstrip
-                },
                 onDecision = { decision ->
                     if (decision != SwipeDecision.NEXT) pageDir = 0
                     when (decision) {
@@ -857,18 +857,26 @@ fun PhotoSessionScreen(
                             photoRequestSize = size
                         }
                     },
-                    // 长条图（长截图/聊天记录）按宽度铺满并可纵向拖动，
-                    // 见 ZoomableImage 里那段"长条图：自动居中 + 自动吸合"的说明。
-                    contentRatio = current.takeIf { it.isLongImage }?.let {
-                        if (it.width > 0 && it.height > 0) {
-                            it.width.toFloat() / it.height
-                        } else {
-                            null
-                        }
-                    },
-                    // 单击**不**在这里处理：它要和双击判定共存，必然延后 280ms，
-                    // 手感是钝的，而且会和下面 [onTap] 那条路互相抵消。
-                    // 单击统一走 DraggablePhoto 的"没拖过"分支（松手当帧判定）。
+                    // ---- 刻意**不传** `contentRatio`，长图也一样 ----
+                    //
+                    // 传了它，"吸边界"会按"图铺满容器"算上限：长图 Fit 之后
+                    // 宽高都贴着容器，cover 取到 1~1.25 ⇒ **上限只有一两倍**。
+                    // 而上限正好等于"宽度铺满"时，横向 `panLimit` 恰好是 0、
+                    // 纵向余量也只有几百像素 ⇒ 看起来就是"放大后被锁死、拖不动"
+                    // （用户反馈"连左右拖动都不行了"）。
+                    //
+                    // 不传就走 `maxScale` + 保守的边界估计，和收藏页预览完全一致
+                    // （那里也没传，用户实测长图可以自由查看）。代价是可能拖出
+                    // 一丁点黑边 —— 那比"看不了细节"好得多。
+                    contentRatio = null,
+                    // ---- 单击：推进 chrome 三态 ----
+                    //
+                    // **必须交给 [detectTapsWithoutConsuming] 判**：那里已经内置
+                    // "延后 280ms 等有没有第二击"的机制，双击会取消这次挂起的单击。
+                    // 自己放在 `DraggablePhoto` 的"没拖过"分支里虽然能"松手当帧"响应，
+                    // 但**每次双击都会先切一次 chrome 再切回来**（净效果为零，
+                    // 用户仍会看到 chrome 抖一下），而且完全没有双击消歧。
+                    onSingleTap = { advanceChromeStage() },
                     // 长按播放实况片段，与 iOS 相册的习惯一致
                     onLongPressStart = if (looksLikeMotion) {
                         { startMotionPlayback(current) }
@@ -1357,7 +1365,12 @@ private fun DraggablePhoto(
      * `HorizontalPager` + `ZoomableImage` 是同一套分工）。
      */
     zoomed: Boolean = false,
-    /** 这一次手势**没有拖过**（就是点了一下）。 */
+    /**
+     * 这一次手势**没有拖过**（就是点了一下）。
+     *
+     * 默认什么都不做 —— 整理页的单击交给 `ZoomableImage.onSingleTap`，
+     * 它会和双击判定共存；哪一页不需要双击、只要"松手当帧响应"时才用这个。
+     */
     onTap: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
@@ -1532,11 +1545,12 @@ private fun DraggablePhoto(
                         }
                         // ---- 干净的一下（没拖过、也没第二根手指）⇒ 单击 ----
                         //
-                        // 单击切 chrome 放在这里而不是 `ZoomableImage.onSingleTap`：
-                        // 后者要和双击判定共存 ⇒ 必然延后 280ms 才动手，
-                        // 摸上去是"钝"的。而这里在松手当帧就能判定。
-                        // 双击时这里会被调用两次（净效果为零），正好互不干扰 ——
-                        // 和瀑布流放大页（`DayZoomView`）用的是同一套分工。
+                        // 整理页的单击**不走这里** —— 它交给
+                        // `ZoomableImage.onSingleTap`，因为那边要和双击判定共存
+                        // （延后 280ms、双击时取消单击）。
+                        // 在这里"松手当帧"响应虽然更跟手，但每次双击都会
+                        // 先切一次 chrome 再切回来，视觉上还是抖一下。
+                        // 这个回调留给不需要双击的调用方。
                         if (!multiTouch) tapState.value.invoke()
                         return@awaitEachGesture
                     }
