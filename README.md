@@ -35,10 +35,20 @@
 
 **当前稳定版：`v1.3.54`（git tag）** —— 用户评价「比较完美」，后续以此为回归基准。
 
-APK 已随工程提供：`qushe-v1.3.56-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.57-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.57**（回收站格子显示「还剩 xx 天」）
+
+30 天保留是**系统定的**（MediaStore 回收站），应用侧拿不到"删除时刻"，
+只有 `MediaStore.MediaColumns.DATE_EXPIRES` 这个"到期时刻"（API 30+），
+所以显示的是**剩余**而不是"删于"。剩三天以内换成警示色，当天到期写「今天到期」。
+
+这一列**只在回收站那次查询里投影**（`queryCollection` 加了 `extraProjection`）——
+`projectionFor` 那条路上再加，等于让全工程每个查询都去冒"某厂商 MediaProvider
+不认识这一列"的风险（`XMP` 那次就是这么炸的）。
 
 **1.3.56**（撤回 pager 预组合 + 修侧边返回手势）
 
