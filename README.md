@@ -33,10 +33,25 @@
 - `lintDebug` — **0 错误、0 警告**
 - 产出的 APK 已通过 `apkanalyzer` 校验（`com.qushe.app` / minSdk 30 / targetSdk 35）
 
-APK 已随工程提供：`qushe-v1.3.53-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.54-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.54**（大图 chrome：单击能来回切 + 放大时即时隐藏）
+
+1. **"单击之后 chrome 都隐藏了，再单击没回来"—— 是我上一版引入的**。
+   上一版把 `onZoomedChange` 改成无条件 `chromeVisible = !isZoomed`，
+   而 `ZoomableImage` **每次手势结束都会报一次**。于是 1x 下单击时：
+   `clickable` 先把 chrome 切掉 → 紧接着这次回报又把它写成"显示" →
+   下一次单击再切掉、再被写回显示 ⇒ **净效果就是"只收不回来"**。
+   现在只在**状态真的跨过 1.01** 时才动 chrome，两条路各管各的：
+   单击归 `clickable` 切显隐，放大/缩回归 `onZoomedChange` 收起/显示。
+2. **放大时 chrome 改成"放大的同时就隐藏"**：`ZoomableImage` 原来只在
+   手势结束时报缩放变化，于是"放大时收起 chrome"会晚一整段时间 ——
+   图都铺满了、chrome 还杵在上面。现在在**越过 1.01 那一帧**就报出去
+   （只在跨越时报，调用方不必自己去重）。整理照片页那边同步受益
+   （它的 `chromeHidden = isZoomed` 本来就是这个语义）。
 
 **1.3.53**（删除动线与整理页逐字一致 + 修大图 chrome 不稳定）
 
