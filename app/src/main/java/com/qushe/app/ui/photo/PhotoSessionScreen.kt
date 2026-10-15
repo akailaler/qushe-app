@@ -1145,20 +1145,11 @@ fun PhotoSessionScreen(
                         favoriteTick++
                     }
 
+                    // 文案来自唯一来源（见 `infoPillPrimary/Secondary`），
+                    // 三处胶囊共用一套，绝不各拼各的。
                     InfoPill(
-                        primary = relativeDayLabel(currentForInfo.dateTakenMillis),
-                        // 有地点就先显示地点，没有就退回文件夹 —— 这一行总得有点有用的话。
-                        // 后面固定跟上文件大小，占用空间是本应用的核心信息之一。
-                        // ---- 胶囊只放"日期 · 文件夹 · 大小"三样 ----
-                        // 地点、EXIF、分辨率这些留给详情面板：胶囊只有一行，
-                        // 塞进去会挤成一团、还得省略号截断（用户要求统一这条规则）。
-                        secondary = buildString {
-                            if (currentForInfo.bucket.isNotBlank()) {
-                                append(currentForInfo.bucket)
-                                append(" · ")
-                            }
-                            append(formatSize(currentForInfo.sizeBytes))
-                        },
+                        primary = infoPillPrimary(currentForInfo),
+                        secondary = infoPillSecondary(currentForInfo),
                         modifier = Modifier.align(Alignment.Center),
                         onClick = { detailVisible = true },
                     )

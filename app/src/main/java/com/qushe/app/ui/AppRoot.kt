@@ -2,6 +2,7 @@ package com.qushe.app.ui
 
 import android.app.Activity
 import android.content.Intent
+import android.util.Log
 import android.content.IntentSender
 import android.net.Uri
 import android.provider.Settings
@@ -96,6 +97,17 @@ private enum class Tab(val label: String, val icon: ImageVector) {
     Trash("回收站", Icons.Filled.Delete),
     Settings("设置", Icons.Filled.Settings),
 }
+
+/**
+ * 一次系统收藏确认窗最多带多少项。
+ *
+ * 一次 `createFavoriteRequest` 塞几百个 URI，系统弹窗会直接弹不出来
+ * （实测这台机器上 276 个 URI 一次都没成功）。20 是保守取值：
+ * 弹窗能正常渲染，用户也不会觉得要确认十几次。
+ */
+private const val FAVORITE_BATCH = 20
+
+private const val TAG = "qushe"
 
 private sealed interface SessionUi {
     data object None : SessionUi
@@ -259,6 +271,14 @@ fun AppRoot(container: AppContainer) {
     var syncRemoves by remember { mutableStateOf(emptyList<MediaItem>()) }
     var pendingSync by remember { mutableIntStateOf(container.sessions.pendingSyncCount()) }
 
+    /** 还要推的**剩余批次**（见 [FAVORITE_BATCH]）。 */
+    var syncQueue by remember { mutableStateOf(emptyList<MediaItem>()) }
+    /** 该弹窗的那一批；非空时由 [addSyncer] 之后的弹出器消费。 */
+    var pendingAddBatch by remember { mutableStateOf(emptyList<MediaItem>()) }
+    /** 本轮总条数 / 已确认写入条数，只用于给用户一句进度。 */
+    var syncTotal by remember { mutableIntStateOf(0) }
+    var syncDone by remember { mutableIntStateOf(0) }
+
     LaunchedEffect(favoriteCount) {
         pendingSync = container.sessions.pendingSyncCount()
     }
@@ -296,6 +316,16 @@ fun AppRoot(container: AppContainer) {
                 container.sessions.markSynced(adds.filter { it.storeKey() in confirmed })
                 container.sessions.persist()
             }
+            syncDone += confirmed.size
+
+            // ---- 队列里还有下一批 ⇒ 交给弹出器继续 ----
+            val next = syncQueue.take(FAVORITE_BATCH)
+            syncQueue = syncQueue.drop(FAVORITE_BATCH)
+            if (next.isNotEmpty()) {
+                pendingAddBatch = next
+                return@launch
+            }
+            syncQueue = emptyList()
 
             // 第二批（取消收藏）接着走
             val removes = syncRemoves
@@ -312,6 +342,10 @@ fun AppRoot(container: AppContainer) {
 
             pendingSync = container.sessions.pendingSyncCount()
             syncNotice = when {
+                // 还有下一批在排队 ⇒ 先报进度，别让用户以为结束了
+                syncQueue.isNotEmpty() ->
+                    "已写入 $syncDone 项，继续下一批（共 $syncTotal 项）"
+
                 confirmed.isEmpty() -> {
                     // ---- 如实说，不再偷偷关掉用户的开关 ----
                     // 原来这里会 `autoSyncFavorites = false`，
@@ -335,33 +369,62 @@ fun AppRoot(container: AppContainer) {
         }
     }
 
-    fun startFavoriteSync() {
+    /**
+     * 批次弹出器：把 [pendingAddBatch] 这一批弹一次系统确认窗。
+     *
+     * 一次 `MediaStore.createFavoriteRequest` 塞几百个 URI，**系统弹窗会直接弹不出来**
+     * —— 实测这台机器上 276 个 URI 的请求一次都没成功过。所以每批 [FAVORITE_BATCH] 个，
+     * 一批弹一次窗，`addSyncer` 核对完再交下一批。
+     *
+     * 必须放在 `addSyncer` **之后**：它要用 `addSyncer.launch`，
+     * 而 Kotlin 的局部变量必须先声明后使用。
+     */
+    LaunchedEffect(pendingAddBatch) {
+        val batch = pendingAddBatch
+        if (batch.isEmpty()) return@LaunchedEffect
+        pendingAddBatch = emptyList()
+        val sender = runCatching { container.repo.requestFavorite(batch, true) }
+            .onFailure { Log.w(TAG, "系统拒绝了收藏请求", it) }
+            .getOrNull()
+        if (sender == null) {
+            syncNotice = "系统拒绝了收藏请求（${batch.size} 项）"
+            return@LaunchedEffect
+        }
+        syncAdds = batch
+        val launched = runCatching {
+            addSyncer.launch(IntentSenderRequest.Builder(sender).build())
+        }.isSuccess
+        if (!launched) {
+            syncNotice = "无法启动系统确认弹窗，这台设备可能不支持收藏接口"
+            syncAdds = emptyList()
+        }
+    }
+
+    /**
+     * 把收藏写进系统相册。
+     *
+     * @param force true = **忽略"已同步"记账，全量重推**。
+     *   记账会失真：`syncedFavorites` 里的条目可能从来没真正写进过系统
+     *   （「同步系统收藏到这里」导入时就被标成了"已同步"）。
+     *   实测这台机器：收藏夹 276 条 / 已同步记账 275 条 ⇒ 不 force 就只推 1 条，
+     *   用户点"同步"几乎等于没反应（用户反馈"同步没办法"）。
+     */
+    fun startFavoriteSync(force: Boolean = false) {
         scope.launch {
-            val delta = container.sessions.favoriteSyncDelta()
+            val delta = container.sessions.favoriteSyncDelta(force)
             if (delta.isEmpty) {
                 pendingSync = container.sessions.pendingSyncCount()
                 syncNotice = "没有需要同步的收藏"
                 return@launch
             }
-            syncAdds = delta.toAdd
             syncRemoves = delta.toRemove
-
-            if (delta.toAdd.isNotEmpty()) {
-                // 任何一步失败都要说出来。过去这里是被 runCatching 静默吞掉的，
-                // 表现就是"点了同步什么都没发生"，完全无从排查。
-                val sender = runCatching { container.repo.requestFavorite(delta.toAdd, true) }
-                    .onFailure {
-                        syncNotice = "系统拒绝了收藏请求：${it.javaClass.simpleName}"
-                    }
-                    .getOrNull()
-                if (sender != null) {
-                    val launched = runCatching {
-                        addSyncer.launch(IntentSenderRequest.Builder(sender).build())
-                    }.isSuccess
-                    if (launched) return@launch
-                    syncNotice = "无法启动系统确认弹窗，这台设备可能不支持收藏接口"
-                }
-                syncAdds = emptyList()
+            syncTotal = delta.toAdd.size
+            syncDone = 0
+            syncQueue = delta.toAdd
+            if (syncQueue.isNotEmpty()) {
+                pendingAddBatch = syncQueue.take(FAVORITE_BATCH)
+                syncQueue = syncQueue.drop(FAVORITE_BATCH)
+                return@launch
             }
 
             if (delta.toRemove.isNotEmpty()) {
@@ -582,12 +645,13 @@ fun AppRoot(container: AppContainer) {
                         },
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
-                            // 只是由用户点一下触发，弹窗与结果提示完全一致 ——
-                            // 两条路各自实现一遍必然漂移。
-                            pendingSync = container.sessions.pendingSyncCount()
-                            if (pendingSync == 0) return@SettingsScreen "没有需要同步的收藏"
-                            startFavoriteSync()
-                            "已发起同步，请确认系统的弹窗"
+                            // 只是由用户点一下触发 —— 两条路各自实现一遍必然漂移。
+                            //
+                            // `force = true`：**忽略"已同步"记账，把收藏夹全量重推一遍**。
+                            // 记账会失真（导入时就把条目标成了"已同步"），
+                            // 而用户点"同步"就是要一个"确定能重新写一遍"的动作。
+                            startFavoriteSync(force = true)
+                            "开始全量写入，请逐批确认系统的弹窗"
                         },
                         pendingFavoriteSync = pendingSync,
                         onImportSystemFavorites = {

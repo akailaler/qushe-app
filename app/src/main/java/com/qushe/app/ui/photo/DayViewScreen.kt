@@ -108,6 +108,8 @@ import com.qushe.app.ui.common.DAY_INTRO_MS
 import com.qushe.app.ui.common.DoubleTapFlash
 import com.qushe.app.ui.common.DoubleTapFlashOverlay
 import com.qushe.app.ui.common.rememberContentCorner
+import com.qushe.app.ui.photo.infoPillPrimary
+import com.qushe.app.ui.photo.infoPillSecondary
 import com.qushe.app.ui.common.rememberPageGap
 import com.qushe.app.ui.common.rememberContentShape
 import com.qushe.app.core.SystemThumbnailFetcher
@@ -3057,31 +3059,14 @@ private fun BoxScope.DayZoomChrome(
                 )
             }
             InfoPill(
-                primary = relativeDayLabel(item.dateTakenMillis),
-                secondary = dayPillSecondary(item),
+                // 文案来自唯一来源（与整理照片页、收藏页预览同一套）
+                primary = infoPillPrimary(item),
+                secondary = infoPillSecondary(item),
                 modifier = Modifier.align(Alignment.Center),
                 onClick = onToggleExpanded,
             )
         }
     }
-}
-
-/**
- * InfoPill 第二行：**文件夹 · 大小**。
- *
- * ---- 全 App 统一的胶囊规则 ----
- * 胶囊只有一行、空间有限，所以**只放"日期 · 文件夹 · 大小"**这三样
- * （日期在 primary 那一行）。分辨率、时长、地点、EXIF 这些一律留给详情面板 ——
- * 硬塞进胶囊的结果是挤成一团再被省略号截断，等于什么都看不清。
- * 用户明确要求过这条规则（1.3.66）。
- */
-private fun dayPillSecondary(item: MediaItem): String = buildString {
-    val bucket = item.bucket.trim()
-    if (bucket.isNotEmpty()) {
-        append(bucket)
-        append(" · ")
-    }
-    append(formatSize(item.sizeBytes))
 }
 
 /** 这一项到底是什么：实况 / 动图 / 视频 / 截屏 / 照片。 */

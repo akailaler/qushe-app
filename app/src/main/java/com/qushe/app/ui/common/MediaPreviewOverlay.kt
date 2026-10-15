@@ -136,7 +136,7 @@ fun MediaPreviewOverlay(
      * （视频画面通常上下留白，侧边正好空着），照片页是底部两颗圆钮
      * （照片撑满屏幕，只有底栏能放东西）。混用哪一套都会有一边别扭。
      */
-    photoActions: (@Composable (MediaItem) -> Unit)? = null,
+    photoActions: (@Composable BoxScope.(MediaItem) -> Unit)? = null,
     /** 视频动作栏贴右边还是左边 —— 直接透传设置项。 */
     railOnRight: Boolean = true,
     /**
@@ -825,7 +825,12 @@ fun MediaPreviewOverlay(
                     // 来回也不用重新找按钮。
                     if (!isVideo && photoActions != null) {
                         Spacer(Modifier.height(14.dp))
-                        photoActions(current)
+                        // 包一层 `Box` 把 **BoxScope** 交给调用方 ——
+                        // 否则调用方拿不到 `align`，就没法把某颗按钮/胶囊
+                        // 相对整屏居中或贴边（用户反馈"胶囊没有居中"）。
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            photoActions(current)
+                        }
                     }
                 }
 

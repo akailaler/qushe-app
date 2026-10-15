@@ -183,11 +183,19 @@ class SessionRepository(
      * 注意「取消收藏」也要同步：用户在应用里取消之后，系统相册里那条还留着收藏标记，
      * 两边就对不上了。所以取消同样进队列，由调用方发起一次 favorite=false 的请求。
      */
-    suspend fun favoriteSyncDelta(): FavoriteSyncDelta {
+    /**
+     * @param force true = **忽略"已同步"记账，把收藏夹里所有条目都重新推一遍**。
+     *
+     * 记账会失真：`syncedFavorites` 里的条目可能从来没真正写进过系统
+     * （导入时就被标成"已同步"、或者当年写进去了后来又被清掉）。
+     * 用户说"同步没办法"时，能给他一个**确定会把全部条目重推一遍**的入口，
+     * 比纠结记账准不准有用得多。
+     */
+    suspend fun favoriteSyncDelta(force: Boolean = false): FavoriteSyncDelta {
         val favs = favorites.snapshot()
         val synced = syncedFavorites.snapshot()
-        val toAddKeys = favs - synced
-        val toRemoveKeys = synced - favs
+        val toAddKeys = if (force) favs else favs - synced
+        val toRemoveKeys = if (force) emptySet() else synced - favs
 
         if (toAddKeys.isEmpty() && toRemoveKeys.isEmpty()) return FavoriteSyncDelta()
 

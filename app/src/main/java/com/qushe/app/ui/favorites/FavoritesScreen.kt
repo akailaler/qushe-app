@@ -45,6 +45,8 @@ import androidx.compose.ui.Modifier
 import com.qushe.app.core.formatSize
 import com.qushe.app.core.relativeDayLabel
 import com.qushe.app.ui.photo.InfoPill
+import com.qushe.app.ui.photo.infoPillPrimary
+import com.qushe.app.ui.photo.infoPillSecondary
 import com.qushe.app.core.PhotoExif
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -650,10 +652,11 @@ fun FavoritesScreen(
             photoActions = if (viewOnly) null else {
                 { item ->
                     val (liked, faved) = rememberMarkState(container, item, markTick)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
+                    // 用 Box 而不是 Row：胶囊要的是**相对整屏**居中，
+                    // 而 Row 里的 weight 只能做到"在剩余空间里居中"——
+                    // 左边两颗按钮、右边一颗按钮，剩余空间被三个 weight 平分，
+                    // 整行看过去胶囊必然偏（用户反馈"没有居中"）。
+                    Box(modifier = Modifier.fillMaxWidth()) {
                         // 左边并排两颗：喜欢（心）+ 收藏（星）。
                         // 就是整理照片页那两颗（左下心、右下星），只是并到了一起 ——
                         // 那边靠"左 vs 右"区分，这里靠"心 vs 星"区分，
@@ -661,35 +664,31 @@ fun FavoritesScreen(
                         FavoriteButton(selected = liked) { mark(item, like = true) }
                         Spacer(Modifier.width(10.dp))
                         StarButton(selected = faved) { mark(item, like = false) }
-                        Spacer(Modifier.weight(1f))
-                        // ---- 中间的「ⓘ 胶囊**居中** ----
-                        // 和整理照片页同一个 `InfoPill`（日期 · 文件夹 · 大小），
-                        // 点击开详情面板。放在右下角是错的位置：它是**信息**入口，
-                        // 不是操作按钮 —— 视觉上属于中间那颗胶囊。
-                        InfoPill(
-                            primary = relativeDayLabel(item.dateTakenMillis),
-                            secondary = buildString {
-                                if (item.bucket.isNotBlank()) {
-                                    append(item.bucket)
-                                    append(" · ")
-                                }
-                                append(formatSize(item.sizeBytes))
-                            },
-                            modifier = Modifier.weight(1f, fill = false),
-                            onClick = { detailItem = item },
-                        )
-                        Spacer(Modifier.weight(1f))
-                        val doomed = item.storeKey() in pendingDelete
-                        RoundActionButton(
-                            icon = Icons.Filled.Delete,
-                            label = "删除",
-                            tint = if (doomed) AccentDelete else TextPrimary,
-                        ) {
-                            // 同视频那排：只改颜色，退出时才统一结算
-                            val key = item.storeKey()
-                            pendingDelete = if (doomed) pendingDelete - key
-                            else pendingDelete + key
-                        }
+                    }
+                    // ---- 正中的「ⓘ 胶囊」 ----
+                    //
+                    // 单独一层铺满 + `align(Center)`，和整理照片页完全一样。
+                    // 之前它夹在一行 `Row` 里、靠 `weight` 凑中间 ——
+                    // 而左边有两颗按钮占位，右边有一颗，剩余空间被三个 weight 平分，
+                    // 结果整行看过去胶囊并不在屏幕正中（用户反馈"没有居中"）。
+                    InfoPill(
+                        // 文案来自唯一来源（与另外两处同一套）
+                        primary = infoPillPrimary(item),
+                        secondary = infoPillSecondary(item),
+                        modifier = Modifier.align(Alignment.Center),
+                        onClick = { detailItem = item },
+                    )
+                    val doomed = item.storeKey() in pendingDelete
+                    RoundActionButton(
+                        icon = Icons.Filled.Delete,
+                        label = "删除",
+                        tint = if (doomed) AccentDelete else TextPrimary,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) {
+                        // 同视频那排：只改颜色，退出时才统一结算
+                        val key = item.storeKey()
+                        pendingDelete = if (doomed) pendingDelete - key
+                        else pendingDelete + key
                     }
                 }
             },

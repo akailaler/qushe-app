@@ -26,6 +26,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.qushe.app.core.formatDuration
+import com.qushe.app.core.MediaKind
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -100,6 +102,25 @@ fun StarButton(
  * 点它展开完整信息。把细节收在这里而不是常驻在画面上，
  * 是为了让看照片这件事本身不被打扰 —— 想看的时候才展开。
  */
+/**
+ * 胶囊上两行文案的**唯一来源**。
+ *
+ * 全 App 有三处「ⓘ 胶囊」（整理照片页 / 瀑布流放大页 / 收藏·喜欢页预览），
+ * 每一处都自己拼一遍字符串必然漂移（用户反馈"外观和另外两处不一致"）。
+ * 规则：**胶囊只有一行，只放「日期 · 文件夹 · 大小」**；
+ * 其余信息一律留给详情面板。
+ */
+fun infoPillPrimary(item: MediaItem): String = relativeDayLabel(item.dateTakenMillis)
+
+fun infoPillSecondary(item: MediaItem): String = buildString {
+    val bucket = item.bucket.trim()
+    if (bucket.isNotEmpty()) {
+        append(bucket)
+        append(" · ")
+    }
+    append(formatSize(item.sizeBytes))
+}
+
 @Composable
 fun InfoPill(
     primary: String,
@@ -241,6 +262,24 @@ fun PhotoDetailContent(
         DetailRow("文件大小", formatSize(item.sizeBytes))
         if (item.bucket.isNotBlank()) {
             DetailRow("所在文件夹", item.bucket)
+        }
+        // ---- 其余"图片附带的信息"：能给多少给多少 ----
+        // 用户要求"只要是图片附带的信息都要显示"，所以
+        // 类型 / 时长 / 厂商 / 型号 / MIME 一律列出，取不到就不占那一行。
+        DetailRow("类型", item.kind.label)
+        if (item.kind == MediaKind.VIDEO && item.durationMillis > 0L) {
+            DetailRow("时长", formatDuration(item.durationMillis))
+        }
+        if (item.isMotionPhoto) {
+            DetailRow("实况照片", "是（带一段短视频）")
+        }
+        if (item.isAnimated) {
+            DetailRow("动图", "是")
+        }
+        exif?.make?.takeIf { it.isNotBlank() }?.let { DetailRow("厂商", it) }
+        exif?.model?.takeIf { it.isNotBlank() }?.let { DetailRow("机型", it) }
+        if (item.mimeType.isNotBlank()) {
+            DetailRow("格式", item.mimeType.substringAfterLast('/').uppercase())
         }
 
         // ---- 拍摄位置 ----
