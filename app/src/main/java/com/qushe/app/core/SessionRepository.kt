@@ -15,6 +15,8 @@ class SessionRepository(
     /** 「喜欢」。和收藏**刻意分开**：喜欢只存在应用里，不往系统相册写。 */
     private val likes: IdSetStore,
     private val syncedFavorites: IdSetStore,
+    /** 「什么时候被删进回收站」，用来算剩余天数。见 [IdTimeStore]。 */
+    private val trashMarks: IdTimeStore,
 ) {
 
     /**
@@ -207,11 +209,35 @@ class SessionRepository(
         items.forEach { syncedFavorites.remove(it.storeKey()) }
     }
 
+    /**
+     * 记下这些项是**什么时候**被删进系统回收站的。
+     *
+     * 必须在删除**真正发生之后**调用（用户在系统弹窗里点了确认），
+     * 不是在发起请求时 —— 用户可能取消。
+     *
+     * @param at 时刻；默认当前时间。
+     */
+    fun markTrashed(items: List<MediaItem>, at: Long = System.currentTimeMillis()) {
+        trashMarks.putAll(items.map { it.storeKey() }, at)
+    }
+
+    /** 从回收站恢复出来的条目要把记账去掉，否则它会被算成"还在回收站里"。 */
+    fun unmarkTrashed(items: List<MediaItem>) {
+        trashMarks.removeAll(items.map { it.storeKey() })
+    }
+
+    /** 某个条目被删进回收站的时刻；没有记账（例如不是从取舍删的）时为 null。 */
+    fun trashedAt(item: MediaItem): Long? = trashMarks[item.storeKey()]
+
+    /** 整个记账表的快照，回收站页一次拿全。 */
+    fun trashMarksSnapshot(): Map<Long, Long> = trashMarks.snapshot()
+
     fun persist() {
         favorites.flush()
         likes.flush()
         seen.flush()
         syncedFavorites.flush()
+        trashMarks.flush()
     }
 }
 

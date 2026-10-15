@@ -280,9 +280,9 @@ fun FavoritesScreen(
                     // 关掉时这句"会同步"就是假话（下面 235 行的卡片还说着"已关闭"）。
                     else -> "${shown.size} 项 · " +
                         if (autoSyncEnabled) {
-                            "收藏会同步到系统相册的收藏夹"
+                            "取舍的收藏是你的清单，同时写进系统相册"
                         } else {
-                            "自动同步已关闭，只记在本应用内"
+                            "取舍的收藏是你的清单，暂不写系统相册"
                         }
                 },
                 style = MaterialTheme.typography.bodyMedium,
@@ -334,7 +334,7 @@ fun FavoritesScreen(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = if (pendingSync > 0) {
-                            "同步 $pendingSync 项到系统相册"
+                            "写入 $pendingSync 项到系统相册"
                         } else {
                             "已和系统相册一致"
                         },
@@ -345,11 +345,11 @@ fun FavoritesScreen(
                     Text(
                         text = when {
                             pendingSync > 0 && autoSyncEnabled ->
-                                "每轮整理结束会自动同步，也可以现在手动跑一次"
+                                "每轮整理结束自动写入，也可以现在手动跑一次"
                             pendingSync > 0 ->
-                                "自动同步已关闭，需要手动点这里"
+                                "自动写入已关闭，需要手动点这里"
                             else ->
-                                "系统相册里也能看到这些收藏了"
+                                "已和系统相册一致"
                         },
                         style = MaterialTheme.typography.labelSmall,
                         color = TextTertiary,

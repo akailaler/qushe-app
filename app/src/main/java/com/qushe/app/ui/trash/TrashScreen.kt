@@ -84,6 +84,14 @@ fun TrashScreen(container: AppContainer) {
     var items by remember { mutableStateOf(emptyList<MediaItem>()) }
     var loading by remember { mutableStateOf(true) }
     var previewIndex by remember { mutableStateOf<Int?>(null) }
+    /**
+     * 「每一条是什么时候被删进来的」。
+     *
+     * 系统的 `DATE_EXPIRES` 在这台机器上给的不是到期时刻（刚删的算出来是
+     * "今天到期"，用户实测发现的），所以改成读本地记账（见 [IdTimeStore]）。
+     * **没有记账的条目就不显示天数角标** —— 缺一个角标比显示一个错的强。
+     */
+    var trashedAt by remember { mutableStateOf<Map<Long, Long>>(emptyMap()) }
 
     fun reload() {
         scope.launch {
@@ -91,6 +99,7 @@ fun TrashScreen(container: AppContainer) {
             // 回收站列表本身不走缓存，所以这里**不要**调用 invalidate() ——
             // 那会把整个媒体库缓存丢掉，害得之后每次开组都要重扫一遍。
             items = runCatching { container.repo.trashed() }.getOrDefault(emptyList())
+            trashedAt = container.sessions.trashMarksSnapshot()
             loading = false
         }
     }
@@ -123,6 +132,13 @@ fun TrashScreen(container: AppContainer) {
             container.repo.invalidate()
         } else {
             container.repo.dropFromCache(dropped)
+        }
+        // 彻底删除的条目不该再留着"删除时刻" —— 它已经从回收站消失了，
+        // 记账留着只会让表越滚越大。（trashed 的记账在 [AppRoot.conclude] 里写，
+        //  恢复走 [SessionRepository.unmarkTrashed]。）
+        if (dropped.isNotEmpty()) {
+            container.sessions.unmarkTrashed(dropped)
+            container.persistAsync()
         }
         runCatching { launcher.launch(IntentSenderRequest.Builder(sender).build()) }
     }
@@ -194,7 +210,11 @@ fun TrashScreen(container: AppContainer) {
                 modifier = Modifier.weight(1f),
             ) {
                 itemsIndexed(items, key = { _, item -> item.storeKey() }) { index, item ->
-                    TrashCell(item = item, onClick = { previewIndex = index })
+                    TrashCell(
+                        item = item,
+                        deletedAt = trashedAt[item.storeKey()],
+                        onClick = { previewIndex = index },
+                    )
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) {
                     Spacer(Modifier.height(8.dp))
@@ -305,7 +325,7 @@ fun TrashScreen(container: AppContainer) {
 }
 
 @Composable
-private fun TrashCell(item: MediaItem, onClick: () -> Unit) {
+private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
     // 和收藏 / 喜欢页同一套格子：正方形、Crop 铺满、右下角一枚信息角标。
     // 回收站里最需要的是"一眼认出是哪张"，列表行那种"小图 + 文件名"
     // 反而让人得逐行读字 —— 缩略图墙才是一眼可辨的形态。
@@ -326,16 +346,17 @@ private fun TrashCell(item: MediaItem, onClick: () -> Unit) {
         )
         // ---- 左上角：还剩几天 ----
         //
-        // 30 天是**系统定的**（MediaStore 回收站），应用侧只有 `DATE_EXPIRES`
-        // 这个"到期时刻"，拿不到"删除时刻"。所以这里显示的是**剩余**而不是"删于"。
+        // 系统回收站保留 30 天是**系统定的**，应用侧拿不到"到期时刻"，
+        // 所以这里用**自己记下的删除时刻**倒推（见 [IdTimeStore]）。
         //
-        // 为什么值得占一个角标：用户真正焦虑的是"还剩多久就彻底没了"，
-        // 而系统相册/文件管理里通常只写"30 天后删除"，看不出还剩几天。
-        // 剩得越少越该显眼 —— 三天以内换成警示色。
-        val daysLeft = remember(item.dateExpiresMillis) {
-            val exp = item.dateExpiresMillis ?: return@remember null
-            val ms = exp - System.currentTimeMillis()
-            if (ms <= 0L) 0 else ((ms + 86_399_999L) / 86_400_000L).toInt()
+        // 向上取整：刚删进去的那一秒就算"还剩 30 天"，而不是 29 ——
+        // 用户刚删就看到"29 天"会以为是少了一天。临近到期时依次是 2 天、1 天、
+        // 今天到期，0 表示已过期（系统随时会清掉）。
+        val daysLeft = remember(deletedAt) {
+            val at = deletedAt ?: return@remember null
+            val passed = System.currentTimeMillis() - at
+            val used = ((passed + 86_399_999L) / 86_400_000L).toInt()
+            (TRASH_RETENTION_DAYS.toInt() - used).coerceIn(0, TRASH_RETENTION_DAYS.toInt())
         }
         if (daysLeft != null) {
             Box(
@@ -347,7 +368,11 @@ private fun TrashCell(item: MediaItem, onClick: () -> Unit) {
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             ) {
                 Text(
-                    text = if (daysLeft == 0) "今天到期" else "还剩${daysLeft}天",
+                    text = when (daysLeft) {
+                        0 -> "今天到期"
+                        1 -> "还剩 1 天"
+                        else -> "还剩 $daysLeft 天"
+                    },
                     style = MaterialTheme.typography.labelSmall,
                     color = if (daysLeft <= 3) AccentDelete else TextPrimary,
                 )
@@ -377,3 +402,11 @@ private fun TrashCell(item: MediaItem, onClick: () -> Unit) {
         }
     }
 }
+
+/**
+ * 系统回收站的保留天数。
+ *
+ * 写死 30 是因为这是 AOSP MediaStore 的默认值（也是设置页里那句话的依据）。
+ * 厂商可能改，但应用侧查不到真实值 —— 与其显示一个错的数字，不如按 30 天倒推。
+ */
+private const val TRASH_RETENTION_DAYS = 30L

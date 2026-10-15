@@ -30,7 +30,17 @@ class AppContainer(context: Context) {
     val syncedFavorites = IdSetStore(File(appContext.filesDir, "synced_favorites.txt"))
         .also { it.load() }
 
-    val sessions = SessionRepository(repo, prefs, seen, favorites, likes, syncedFavorites)
+    /**
+     * 「哪一条是什么时候被删进回收站的」。
+     *
+     * 系统的 `DATE_EXPIRES` 在这台机器上给的值不是到期时刻（刚删的算出来是
+     * "今天到期"），所以剩余天数改成**自己记账** —— 见 [IdTimeStore] 的说明。
+     */
+    val trashMarks = IdTimeStore(File(appContext.filesDir, "trash_marks.txt")).also { it.load() }
+
+    val sessions = SessionRepository(
+        repo, prefs, seen, favorites, likes, syncedFavorites, trashMarks,
+    )
 
     init {
         // 旧版本存过 10 / 15 / 20 这些已经下线的档位。不归一的话，
@@ -43,6 +53,7 @@ class AppContainer(context: Context) {
     /** 进程被杀之前把内存里的集合刷回磁盘。 */
     fun persist() {
         sessions.persist()
+        trashMarks.flush()
     }
 
     // ---- 异步落盘 ----
@@ -57,6 +68,9 @@ class AppContainer(context: Context) {
 
     /** 落盘移到 IO 线程。软数据（已看进度）可接受极小的丢失窗口。 */
     fun persistAsync() {
-        ioScope.launch { sessions.persist() }
+        ioScope.launch {
+            sessions.persist()
+            trashMarks.flush()
+        }
     }
 }

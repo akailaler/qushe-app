@@ -437,6 +437,11 @@ fun AppRoot(container: AppContainer) {
         // 只摘掉确实被删掉的那几条，而不是丢掉整个媒体库缓存 ——
         // 丢弃整个缓存会让下一次开组又要重扫整张表，在几万张照片的设备上就是好几秒。
         container.repo.dropFromCache(result.markedDelete)
+        // 记下"什么时候进的回收站"，回收站页用它算还剩几天。
+        // 必须在**删除真正发生之后**记（用户在系统弹窗里点了确认），不是发起请求时。
+        if (container.prefs.deleteToTrash && result.markedDelete.isNotEmpty()) {
+            container.sessions.markTrashed(result.markedDelete)
+        }
         favoriteCount = container.sessions.favoriteCount()
         stats = container.prefs.stats()
         session = SessionUi.None
