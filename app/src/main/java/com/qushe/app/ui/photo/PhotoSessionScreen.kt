@@ -1046,33 +1046,45 @@ fun PhotoSessionScreen(
                 .padding(horizontal = 6.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = { finish() }) {
-                Icon(Icons.Filled.Close, contentDescription = "退出", tint = TextPrimary)
+            // 左右两格都用**同一个固定宽度**（`badgeSlotWidth`），计数独占中间
+            // 那一份。之前是两个 `weight(1f)` —— 那只保证"扣掉两侧内容后的剩余空间"
+            // 居中，而左边关闭按钮 48dp、右边标记宽度随数字变（25~32dp），
+            // 两边不等宽 ⇒ 计数**必然偏右**（用户反馈）。
+            // 右侧有没有标记都不影响：那一格宽度是固定的。
+            Box(
+                modifier = Modifier.width(BADGE_SLOT_WIDTH),
+                contentAlignment = Alignment.Center,
+            ) {
+                IconButton(onClick = { finish() }) {
+                    Icon(Icons.Filled.Close, contentDescription = "退出", tint = TextPrimary)
+                }
             }
-            Spacer(Modifier.weight(1f))
             Text(
                 text = "${(index + 1).coerceAtMost(list.size)} / ${list.size}",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.weight(1f),
             )
-            Spacer(Modifier.weight(1f))
-            if (marked.isNotEmpty()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(end = 10.dp),
-                ) {
-                    Icon(
-                        imageVector = Icons.Filled.Delete,
-                        contentDescription = null,
-                        tint = AccentDelete,
-                        modifier = Modifier.size(14.dp),
-                    )
-                    Spacer(Modifier.size(4.dp))
-                    Text(
-                        text = marked.size.toString(),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = AccentDelete,
-                    )
+            Box(
+                modifier = Modifier.width(BADGE_SLOT_WIDTH),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                if (marked.isNotEmpty()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Filled.Delete,
+                            contentDescription = null,
+                            tint = AccentDelete,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(Modifier.size(4.dp))
+                        Text(
+                            text = marked.size.toString(),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = AccentDelete,
+                        )
+                    }
                 }
             }
         }
@@ -1895,3 +1907,11 @@ private fun scaledAboutCenter(source: Rect, factor: Float): Rect {
     val halfH = source.height * factor / 2f
     return Rect(cx - halfW, cy - halfH, cx + halfW, cy + halfH)
 }
+
+/**
+ * 顶栏左右两格的固定宽度。
+ *
+ * 取 56dp：装得下 48dp 的关闭按钮（点按区不能缩），也装得下"图标 + 数字"。
+ * 两格等宽 ⇒ 中间的计数才真的是几何居中。
+ */
+private val BADGE_SLOT_WIDTH = 56.dp

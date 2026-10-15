@@ -277,7 +277,19 @@ fun ZoomableImage(
         if (dw0 <= 0f || dh0 <= 0f) return maxScaleState.value
         val coverW = size.width.toFloat() / dw0
         val coverH = size.height.toFloat() / dh0
-        return maxOf(coverW, coverH).coerceAtLeast(1f)
+        val cover = maxOf(coverW, coverH)
+        // ---- 1x 就已经铺满容器 ⇒ 别把它当"上限是 1x" ----
+        //
+        // 长图（比例远小于屏幕）在 Fit 之后**高度正好等于容器高度、宽度正好等于
+        // 容器宽度** ⇒ coverW = coverH = 1 ⇒ 上限算成 1x。
+        // 于是捏合被 `coerceIn(1, 1)` 夹住、永远放不大，也就永远进不了
+        // "放大后单指拖动看细节"那个分支（用户反馈"长图放大后不能自由查看"）。
+        //
+        // "吸边界"的本意是"别放大到看不清"，而长图放大到 2~3x 恰恰是**看细节**
+        // 需要的（1x 时整张长图已经缩到一屏高，本来就没有可看的局部）。
+        // 所以这种情况直接回落到 maxScale：宁可放大过头，也不能把功能锁死。
+        if (cover < 1.02f) return maxScaleState.value
+        return cover.coerceAtLeast(1f)
     }
 
     /** 吸合上限与外部 `maxScale` 取小。 */
