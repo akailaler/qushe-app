@@ -35,10 +35,29 @@
 
 **当前稳定版：`v1.3.54`（git tag）** —— 用户评价「比较完美」，后续以此为回归基准。
 
-APK 已随工程提供：`qushe-v1.3.69-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.70-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.70**（收藏同步：实测定位到真正的 bug —— LaunchedEffect 键自取消）
+
+**先做了决定性实验（adb，不是猜）：**
+```
+content query  ... --where "_id=1000177918"     → 该行存在，is_favorite=0
+content update ... --bind is_favorite:i:1 ...   → 静默成功
+content query  ... --where "is_favorite=1 ..."  → is_favorite=1  ✓
+```
+**⇒ Provider 完全支持写这一列**，平台没问题。所以 bug 一定在我们这一侧。
+（顺带确认：系统里那 275 条收藏的 `owner_package_name = com.miui.backup`，
+印证了"小米云端恢复时导入"这个判断。）
+
+**然后找到我们的 bug：`LaunchedEffect(pendingAddBatch)` 在 effect 内部把
+`pendingAddBatch` 清空 ⇒ 键变了 ⇒ 协程被取消重启 ⇒ `addSyncer.launch()`
+根本来不及执行**（或执行到一半被打断）。表现就是"点了同步什么都没发生"。
+
+修法：加一个只用来当键的 `batchTick`，改内容不动键。顺带在入口/每批/收尾
+各加一行 `Log.i(TAG, ...)`，下次有问题可以直接读 logcat。
 
 **1.3.69**（收藏同步真正修好：编码不一致 + 精简胶囊）
 
