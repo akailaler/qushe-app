@@ -69,6 +69,13 @@ fun relativeDayLabel(millis: Long): String {
     }
 }
 
+/** 「2020/6/6」—— 具体日期，给「i」胶囊第一行用（设置里可切换成相对时间）。 */
+fun exactDateLabel(millis: Long): String {
+    if (millis <= 0L) return "时间未知"
+    val date = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate()
+    return date.format(DAY_KEY_FORMATTER)
+}
+
 /** 「2025/3/27」。判断"是不是同一天"也可以直接比字符串，不必再算零点。 */
 fun formatDayKey(millis: Long): String {
     if (millis <= 0L) return "未知日期"

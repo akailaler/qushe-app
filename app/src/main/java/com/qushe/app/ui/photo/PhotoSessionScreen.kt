@@ -160,6 +160,8 @@ fun PhotoSessionScreen(
     onToggleLike: (MediaItem) -> Boolean,
     /** 双击画面 = 喜欢（true）还是收藏（false）。和视频页、设置页同一套语义。 */
     doubleTapLikes: Boolean,
+    /** 「i」胶囊第一行：相对时间（true）还是具体日期（false）。见设置里的「时间格式」。 */
+    relativeDates: Boolean,
     onSeen: (MediaItem) -> Unit,
     buildDeleteRequest: (List<MediaItem>) -> IntentSender?,
     probeMotion: suspend (MediaItem) -> MotionPhoto.Resolution,
@@ -1148,7 +1150,7 @@ fun PhotoSessionScreen(
                     // 文案来自唯一来源（见 `infoPillPrimary/Secondary`），
                     // 三处胶囊共用一套，绝不各拼各的。
                     InfoPill(
-                        primary = infoPillPrimary(currentForInfo),
+                        primary = infoPillPrimary(currentForInfo, relativeDates),
                         secondary = infoPillSecondary(currentForInfo),
                         modifier = Modifier.align(Alignment.Center),
                         onClick = { detailVisible = true },

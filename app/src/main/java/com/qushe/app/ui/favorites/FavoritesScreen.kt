@@ -661,9 +661,17 @@ fun FavoritesScreen(
                         // 就是整理照片页那两颗（左下心、右下星），只是并到了一起 ——
                         // 那边靠"左 vs 右"区分，这里靠"心 vs 星"区分，
                         // 形状本来就不同，并排也不会认错。
-                        FavoriteButton(selected = liked) { mark(item, like = true) }
-                        Spacer(Modifier.width(10.dp))
-                        StarButton(selected = faved) { mark(item, like = false) }
+                        //
+                        // ⚠️ 这两颗必须自己套一层 Row：Box 的子节点**默认堆叠**
+                        // 在左上角，不套 Row 的话心形和星会叠在一起（用户反馈）。
+                        Row(
+                            modifier = Modifier.align(Alignment.CenterStart),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            FavoriteButton(selected = liked) { mark(item, like = true) }
+                            Spacer(Modifier.width(10.dp))
+                            StarButton(selected = faved) { mark(item, like = false) }
+                        }
                     }
                     // ---- 正中的「ⓘ 胶囊」 ----
                     //
@@ -673,7 +681,7 @@ fun FavoritesScreen(
                     // 结果整行看过去胶囊并不在屏幕正中（用户反馈"没有居中"）。
                     InfoPill(
                         // 文案来自唯一来源（与另外两处同一套）
-                        primary = infoPillPrimary(item),
+                        primary = infoPillPrimary(item, container.prefs.relativeDates),
                         secondary = infoPillSecondary(item),
                         modifier = Modifier.align(Alignment.Center),
                         onClick = { detailItem = item },

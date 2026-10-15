@@ -160,20 +160,17 @@ class SessionRepository(
         val current = favorites.snapshot()
         var added = 0
         keys.forEach { k ->
-            if (!current.contains(k)) {
-                favorites.add(k)
-                added++
-            }
-            syncedFavorites.add(k)
+            if (!current.contains(k)) favorites.add(k).also { added++ }
         }
         return added
     }
 
-    fun pendingSyncCount(): Int {
+    /** 还有多少条没写进系统。挂起是因为要问一次系统。 */
+    suspend fun pendingSyncCount(): Int {
         val favs = favorites.snapshot()
-        val synced = syncedFavorites.snapshot()
+        val synced = repo.allFavoriteKeys()
         val toAdd = favs.count { it !in synced }
-        val toRemove = synced.count { it !in favs }
+        val toRemove = 0
         return toAdd + toRemove
     }
 
@@ -184,37 +181,29 @@ class SessionRepository(
      * 两边就对不上了。所以取消同样进队列，由调用方发起一次 favorite=false 的请求。
      */
     /**
-     * @param force true = **忽略"已同步"记账，把收藏夹里所有条目都重新推一遍**。
+     * 还需要写进系统的收藏。
      *
-     * 记账会失真：`syncedFavorites` 里的条目可能从来没真正写进过系统
-     * （导入时就被标成"已同步"、或者当年写进去了后来又被清掉）。
-     * 用户说"同步没办法"时，能给他一个**确定会把全部条目重推一遍**的入口，
-     * 比纠结记账准不准有用得多。
+     * ---- 这套同步是按"系统实际状态"算的，没有记账 ----
+     * 最早那版是能用的：单条收藏、当场弹窗、当场写进去。后来为了批量同步
+     * 引入了 `syncedFavorites` 这套"已同步"记账，结果记账和事实脱节
+     * （导入时就把条目标成"已同步"）⇒ 收藏夹 276 条只推 1 条，
+     * 用户看到的是"点了同步没反应"（1.3.67 用 adb 实测确认）。
+     *
+     * 现在改成：**每次同步直接问系统"现在哪些是收藏"**，
+     * 拿取舍收藏夹减去它，剩下的就是要写的。写没写进去，
+     * 下一轮再问一次就知道 —— 不需要任何持久化的"已同步"集合。
+     *
+     * `toRemove` 恒为空：**绝不做自动取消收藏**。
+     * 系统里的收藏可能来自别处（小米云端恢复、其他应用），
+     * 我们没有能力区分"谁写的"，自动取消会毁掉用户的数据。
+     * 取消收藏只由用户在取舍里主动点星号触发。
      */
-    suspend fun favoriteSyncDelta(force: Boolean = false): FavoriteSyncDelta {
+    suspend fun favoriteSyncDelta(): FavoriteSyncDelta {
         val favs = favorites.snapshot()
-        val synced = syncedFavorites.snapshot()
-        val toAddKeys = if (force) favs else favs - synced
-        val toRemoveKeys = if (force) emptySet() else synced - favs
-
-        if (toAddKeys.isEmpty() && toRemoveKeys.isEmpty()) return FavoriteSyncDelta()
-
-        // 只取需要同步的那几项，不扫全库
-        val all = repo.byKeys(toAddKeys + toRemoveKeys)
-        return FavoriteSyncDelta(
-            toAdd = all.filter { it.storeKey() in toAddKeys },
-            toRemove = all.filter { it.storeKey() in toRemoveKeys },
-        )
-    }
-
-    /** 用户在系统弹窗里确认之后调用：这些项的收藏状态已经和系统一致了。 */
-    fun markSynced(items: List<MediaItem>) {
-        items.forEach { syncedFavorites.add(it.storeKey()) }
-    }
-
-    /** 用户确认取消后调用：这些项在两边都不再是收藏。 */
-    fun markUnsynced(items: List<MediaItem>) {
-        items.forEach { syncedFavorites.remove(it.storeKey()) }
+        if (favs.isEmpty()) return FavoriteSyncDelta()
+        val toAddKeys = favs - repo.allFavoriteKeys()
+        if (toAddKeys.isEmpty()) return FavoriteSyncDelta()
+        return FavoriteSyncDelta(toAdd = repo.byKeys(toAddKeys))
     }
 
     /**
@@ -222,19 +211,17 @@ class SessionRepository(
      *
      * 必须在删除**真正发生之后**调用（用户在系统弹窗里点了确认），
      * 不是在发起请求时 —— 用户可能取消。
-     *
-     * @param at 时刻；默认当前时间。
      */
     fun markTrashed(items: List<MediaItem>, at: Long = System.currentTimeMillis()) {
         trashMarks.putAll(items.map { it.storeKey() }, at)
     }
 
-    /** 从回收站恢复出来的条目要把记账去掉，否则它会被算成"还在回收站里"。 */
+    /** 恢复出来的条目要把记账去掉，否则它会被算成"还在回收站里"。 */
     fun unmarkTrashed(items: List<MediaItem>) {
         trashMarks.removeAll(items.map { it.storeKey() })
     }
 
-    /** 某个条目被删进回收站的时刻；没有记账（例如不是从取舍删的）时为 null。 */
+    /** 某个条目被删进回收站的时刻；没有记账时为 null。 */
     fun trashedAt(item: MediaItem): Long? = trashMarks[item.storeKey()]
 
     /** 整个记账表的快照，回收站页一次拿全。 */

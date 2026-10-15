@@ -277,6 +277,8 @@ fun DayViewScreen(
     dayStart: Long,
     /** 进来时瞄准的那张（用户在整理页正看着的）。null = 从头开始。 */
     focusItem: MediaItem?,
+    /** 「i」胶囊第一行用相对时间还是具体日期（透传设置）。 */
+    relativeDates: Boolean = true,
     /** 已经被标记删除的项（[MediaItem.storeKey] 集合）—— 这些不再出现在瀑布流里。 */
     markedKeys: Set<Long>,
     /** true = 上滑删除；false = 上滑收藏。和整理页共用同一条设置。 */

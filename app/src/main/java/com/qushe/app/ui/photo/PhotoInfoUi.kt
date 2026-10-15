@@ -26,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.qushe.app.core.exactDateLabel
 import com.qushe.app.core.formatDuration
 import com.qushe.app.core.MediaKind
 import androidx.compose.ui.draw.clip
@@ -110,7 +111,9 @@ fun StarButton(
  * 规则：**胶囊只有一行，只放「日期 · 文件夹 · 大小」**；
  * 其余信息一律留给详情面板。
  */
-fun infoPillPrimary(item: MediaItem): String = relativeDayLabel(item.dateTakenMillis)
+fun infoPillPrimary(item: MediaItem, relativeDates: Boolean = true): String =
+    if (relativeDates) relativeDayLabel(item.dateTakenMillis)
+    else exactDateLabel(item.dateTakenMillis)
 
 fun infoPillSecondary(item: MediaItem): String = buildString {
     val bucket = item.bucket.trim()
@@ -246,12 +249,16 @@ fun PhotoDetailContent(
             Spacer(Modifier.height(10.dp))
             SectionLabel("时间")
             Spacer(Modifier.height(4.dp))
+            // 详情面板里**两种格式都给** —— 胶囊只能放一种（受设置控制），
+            // 而面板有地方，相对时间和具体日期都摆出来才不用换算。
             DetailRow("拍摄时间", fullDateLabel(item.dateTakenMillis))
+            DetailRow("相对拍摄时间", relativeDayLabel(item.dateTakenMillis))
         }
         if (item.dateAddedMillis > 0L &&
             (item.dateTakenMillis <= 0L || item.dateAddedMillis != item.dateTakenMillis)
         ) {
             DetailRow("添加时间", fullDateLabel(item.dateAddedMillis))
+            DetailRow("相对添加时间", relativeDayLabel(item.dateAddedMillis))
         }
 
         Spacer(Modifier.height(10.dp))

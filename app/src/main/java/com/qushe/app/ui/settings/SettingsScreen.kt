@@ -78,6 +78,7 @@ fun SettingsScreen(
     var railOnRight by remember { mutableStateOf(prefs.railOnRight) }
     var doubleTapLikes by remember { mutableStateOf(prefs.doubleTapLikes) }
     var showLocation by remember { mutableStateOf(prefs.showMediaLocation) }
+    var relativeDates by remember { mutableStateOf(prefs.relativeDates) }
 
     // 位置自检。三种失败（没授权 / 系统拒绝读该字段 / 内容本身没位置）
     // 在界面上的表现完全一样，所以这里主动查一次、把结论直接说出来。
@@ -152,6 +153,35 @@ fun SettingsScreen(
             // 于是关掉这个开关时上滑只会弹一句提示、什么都不做 —— 一条会骗人的设置。
             // 与其留一个选错就失效的开关，不如直接删掉。
             // 偏好 `swipeUpDeletes` 本身保留（老配置读得出来），只是不再有 UI 改它。
+
+            // ---- 时间格式 ----
+            //
+            // 两个胶囊而不是开关：开关只能表达"是不是相对时间"，
+            // 用户还得在脑子里把"关闭"翻译成"那就是具体日期"。
+            // 两个胶囊把选项和示例都摆在明面上，没有这一步翻译。
+            SettingBlock(
+                title = "时间格式",
+                subtitle = "照片底部「i」胶囊第一行的写法；详情面板里两种格式都会显示。",
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Chip(
+                        text = "相对时间 · 3 天前",
+                        selected = relativeDates,
+                        onClick = {
+                            relativeDates = true
+                            prefs.relativeDates = true
+                        },
+                    )
+                    Chip(
+                        text = "具体日期 · 2020/6/6",
+                        selected = !relativeDates,
+                        onClick = {
+                            relativeDates = false
+                            prefs.relativeDates = false
+                        },
+                    )
+                }
+            }
 
             SettingBlock(
                 title = "只抽没看过的",
@@ -493,7 +523,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.67",
+                text = "取舍 1.3.68",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

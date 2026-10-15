@@ -46,6 +46,14 @@ class Prefs(context: Context) {
         get() = sp.getBoolean(KEY_DELETE_TO_TRASH, true)
         set(value) = sp.edit().putBoolean(KEY_DELETE_TO_TRASH, value).apply()
 
+    /**
+     * 「i」胶囊上第一行的时间怎么显示。
+     * true = 相对时间（3 天前）；false = 具体日期（2020/6/6）。
+     */
+    var relativeDates: Boolean
+        get() = sp.getBoolean(KEY_RELATIVE_DATES, true)
+        set(value) = sp.edit().putBoolean(KEY_RELATIVE_DATES, value).apply()
+
     /** 视频默认静音，避免在地铁上点开就外放。 */
     var videoMuted: Boolean
         get() = sp.getBoolean(KEY_VIDEO_MUTED, true)
@@ -203,5 +211,6 @@ class Prefs(context: Context) {
         private const val KEY_FAVORITED_TOTAL = "favorited_total"
         private const val KEY_FREED_BYTES = "freed_bytes"
         private const val KEY_ROUNDS = "rounds"
+        private const val KEY_RELATIVE_DATES = "relative_dates"
     }
 }

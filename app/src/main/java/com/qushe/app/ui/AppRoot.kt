@@ -269,7 +269,7 @@ fun AppRoot(container: AppContainer) {
     // 唯一的做法是攒成一批，在会话结束时（或用户主动点同步时）提交一次。
     var syncAdds by remember { mutableStateOf(emptyList<MediaItem>()) }
     var syncRemoves by remember { mutableStateOf(emptyList<MediaItem>()) }
-    var pendingSync by remember { mutableIntStateOf(container.sessions.pendingSyncCount()) }
+    var pendingSync by remember { mutableIntStateOf(0) }
 
     /** 还要推的**剩余批次**（见 [FAVORITE_BATCH]）。 */
     var syncQueue by remember { mutableStateOf(emptyList<MediaItem>()) }
@@ -283,15 +283,18 @@ fun AppRoot(container: AppContainer) {
         pendingSync = container.sessions.pendingSyncCount()
     }
 
+    /** 每次回到前台都重问一次系统（同步状态可能被别的应用改过）。 */
+    LaunchedEffect(Unit) {
+        pendingSync = container.sessions.pendingSyncCount()
+    }
+
     val removeSyncer = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
     ) { result ->
         if (result.resultCode == Activity.RESULT_OK) {
-            container.sessions.markUnsynced(syncRemoves)
-            container.sessions.persist()
         }
         syncRemoves = emptyList()
-        pendingSync = container.sessions.pendingSyncCount()
+        scope.launch { pendingSync = container.sessions.pendingSyncCount() }
     }
 
     val addSyncer = rememberLauncherForActivityResult(
@@ -301,7 +304,7 @@ fun AppRoot(container: AppContainer) {
         syncAdds = emptyList()
 
         if (result.resultCode != Activity.RESULT_OK) {
-            pendingSync = container.sessions.pendingSyncCount()
+            scope.launch { pendingSync = container.sessions.pendingSyncCount() }
             syncNotice = "已取消，收藏没有写入系统相册"
             return@rememberLauncherForActivityResult
         }
@@ -312,10 +315,6 @@ fun AppRoot(container: AppContainer) {
             // 只有核对过才能给出诚实的结论，而不是让用户对着一个永远空的收藏夹猜。
             val confirmed = runCatching { container.repo.systemFavoriteKeys(adds) }
                 .getOrDefault(emptySet())
-            if (confirmed.isNotEmpty()) {
-                container.sessions.markSynced(adds.filter { it.storeKey() in confirmed })
-                container.sessions.persist()
-            }
             syncDone += confirmed.size
 
             // ---- 队列里还有下一批 ⇒ 交给弹出器继续 ----
@@ -403,15 +402,13 @@ fun AppRoot(container: AppContainer) {
     /**
      * 把收藏写进系统相册。
      *
-     * @param force true = **忽略"已同步"记账，全量重推**。
-     *   记账会失真：`syncedFavorites` 里的条目可能从来没真正写进过系统
-     *   （「同步系统收藏到这里」导入时就被标成了"已同步"）。
-     *   实测这台机器：收藏夹 276 条 / 已同步记账 275 条 ⇒ 不 force 就只推 1 条，
-     *   用户点"同步"几乎等于没反应（用户反馈"同步没办法"）。
+     * 直接以**系统实际状态**为基准算差额（见 [favoriteSyncDelta]），
+     * 没有"已同步"记账 —— 那套记账和事实脱节，
+     * 导致收藏夹 276 条却只推 1 条（用户反馈"同步没办法"）。
      */
-    fun startFavoriteSync(force: Boolean = false) {
+    fun startFavoriteSync() {
         scope.launch {
-            val delta = container.sessions.favoriteSyncDelta(force)
+            val delta = container.sessions.favoriteSyncDelta()
             if (delta.isEmpty) {
                 pendingSync = container.sessions.pendingSyncCount()
                 syncNotice = "没有需要同步的收藏"
@@ -650,7 +647,7 @@ fun AppRoot(container: AppContainer) {
                             // `force = true`：**忽略"已同步"记账，把收藏夹全量重推一遍**。
                             // 记账会失真（导入时就把条目标成了"已同步"），
                             // 而用户点"同步"就是要一个"确定能重新写一遍"的动作。
-                            startFavoriteSync(force = true)
+                            startFavoriteSync()
                             "开始全量写入，请逐批确认系统的弹窗"
                         },
                         pendingFavoriteSync = pendingSync,
@@ -713,6 +710,7 @@ fun AppRoot(container: AppContainer) {
                         isLiked = { container.sessions.isLiked(it) },
                         onToggleLike = { container.sessions.toggleLike(it) },
                         doubleTapLikes = prefs.doubleTapLikes,
+                        relativeDates = prefs.relativeDates,
                         onSeen = { container.sessions.markSeen(listOf(it)) },
                         buildDeleteRequest = buildDeleteRequest,
                         probeMotion = { container.repo.probeMotion(it) },
