@@ -578,6 +578,10 @@ fun AppRoot(container: AppContainer) {
                         container = container,
                         refreshToken = favoriteCount,
                         pendingSync = 0,
+                        onFavoritesChanged = {
+                            favoriteCount = container.sessions.favoriteCount()
+                            scope.launch { pendingSync = container.sessions.pendingSyncCount() }
+                        },
                         autoSyncEnabled = false,
                         onRequestSync = {},
                         likeMode = true,
@@ -613,6 +617,10 @@ fun AppRoot(container: AppContainer) {
                         container = container,
                         refreshToken = favoriteCount,
                         pendingSync = pendingSync,
+                        onFavoritesChanged = {
+                            favoriteCount = container.sessions.favoriteCount()
+                            scope.launch { pendingSync = container.sessions.pendingSyncCount() }
+                        },
                         autoSyncEnabled = container.prefs.autoSyncFavorites,
                         onRequestSync = { startFavoriteSync() },
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },

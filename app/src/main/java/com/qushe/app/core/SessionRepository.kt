@@ -168,7 +168,7 @@ class SessionRepository(
     /** 还有多少条没写进系统。挂起是因为要问一次系统。 */
     suspend fun pendingSyncCount(): Int {
         val favs = favorites.snapshot()
-        val synced = repo.allFavoriteKeys()
+        val synced = repo.allSystemFavoriteKeys()
         val toAdd = favs.count { it !in synced }
         val toRemove = 0
         return toAdd + toRemove
@@ -201,7 +201,7 @@ class SessionRepository(
     suspend fun favoriteSyncDelta(): FavoriteSyncDelta {
         val favs = favorites.snapshot()
         if (favs.isEmpty()) return FavoriteSyncDelta()
-        val toAddKeys = favs - repo.allFavoriteKeys()
+        val toAddKeys = favs - repo.allSystemFavoriteKeys()
         if (toAddKeys.isEmpty()) return FavoriteSyncDelta()
         return FavoriteSyncDelta(toAdd = repo.byKeys(toAddKeys))
     }

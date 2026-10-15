@@ -697,50 +697,6 @@ class MediaRepository(private val context: Context) {
      *
      * API 30 起提供，与本工程 minSdk 一致，无需版本判断。
      */
-    /**
-     * 系统里现在所有 `IS_FAVORITE = 1` 的条目（换算成 storeKey）。
-     *
-     * ---- 为什么同步要"以系统实际状态为基准"，而不是自己记账 ----
-     * 最早那版是能用的：单条收藏、当场弹窗、当场写进去。
-     * 后来为了"批量同步"引入了 `syncedFavorites` 这套记账，
-     * 结果记账和事实脱节（导入时就被标成"已同步"）⇒ 收藏夹 276 条
-     * 却只推 1 条，用户看到的是"点了同步没反应"（实测确认过）。
-     *
-     * 所以干脆**不记账**：每次同步直接问系统"现在哪些是收藏"，
-     * 拿取舍收藏夹减去它，剩下的就是要写的。写没写进去，
-     * 下一轮问一次就知道 —— 不需要任何持久化的"已同步"集合。
-     *
-     * 只查收藏的条目（where 条件），不是扫全库，代价可以忽略。
-     */
-    suspend fun allFavoriteKeys(): Set<Long> = withContext(Dispatchers.IO) {
-        runCatching {
-            val img = resolver.query(
-                MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.MediaColumns._ID),
-                "${MediaStore.MediaColumns.IS_FAVORITE} = 1",
-                null,
-                null,
-            )
-            val vids = resolver.query(
-                MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-                arrayOf(MediaStore.MediaColumns._ID),
-                "${MediaStore.MediaColumns.IS_FAVORITE} = 1",
-                null,
-                null,
-            )
-            val out = HashSet<Long>()
-            img?.use { c ->
-                val idCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                while (c.moveToNext()) out.add(c.getLong(idCol) * 2 + 1)
-            }
-            vids?.use { c ->
-                val idCol = c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID)
-                while (c.moveToNext()) out.add(c.getLong(idCol) * 2 + 2)
-            }
-            out
-        }.getOrDefault(emptySet())
-    }
-
     fun requestFavorite(items: List<MediaItem>, favorite: Boolean): IntentSender =
         MediaStore.createFavoriteRequest(
             resolver,

@@ -104,6 +104,14 @@ fun FavoritesScreen(
     container: AppContainer,
     refreshToken: Int,
     pendingSync: Int,
+    /**
+     * 收藏状态刚刚变过（点过收藏 / 取消收藏）。
+     *
+     * 外层要据此刷新「待同步 N 项」—— 那个数是**问系统问出来的**，
+     * 不刷新的话按钮的 `enabled = pendingSync > 0` 会停在旧值上，
+     * 表现就是"刚收藏完，同步按钮还是灰的"。
+     */
+    onFavoritesChanged: () -> Unit,
     autoSyncEnabled: Boolean,
     onRequestSync: () -> Unit,
     /** 详情面板里的地名；null = 没授权 / 没解析出来 / 还在读。 */
@@ -291,6 +299,8 @@ fun FavoritesScreen(
         container.persistAsync()
         listDirty = true
         markTick++
+        // 待同步数要重新问一次系统（见 onFavoritesChanged 的说明）
+        onFavoritesChanged()
     }
 
     Column(modifier = Modifier.fillMaxSize()) {

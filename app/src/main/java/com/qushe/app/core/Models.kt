@@ -84,7 +84,23 @@ data class MediaItem(
  * 截屏与照片共用同一张 images 表，id 在表内唯一，所以两者映射到同一个键空间不会撞车 ——
  * 新增截屏分类**不需要**做收藏/已看的数据迁移。
  */
-fun MediaItem.storeKey(): Long = id * 2L + if (kind == MediaKind.VIDEO) 1L else 0L
+/**
+ * storeKey 编码的**唯一来源**。
+ *
+ * 图片 = id*2（偶数），视频 = id*2+1（奇数）。
+ *
+ * ---- 为什么必须只有这一个函数 ----
+ * 这套编码被两处用：应用内的集合（`favorites` / `likes` / `seen`）
+ * 和 `MediaRepository.allSystemFavoriteKeys()`（反过来从系统 MediaStore 的 `_id` 编码）。
+ * 1.3.68 我给后者另写了一遍，结果把图片/视频的奇偶写反了 ——
+ * 两边永远不重合 ⇒ 差额算出来永远是"全部待同步"、且写进去也永远对不上，
+ * 表现就是"收藏同步完全没用"（用户反馈，实测确认）。
+ * **凡是有两处以上要算同一个 key 的，就必须抽成唯一函数。**
+ */
+fun mediaStoreKey(id: Long, isVideo: Boolean): Long =
+    id * 2L + if (isVideo) 1L else 0L
+
+fun MediaItem.storeKey(): Long = mediaStoreKey(id, kind == MediaKind.VIDEO)
 
 /** 一次滑动的判定结果。 */
 enum class SwipeDecision { NONE, DELETE, FAVORITE, NEXT, PREV }
