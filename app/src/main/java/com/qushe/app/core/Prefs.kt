@@ -1,0 +1,178 @@
+package com.qushe.app.core
+
+import android.content.Context
+
+/**
+ * 设置项 + 累计统计。
+ *
+ * 统计刻意只记「已经整理了多少」而不是「还剩多少没整理」：
+ * 前者是 done list，看着有成就感；后者是 todo list，会带来心理压力。
+ */
+class Prefs(context: Context) {
+
+    private val sp = context.getSharedPreferences("qushe_prefs", Context.MODE_PRIVATE)
+
+    /** 每组数量。太小没有仪式感，太大一次做不完。 */
+    var groupSize: Int
+        get() = sp.getInt(KEY_GROUP_SIZE, DEFAULT_GROUP_SIZE)
+        set(value) = sp.edit().putInt(KEY_GROUP_SIZE, value.coerceIn(10, 200)).apply()
+
+    /**
+     * 手势方向。去留/回留的默认是「上滑删除、下滑收藏」，
+     * 但每个人对身体方向的直觉不一样，所以留一个开关。
+     */
+    var swipeUpDeletes: Boolean
+        get() = sp.getBoolean(KEY_SWIPE_UP_DELETES, true)
+        set(value) = sp.edit().putBoolean(KEY_SWIPE_UP_DELETES, value).apply()
+
+    /** 看过的条目在一轮之内不再重复出现。 */
+    var onlyUnseen: Boolean
+        get() = sp.getBoolean(KEY_ONLY_UNSEEN, true)
+        set(value) = sp.edit().putBoolean(KEY_ONLY_UNSEEN, value).apply()
+
+    /**
+     * 删除去向。true = 系统回收站（30 天内可恢复，安全）；
+     * false = 彻底删除。默认走回收站，本地文件删掉是不可逆的。
+     */
+    var deleteToTrash: Boolean
+        get() = sp.getBoolean(KEY_DELETE_TO_TRASH, true)
+        set(value) = sp.edit().putBoolean(KEY_DELETE_TO_TRASH, value).apply()
+
+    /** 视频默认静音，避免在地铁上点开就外放。 */
+    var videoMuted: Boolean
+        get() = sp.getBoolean(KEY_VIDEO_MUTED, true)
+        set(value) = sp.edit().putBoolean(KEY_VIDEO_MUTED, value).apply()
+
+    /** 一进视频整理就自动开始播放。 */
+    var autoPlayVideo: Boolean
+        get() = sp.getBoolean(KEY_AUTO_PLAY, true)
+        set(value) = sp.edit().putBoolean(KEY_AUTO_PLAY, value).apply()
+
+    /**
+     * 视频整理页双击的含义。
+     *
+     * true = 双击「喜欢」（默认）——只记在本应用里，不碰系统相册，点错了也没有副作用；
+     * false = 双击「收藏」——会写进系统相册的收藏夹。
+     *
+     * 之所以默认给"喜欢"：双击是个高频且无提示的手势，落在一个"删不掉、不同步、
+     * 一秒就能撤销"的动作上最安全。想让它直接同步进系统相册的人可以在这里切过来。
+     */
+    var doubleTapLikes: Boolean
+        get() = sp.getBoolean(KEY_DOUBLE_TAP_LIKES, true)
+        set(value) = sp.edit().putBoolean(KEY_DOUBLE_TAP_LIKES, value).apply()
+
+    /**
+     * 整理结束后把新收藏同步到系统相册。
+     *
+     * 默认开启。代价是每轮结束会多弹一次系统确认框（系统不允许应用静默改收藏，
+     * 必须用户点确认）—— 这是「打通」唯一的实现路径，嫌烦可以关掉，
+     * 之后手动到收藏页一次性同步。
+     */
+    var autoSyncFavorites: Boolean
+        get() = sp.getBoolean(KEY_AUTO_SYNC_FAVORITES, true)
+        set(value) = sp.edit().putBoolean(KEY_AUTO_SYNC_FAVORITES, value).apply()
+
+    /**
+     * 视频整理页的操作栏放在右边（默认）。
+     *
+     * 关掉就放到左边 —— 惯用左手，或者用左手滑视频的人会更顺手。
+     * 收藏 / 删除 / 分享 / 静音 会整组一起换边。
+     */
+    var railOnRight: Boolean
+        get() = sp.getBoolean(KEY_RAIL_ON_RIGHT, true)
+        set(value) = sp.edit().putBoolean(KEY_RAIL_ON_RIGHT, value).apply()
+
+    /**
+     * 照片 / 视频左下角显示拍摄地点。
+     *
+     * 需要 `ACCESS_MEDIA_LOCATION` 权限才能拿到经纬度 —— Android 会对媒体里的位置
+     * 做隐私脱敏，不授权就永远是空值。下载来的内容通常本来也没有位置信息，
+     * 那种情况下这一行不会显示。
+     */
+    var showMediaLocation: Boolean
+        // 存储键沿用旧名字，这样升级上来的用户原有设置不会丢
+        get() = sp.getBoolean(KEY_SHOW_VIDEO_LOCATION, true)
+        set(value) = sp.edit().putBoolean(KEY_SHOW_VIDEO_LOCATION, value).apply()
+
+    /**
+     * 收藏页的「纯观看模式」。
+     *
+     * 打开后只浏览不动内容：预览里不再出现「移出收藏 / 删除」，长按也不会移除。
+     * 想翻翻自己攒下来的东西、又不想误删时用。
+     */
+    var favoritesViewOnly: Boolean
+        get() = sp.getBoolean(KEY_FAVORITES_VIEW_ONLY, false)
+        set(value) = sp.edit().putBoolean(KEY_FAVORITES_VIEW_ONLY, value).apply()
+
+    var hapticsEnabled: Boolean
+        get() = sp.getBoolean(KEY_HAPTICS, true)
+        set(value) = sp.edit().putBoolean(KEY_HAPTICS, value).apply()
+
+    // ---- done list ----
+
+    var reviewedTotal: Int
+        get() = sp.getInt(KEY_REVIEWED_TOTAL, 0)
+        set(value) = sp.edit().putInt(KEY_REVIEWED_TOTAL, value).apply()
+
+    var deletedTotal: Int
+        get() = sp.getInt(KEY_DELETED_TOTAL, 0)
+        set(value) = sp.edit().putInt(KEY_DELETED_TOTAL, value).apply()
+
+    var favoritedTotal: Int
+        get() = sp.getInt(KEY_FAVORITED_TOTAL, 0)
+        set(value) = sp.edit().putInt(KEY_FAVORITED_TOTAL, value).apply()
+
+    var freedBytesTotal: Long
+        get() = sp.getLong(KEY_FREED_BYTES, 0L)
+        set(value) = sp.edit().putLong(KEY_FREED_BYTES, value).apply()
+
+    var roundsCompleted: Int
+        get() = sp.getInt(KEY_ROUNDS, 0)
+        set(value) = sp.edit().putInt(KEY_ROUNDS, value).apply()
+
+    fun stats(): Stats = Stats(
+        reviewed = reviewedTotal,
+        deleted = deletedTotal,
+        favorited = favoritedTotal,
+        freedBytes = freedBytesTotal,
+        rounds = roundsCompleted,
+    )
+
+    fun recordSession(
+        reviewed: Int,
+        deleted: Int,
+        favoritedDelta: Int,
+        freedBytes: Long,
+    ) {
+        reviewedTotal += reviewed
+        deletedTotal += deleted
+        favoritedTotal = (favoritedTotal + favoritedDelta).coerceAtLeast(0)
+        freedBytesTotal += freedBytes
+    }
+
+    companion object {
+        const val DEFAULT_GROUP_SIZE = 30
+
+        /** 可供选择的每组数量。放在这里而不是界面层，是因为容器启动时要拿它做一次归一。 */
+        val GROUP_SIZE_CHOICES = listOf(30, 50, 100)
+        const val GROUP_SIZE_OPTIONS = 10
+
+        private const val KEY_GROUP_SIZE = "group_size"
+        private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
+        private const val KEY_ONLY_UNSEEN = "only_unseen"
+        private const val KEY_DELETE_TO_TRASH = "delete_to_trash"
+        private const val KEY_VIDEO_MUTED = "video_muted"
+        private const val KEY_AUTO_PLAY = "auto_play"
+        private const val KEY_DOUBLE_TAP_LIKES = "double_tap_likes"
+        private const val KEY_AUTO_SYNC_FAVORITES = "auto_sync_favorites"
+        private const val KEY_RAIL_ON_RIGHT = "rail_on_right"
+        private const val KEY_SHOW_VIDEO_LOCATION = "show_video_location"
+        private const val KEY_FAVORITES_VIEW_ONLY = "favorites_view_only"
+        private const val KEY_HAPTICS = "haptics"
+        private const val KEY_REVIEWED_TOTAL = "reviewed_total"
+        private const val KEY_DELETED_TOTAL = "deleted_total"
+        private const val KEY_FAVORITED_TOTAL = "favorited_total"
+        private const val KEY_FREED_BYTES = "freed_bytes"
+        private const val KEY_ROUNDS = "rounds"
+    }
+}

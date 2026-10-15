@@ -1,0 +1,22 @@
+# ---- Gradle / Android 构建产物 ----
+build/
+.gradle/
+app/build/
+local.properties
+*.apk
+*.aab
+captures/
+.cxx/
+
+# ---- IDE ----
+.idea/
+*.iml
+.DS_Store
+
+# ---- 签名材料：绝对不能进版本库 ----
+*.jks
+*.keystore
+keystore.properties
+
+# ---- Kotlin 编译器的错误日志 ----
+.kotlin/

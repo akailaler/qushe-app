@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  翻页 / 列表里用的播放器视图。
+
+  关键在 app:surface_type="texture_view"：
+  Media3 的默认值是 SurfaceView，而 SurfaceView 由系统在**独立图层**里合成，
+  它的屏幕位置更新和 Compose 的滚动不同步 —— 上下滑动时画面会跟页面脱节、闪烁。
+  TextureView 走普通视图绘制，跟着页面一起滚，才是这种场景该用的。
+
+  只能靠 XML 指定（PlayerView 没有 surface_type 的 setter），所以必须 inflate 布局，
+  不能直接 new 一个 PlayerView 出来。
+-->
+<androidx.media3.ui.PlayerView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    app:resize_mode="fit"
+    app:surface_type="texture_view"
+    app:use_controller="false" />

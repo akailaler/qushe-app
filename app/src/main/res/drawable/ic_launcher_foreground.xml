@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- 上滑 = 删除（玫红） -->
+    <path
+        android:pathData="M40,48 L54,34 L68,48"
+        android:strokeColor="#FF5C7A"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <!-- 下滑 = 收藏（青绿） -->
+    <path
+        android:pathData="M40,60 L54,74 L68,60"
+        android:strokeColor="#35D0A5"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>
