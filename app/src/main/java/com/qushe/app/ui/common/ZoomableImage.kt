@@ -598,7 +598,18 @@ awaitEachGesture {
                                     }
                                 }
 
+                                // ---- 越过 1.01 那一帧就报出去，**不要等松手** ----
+                                //
+                                // 只在手势结束时报的话，"放大时收起 chrome"会晚一整段时间 ——
+                                // 用户已经捏大了、图也铺满了，chrome 还杵在上面
+                                // （用户反馈"放大松手之后才隐藏"）。
+                                //
+                                // 只在**跨越**的那一帧报（前后状态不同），否则每一帧都回调，
+                                // 调用方就得自己去判重。
+                                val wasZoomed = scale > 1.01f
                                 scale = nextScale
+                                val nowZoomed = scale > 1.01f
+                                if (nowZoomed != wasZoomed) onZoomedChange(nowZoomed)
                                 offset = clamp(
                                     if (nextScale > 1f) offset + event.calculatePan() else Offset.Zero,
                                     nextScale,

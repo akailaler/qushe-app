@@ -2913,13 +2913,22 @@ private fun DayZoomView(
                 // 遮罩要盖在图片自己的四角上，所以得知道它的宽高比
                 cornerAspect = photoRatio,
                 onZoomedChange = { isZoomed ->
-                    zoomed = isZoomed
-                    // 放大时收起；**缩回 1x 时强制显示**（不是 toggle）。
+                    // **只在状态真的跨过去时才动 chrome。**
                     //
-                    // 用 toggle 的话，用户放大前把 chrome 收起来了、缩回来就还是收着的 ——
-                    // 那不是他想要的（他刚松手的是一次"看图"动作，不是"收起 chrome"）。
-                    // 强制显示让"放大 → 收起 → 缩回 → 回来"这条链每一环都可预期。
-                    chromeVisible = !isZoomed
+                    // 之前是无条件 `chromeVisible = !isZoomed`，而 `ZoomableImage`
+                    // 在每次手势结束都会报一次 —— 于是 1x 下单击时：
+                    //   clickable 先把 chrome 切掉，紧接着这次回报又把它写成"显示"，
+                    //   下一次单击再切掉、再被写回显示 ⇒ **看起来就是"单击只收不回来"**。
+                    //
+                    // 判了"是否跨过"之后，两条路就各管各的：
+                    //   单击 ⇒ clickable 切显隐；放大/缩回 ⇒ 这里收起/显示。
+                    val wasZoomed = zoomed
+                    zoomed = isZoomed
+                    if (isZoomed != wasZoomed) {
+                        // 放大时收起；**缩回 1x 时强制显示**（不是 toggle）——
+                        // 用户刚松手的是一次"看图"动作，不是"收起 chrome"。
+                        chromeVisible = !isZoomed
+                    }
                 },
                 // **不给 onSingleTap**：单击切 chrome 由外层那个 `.clickable` 负责。
                 //
