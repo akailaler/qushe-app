@@ -451,7 +451,7 @@ fun SettingsScreen(
         Spacer(Modifier.height(16.dp))
 
         Text(
-            text = "取舍 1.3.52",
+            text = "取舍 1.3.53",
             style = MaterialTheme.typography.bodyMedium,
             color = TextSecondary,
         )

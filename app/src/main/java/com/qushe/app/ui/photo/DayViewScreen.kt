@@ -2914,11 +2914,18 @@ private fun DayZoomView(
                 cornerAspect = photoRatio,
                 onZoomedChange = { isZoomed ->
                     zoomed = isZoomed
-                    if (isZoomed) chromeVisible = false
+                    // 放大时收起；**缩回 1x 时强制显示**（不是 toggle）。
+                    //
+                    // 用 toggle 的话，用户放大前把 chrome 收起来了、缩回来就还是收着的 ——
+                    // 那不是他想要的（他刚松手的是一次"看图"动作，不是"收起 chrome"）。
+                    // 强制显示让"放大 → 收起 → 缩回 → 回来"这条链每一环都可预期。
+                    chromeVisible = !isZoomed
                 },
-                onSingleTap = {
-                    if (infoExpanded) infoExpanded = false else chromeVisible = !chromeVisible
-                },
+                // **不给 onSingleTap**：单击切 chrome 由外层那个 `.clickable` 负责。
+                //
+                // 两条路都在的话，一次单击会把 chrome 切两次（外层立刻切、
+                // 这里在双击判定窗口结束后再切一次）⇒ 净效果为零，
+                // 表现就是"图标和小字不稳定、像是按了没反应"（用户反馈）。
                 // 双击 = 喜欢。给了它就不做双击缩放（缩放还有捏合）。
                 onDoubleTap = {
                     onToggleLike?.invoke()

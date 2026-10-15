@@ -440,9 +440,14 @@ fun FavoritesScreen(
         }
     }
 
-    val dayShown = remember(dayItems, dayMarked) {
-        dayItems?.filterNot { it.storeKey() in dayMarked }
-    }
+    // **刻意不在这儿过滤已标记删除的项**。
+    //
+    // `DayViewScreen` 自己会用 `markedKeys` 把那些格子宽度收到 0（`removedFlags`
+    // → `CellSlot` 收缩），这才是整理照片页那条"格子飞出去、同排左移补位"的动线。
+    // 在外面先把项从 `items` 里剔掉，等于换成了另一套删除机制 ——
+    // 整排会重新布局，偶发留下收不干净的红底（用户反馈"上滑之后没有正常消失，
+    // 经常残留红色底"）。这里和整理页保持**逐字一致**的用法。
+    val dayShown = dayItems
 
     val index = previewIndex
     if (index != null && shown.isNotEmpty()) {
