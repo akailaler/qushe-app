@@ -324,6 +324,35 @@ private fun TrashCell(item: MediaItem, onClick: () -> Unit) {
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize(),
         )
+        // ---- 左上角：还剩几天 ----
+        //
+        // 30 天是**系统定的**（MediaStore 回收站），应用侧只有 `DATE_EXPIRES`
+        // 这个"到期时刻"，拿不到"删除时刻"。所以这里显示的是**剩余**而不是"删于"。
+        //
+        // 为什么值得占一个角标：用户真正焦虑的是"还剩多久就彻底没了"，
+        // 而系统相册/文件管理里通常只写"30 天后删除"，看不出还剩几天。
+        // 剩得越少越该显眼 —— 三天以内换成警示色。
+        val daysLeft = remember(item.dateExpiresMillis) {
+            val exp = item.dateExpiresMillis ?: return@remember null
+            val ms = exp - System.currentTimeMillis()
+            if (ms <= 0L) 0 else ((ms + 86_399_999L) / 86_400_000L).toInt()
+        }
+        if (daysLeft != null) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .padding(3.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(Color(0xB3000000))
+                    .padding(horizontal = 4.dp, vertical = 1.dp),
+            ) {
+                Text(
+                    text = if (daysLeft == 0) "今天到期" else "还剩${daysLeft}天",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (daysLeft <= 3) AccentDelete else TextPrimary,
+                )
+            }
+        }
         val tag = when {
             item.kind == MediaKind.VIDEO && item.durationMillis > 0L ->
                 formatDuration(item.durationMillis)

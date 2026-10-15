@@ -43,6 +43,17 @@ data class MediaItem(
     val height: Int,
     val mimeType: String = "",
     /**
+     * **在回收站里还有多久到期**（epoch 毫秒）。不在回收站 / 列不可用时为 null。
+     *
+     * 对应 `MediaStore.MediaColumns.DATE_EXPIRES`（API 30+）：
+     * 系统回收站保留 30 天是**系统定的**，应用侧拿不到"删除时刻"，
+     * 只有这个"到期时刻"。所以"还剩几天"只能从这里推。
+     *
+     * 只在回收站那次查询里投影（见 `MediaRepository.trashed`）——
+     * 少一列就少一分在某个厂商 MediaProvider 上炸掉的风险。
+     */
+    val dateExpiresMillis: Long? = null,
+    /**
      * 实况照片（Motion Photo）的嵌入视频「距文件尾部多少字节」。
      * - `null` 表示不是实况照片（或还没探测）
      * - `-1` 表示确认是实况照片，但偏移量得读文件头才知道

@@ -639,8 +639,14 @@ class MediaRepository(private val context: Context) {
             val args = Bundle().apply {
                 putInt(MediaStore.QUERY_ARG_MATCH_TRASHED, MediaStore.MATCH_ONLY)
             }
-            queryCollection(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaKind.PHOTO, args) +
-                queryCollection(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaKind.VIDEO, args)
+            // DATE_EXPIRES = 系统回收站的到期时刻（保留 30 天就是它 + 30 天）。
+            // 只在这里多投影一列 —— 别的地方不需要，也不该为它承担厂商 Provider 的风险。
+            val extra = arrayOf(MediaStore.MediaColumns.DATE_EXPIRES)
+            queryCollection(
+                MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaKind.PHOTO, args, extra,
+            ) + queryCollection(
+                MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaKind.VIDEO, args, extra,
+            )
         }.getOrDefault(emptyList())
     }
 
@@ -710,11 +716,13 @@ class MediaRepository(private val context: Context) {
         collection: Uri,
         defaultKind: MediaKind,
         queryArgs: Bundle?,
+        /** 只在这一次查询里额外要的列（见 [trashed] 里的 DATE_EXPIRES）。 */
+        extraProjection: Array<String> = emptyArray(),
     ): List<MediaItem> {
         // 两级投影。第一级失败时必须能退到最小投影，否则任何一列在某个厂商的
         // MediaProvider 上不可用，整个相册就会显示成"空的"—— 而用户完全不知道为什么。
         return try {
-            val result = runQuery(collection, defaultKind, queryArgs, minimal = false)
+            val result = runQuery(collection, defaultKind, queryArgs, minimal = false, extraProjection)
             lastQueryFailed = false
             result
         } catch (t: Throwable) {
@@ -736,8 +744,13 @@ class MediaRepository(private val context: Context) {
         defaultKind: MediaKind,
         queryArgs: Bundle?,
         minimal: Boolean,
+        extraProjection: Array<String> = emptyArray(),
     ): List<MediaItem> {
-        val projection = if (minimal) MINIMAL_PROJECTION else projectionFor(defaultKind)
+        val projection = if (minimal) {
+            MINIMAL_PROJECTION
+        } else {
+            projectionFor(defaultKind) + extraProjection
+        }
         val cursor = if (queryArgs == null) {
             resolver.query(collection, projection, null, null, SORT_ORDER)
         } else {
@@ -779,6 +792,9 @@ class MediaRepository(private val context: Context) {
             val bucketCol = c.getColumnIndex(bucketColumn(defaultKind))
             val mimeCol = c.getColumnIndex(MediaStore.MediaColumns.MIME_TYPE)
             val relativeCol = c.getColumnIndex(MediaStore.MediaColumns.RELATIVE_PATH)
+            // 只有回收站那次查询会投影它；别处查不到这一列时 getColumnIndex 返回 -1，
+            // 下面的 `takeIf { it >= 0 }` 就把它当成"没有到期时间"。
+            val expiresCol = c.getColumnIndex(MediaStore.MediaColumns.DATE_EXPIRES)
 
             while (c.moveToNext()) {
                 val id = c.getLong(idCol)
@@ -812,6 +828,8 @@ class MediaRepository(private val context: Context) {
                             0L
                         },
                     bucket = bucket,
+                    dateExpiresMillis = expiresCol.takeIf { it >= 0 && !c.isNull(it) }
+                        ?.let { c.getLong(it) },
                     width = if (widthCol >= 0) c.getInt(widthCol) else 0,
                     height = if (heightCol >= 0) c.getInt(heightCol) else 0,
                     mimeType = mime,
