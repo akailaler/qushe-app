@@ -42,6 +42,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.qushe.app.core.formatSize
+import com.qushe.app.core.relativeDayLabel
+import com.qushe.app.ui.photo.InfoPill
+import com.qushe.app.core.PhotoExif
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -100,6 +104,10 @@ fun FavoritesScreen(
     pendingSync: Int,
     autoSyncEnabled: Boolean,
     onRequestSync: () -> Unit,
+    /** 详情面板里的地名；null = 没授权 / 没解析出来 / 还在读。 */
+    resolveLocationLabel: suspend (MediaItem) -> String?,
+    /** 详情面板里的 EXIF。 */
+    readExif: suspend (MediaItem) -> PhotoExif?,
     /**
      * 「回到那天」：读某一天的图片，返回那天（0 点毫秒）。
      * 由 `AppRoot` 提供 —— 仓库在那一层。
@@ -126,6 +134,17 @@ fun FavoritesScreen(
     // 用 ModalBottomSheet 会被那个窗口整个压住，
     // 这正是日期视图当初"打开了却什么都看不见"的原因。
     var detailItem by remember { mutableStateOf<MediaItem?>(null) }
+    // 详情面板的另外两路数据。点「ⓘ」时才去读（都是 suspend + 有 IO），
+    // 读回来之前面板先出来，不让用户等 IO。
+    var detailExif by remember { mutableStateOf<PhotoExif?>(null) }
+    var detailLocation by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(detailItem) {
+        val target = detailItem ?: return@LaunchedEffect
+        detailExif = null
+        detailLocation = null
+        detailLocation = resolveLocationLabel(target)
+        detailExif = readExif(target)
+    }
 
     // ---- 预览里的标记（喜欢 / 收藏）当场生效，列表等退出浏览才刷新 ----
     //
@@ -583,7 +602,7 @@ fun FavoritesScreen(
                             .padding(20.dp)
                             .verticalScroll(rememberScrollState()),
                     ) {
-                        PhotoDetailContent(item = detail, exif = null, locationName = null)
+                        PhotoDetailContent(item = detail, exif = detailExif, locationName = detailLocation)
                     }
                 }
             },
@@ -643,6 +662,23 @@ fun FavoritesScreen(
                         Spacer(Modifier.width(10.dp))
                         StarButton(selected = faved) { mark(item, like = false) }
                         Spacer(Modifier.weight(1f))
+                        // ---- 中间的「ⓘ 胶囊**居中** ----
+                        // 和整理照片页同一个 `InfoPill`（日期 · 文件夹 · 大小），
+                        // 点击开详情面板。放在右下角是错的位置：它是**信息**入口，
+                        // 不是操作按钮 —— 视觉上属于中间那颗胶囊。
+                        InfoPill(
+                            primary = relativeDayLabel(item.dateTakenMillis),
+                            secondary = buildString {
+                                if (item.bucket.isNotBlank()) {
+                                    append(item.bucket)
+                                    append(" · ")
+                                }
+                                append(formatSize(item.sizeBytes))
+                            },
+                            modifier = Modifier.weight(1f, fill = false),
+                            onClick = { detailItem = item },
+                        )
+                        Spacer(Modifier.weight(1f))
                         val doomed = item.storeKey() in pendingDelete
                         RoundActionButton(
                             icon = Icons.Filled.Delete,
@@ -653,15 +689,6 @@ fun FavoritesScreen(
                             val key = item.storeKey()
                             pendingDelete = if (doomed) pendingDelete - key
                             else pendingDelete + key
-                        }
-                        // 详细信息：和整理照片页那颗 i 是同一份内容
-                        Spacer(Modifier.width(10.dp))
-                        RoundActionButton(
-                            icon = Icons.Filled.Info,
-                            label = "详情",
-                            tint = TextPrimary,
-                        ) {
-                            detailItem = item
                         }
                     }
                 }

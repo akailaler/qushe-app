@@ -805,6 +805,8 @@ class MediaRepository(private val context: Context) {
                     name = name,
                     sizeBytes = if (sizeCol >= 0) c.getLong(sizeCol) else 0L,
                     dateTakenMillis = taken,
+                    // DATE_ADDED 的单位是**秒**（DATE_TAKEN 是毫秒），这里统一成毫秒
+                    dateAddedMillis = addedSeconds * 1000L,
                     durationMillis =
                         if (kind == MediaKind.VIDEO && durationCol >= 0 && !c.isNull(durationCol)) {
                             c.getLong(durationCol)

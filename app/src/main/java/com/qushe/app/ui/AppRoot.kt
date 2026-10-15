@@ -521,6 +521,8 @@ fun AppRoot(container: AppContainer) {
                         autoSyncEnabled = false,
                         onRequestSync = {},
                         likeMode = true,
+                        resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
+                        readExif = { PhotoExifReader.read(context, it) },
                         loadDayItems = { container.repo.allImagesAroundDay(it) },
                         onOpenDaySession = { day ->
                             pagerScope.launch {
@@ -553,6 +555,8 @@ fun AppRoot(container: AppContainer) {
                         pendingSync = pendingSync,
                         autoSyncEnabled = container.prefs.autoSyncFavorites,
                         onRequestSync = { startFavoriteSync() },
+                        resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
+                        readExif = { PhotoExifReader.read(context, it) },
                         loadDayItems = { container.repo.allImagesAroundDay(it) },
                         onOpenDaySession = { day ->
                             pagerScope.launch {

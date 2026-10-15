@@ -37,6 +37,14 @@ data class MediaItem(
     val name: String,
     val sizeBytes: Long,
     val dateTakenMillis: Long,
+    /**
+     * **加入媒体库的时间**（`DATE_ADDED`）。
+     *
+     * 和 [dateTakenMillis] 是两回事：前者是拍摄时间（EXIF 或文件名解析），
+     * 后者是文件被放进媒体库的时间 —— 截图、下载、微信保存的文件两者可能差好几年。
+     * 详情面板里两者都要标清楚，别混成一个"日期"。
+     */
+    val dateAddedMillis: Long = 0L,
     val durationMillis: Long,
     val bucket: String,
     val width: Int,

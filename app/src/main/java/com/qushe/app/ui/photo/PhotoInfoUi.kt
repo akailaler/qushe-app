@@ -218,6 +218,21 @@ fun PhotoDetailContent(
             }
         }
 
+        // ---- 拍摄时间 / 添加时间 ----
+        // 刻意分成两行：截图、下载、聊天记录存下来的文件，拍摄时间和入库时间
+        // 可能差好几年，混成一个"日期"会让人以为图是那会儿拍的。
+        if (item.dateTakenMillis > 0L) {
+            Spacer(Modifier.height(10.dp))
+            SectionLabel("时间")
+            Spacer(Modifier.height(4.dp))
+            DetailRow("拍摄时间", fullDateLabel(item.dateTakenMillis))
+        }
+        if (item.dateAddedMillis > 0L &&
+            (item.dateTakenMillis <= 0L || item.dateAddedMillis != item.dateTakenMillis)
+        ) {
+            DetailRow("添加时间", fullDateLabel(item.dateAddedMillis))
+        }
+
         Spacer(Modifier.height(10.dp))
         DetailRow("文件名", item.name)
         if (item.width > 0 && item.height > 0) {

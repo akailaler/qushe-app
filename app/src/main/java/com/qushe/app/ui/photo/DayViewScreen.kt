@@ -3066,29 +3066,22 @@ private fun BoxScope.DayZoomChrome(
     }
 }
 
-/** InfoPill 第二行的内容：类型 · 尺寸 · 大小 ·（视频时长）。 */
+/**
+ * InfoPill 第二行：**文件夹 · 大小**。
+ *
+ * ---- 全 App 统一的胶囊规则 ----
+ * 胶囊只有一行、空间有限，所以**只放"日期 · 文件夹 · 大小"**这三样
+ * （日期在 primary 那一行）。分辨率、时长、地点、EXIF 这些一律留给详情面板 ——
+ * 硬塞进胶囊的结果是挤成一团再被省略号截断，等于什么都看不清。
+ * 用户明确要求过这条规则（1.3.66）。
+ */
 private fun dayPillSecondary(item: MediaItem): String = buildString {
-    // 开头给**文件夹**，不给"照片/视频"。
-    //
-    // 用户原话："底部的小字为什么会显示'照片'，有点多此一举，
-    // 这个应该显示具体的文件夹"。
-    // "照片"这一项在放大看单张的时候根本没有信息量 —— 用户已经知道自己在看照片，
-    // 而"在哪个相册里"才是他不点 `i` 展开就想知道的。
-    // 取不到文件夹（少数条目 bucket 为空）才退回类型标签，别整颗胶囊空掉。
     val bucket = item.bucket.trim()
-    if (bucket.isNotEmpty()) append(bucket) else append(dayKindLabel(item))
-    if (item.width > 0 && item.height > 0) {
+    if (bucket.isNotEmpty()) {
+        append(bucket)
         append(" · ")
-        append(item.width)
-        append(" × ")
-        append(item.height)
     }
-    append(" · ")
     append(formatSize(item.sizeBytes))
-    if (item.kind == MediaKind.VIDEO && item.durationMillis > 0L) {
-        append(" · ")
-        append(formatDuration(item.durationMillis))
-    }
 }
 
 /** 这一项到底是什么：实况 / 动图 / 视频 / 截屏 / 照片。 */

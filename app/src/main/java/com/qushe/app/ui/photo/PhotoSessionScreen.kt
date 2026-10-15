@@ -1149,13 +1149,14 @@ fun PhotoSessionScreen(
                         primary = relativeDayLabel(currentForInfo.dateTakenMillis),
                         // 有地点就先显示地点，没有就退回文件夹 —— 这一行总得有点有用的话。
                         // 后面固定跟上文件大小，占用空间是本应用的核心信息之一。
+                        // ---- 胶囊只放"日期 · 文件夹 · 大小"三样 ----
+                        // 地点、EXIF、分辨率这些留给详情面板：胶囊只有一行，
+                        // 塞进去会挤成一团、还得省略号截断（用户要求统一这条规则）。
                         secondary = buildString {
-                            if (!currentLocation.isNullOrBlank()) {
-                                append(currentLocation)
-                            } else if (currentForInfo.bucket.isNotBlank()) {
+                            if (currentForInfo.bucket.isNotBlank()) {
                                 append(currentForInfo.bucket)
+                                append(" · ")
                             }
-                            if (isNotEmpty()) append(" · ")
                             append(formatSize(currentForInfo.sizeBytes))
                         },
                         modifier = Modifier.align(Alignment.Center),
