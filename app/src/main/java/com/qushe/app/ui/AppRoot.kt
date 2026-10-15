@@ -275,6 +275,15 @@ fun AppRoot(container: AppContainer) {
     var syncQueue by remember { mutableStateOf(emptyList<MediaItem>()) }
     /** 该弹窗的那一批；非空时由 [addSyncer] 之后的弹出器消费。 */
     var pendingAddBatch by remember { mutableStateOf(emptyList<MediaItem>()) }
+    /**
+     * 批次序号，**只用来当 `LaunchedEffect` 的键**。
+     *
+     * ⚠️ 不能拿 `pendingAddBatch` 本身当键：弹出器在 effect 内部会把它清空，
+     * 那一下键就变了 ⇒ 协程被取消重启 ⇒ `addSyncer.launch()` 根本来不及执行，
+     * 或者执行到一半被打断。表现就是"点了同步什么都没发生"（用户反馈，
+     * 实测 shell 能写、Provider 也支持，所以问题一定在我们这一侧）。
+     */
+    var batchTick by remember { mutableIntStateOf(0) }
     /** 本轮总条数 / 已确认写入条数，只用于给用户一句进度。 */
     var syncTotal by remember { mutableIntStateOf(0) }
     var syncDone by remember { mutableIntStateOf(0) }
@@ -286,6 +295,14 @@ fun AppRoot(container: AppContainer) {
     /** 每次回到前台都重问一次系统（同步状态可能被别的应用改过）。 */
     LaunchedEffect(Unit) {
         pendingSync = container.sessions.pendingSyncCount()
+    }
+
+
+    /** 交一批给弹出器：改内容 + 递增序号。 */
+    fun requestAddBatch(batch: List<MediaItem>) {
+        if (batch.isEmpty()) return
+        pendingAddBatch = batch
+        batchTick++
     }
 
     val removeSyncer = rememberLauncherForActivityResult(
@@ -321,10 +338,11 @@ fun AppRoot(container: AppContainer) {
             val next = syncQueue.take(FAVORITE_BATCH)
             syncQueue = syncQueue.drop(FAVORITE_BATCH)
             if (next.isNotEmpty()) {
-                pendingAddBatch = next
+                requestAddBatch(next)
                 return@launch
             }
             syncQueue = emptyList()
+            Log.i(TAG, "全部批次结束：写入 $syncDone / $syncTotal")
 
             // 第二批（取消收藏）接着走
             val removes = syncRemoves
@@ -378,10 +396,13 @@ fun AppRoot(container: AppContainer) {
      * 必须放在 `addSyncer` **之后**：它要用 `addSyncer.launch`，
      * 而 Kotlin 的局部变量必须先声明后使用。
      */
-    LaunchedEffect(pendingAddBatch) {
+    LaunchedEffect(batchTick) {
+        // 键是 [batchTick]（每次要弹窗时 +1），**不是** `pendingAddBatch` 本身 ——
+        // 见 batchTick 的说明。
+        if (batchTick == 0) return@LaunchedEffect
         val batch = pendingAddBatch
         if (batch.isEmpty()) return@LaunchedEffect
-        pendingAddBatch = emptyList()
+        Log.i(TAG, "弹窗写入第 $batchTick 批，共 ${batch.size} 项")
         val sender = runCatching { container.repo.requestFavorite(batch, true) }
             .onFailure { Log.w(TAG, "系统拒绝了收藏请求", it) }
             .getOrNull()
@@ -392,7 +413,7 @@ fun AppRoot(container: AppContainer) {
         syncAdds = batch
         val launched = runCatching {
             addSyncer.launch(IntentSenderRequest.Builder(sender).build())
-        }.isSuccess
+        }.onFailure { Log.w(TAG, "无法启动系统确认弹窗", it) }.isSuccess
         if (!launched) {
             syncNotice = "无法启动系统确认弹窗，这台设备可能不支持收藏接口"
             syncAdds = emptyList()
@@ -418,9 +439,11 @@ fun AppRoot(container: AppContainer) {
             syncTotal = delta.toAdd.size
             syncDone = 0
             syncQueue = delta.toAdd
+            Log.i(TAG, "开始同步收藏：待写入 ${delta.toAdd.size} 项（每批 $FAVORITE_BATCH）")
             if (syncQueue.isNotEmpty()) {
-                pendingAddBatch = syncQueue.take(FAVORITE_BATCH)
+                val batch = syncQueue.take(FAVORITE_BATCH)
                 syncQueue = syncQueue.drop(FAVORITE_BATCH)
+                requestAddBatch(batch)
                 return@launch
             }
 
