@@ -284,6 +284,15 @@ fun AppRoot(container: AppContainer) {
      * 实测 shell 能写、Provider 也支持，所以问题一定在我们这一侧）。
      */
     var batchTick by remember { mutableIntStateOf(0) }
+    /**
+     * 时间格式（相对时间 / 具体日期）。
+     *
+     * **必须在这里存一份 state**：`prefs.relativeDates` 是 SharedPreferences 读，
+     * 不是 Compose 的可观察状态 —— 各页面直接读它的话，设置改完不会触发重组，
+     * 表现是"胶囊要切换几下才跟上"（用户反馈）。设置页改动时回调这里更新。
+     */
+    var relativeDates by remember { mutableStateOf(container.prefs.relativeDates) }
+
     /** 本轮总条数 / 已确认写入条数，只用于给用户一句进度。 */
     var syncTotal by remember { mutableIntStateOf(0) }
     var syncDone by remember { mutableIntStateOf(0) }
@@ -605,6 +614,7 @@ fun AppRoot(container: AppContainer) {
                             favoriteCount = container.sessions.favoriteCount()
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
+                        relativeDates = relativeDates,
                         autoSyncEnabled = false,
                         onRequestSync = {},
                         likeMode = true,
@@ -644,6 +654,7 @@ fun AppRoot(container: AppContainer) {
                             favoriteCount = container.sessions.favoriteCount()
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
+                        relativeDates = relativeDates,
                         autoSyncEnabled = container.prefs.autoSyncFavorites,
                         onRequestSync = { startFavoriteSync() },
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
@@ -671,6 +682,8 @@ fun AppRoot(container: AppContainer) {
                                 arrayOf(android.Manifest.permission.ACCESS_MEDIA_LOCATION)
                             )
                         },
+                        relativeDates = relativeDates,
+                        onRelativeDatesChange = { relativeDates = it },
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
                             // 只是由用户点一下触发 —— 两条路各自实现一遍必然漂移。

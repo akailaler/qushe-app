@@ -68,6 +68,9 @@ fun SettingsScreen(
     onSyncFavoritesNow: suspend () -> String,
     /** 还有多少项没写入系统相册。 */
     pendingFavoriteSync: Int,
+    /** 时间格式（相对时间 = true）。由外层持有 state，见 `AppRoot.relativeDates`。 */
+    relativeDates: Boolean,
+    onRelativeDatesChange: (Boolean) -> Unit,
 ) {
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
@@ -78,7 +81,6 @@ fun SettingsScreen(
     var railOnRight by remember { mutableStateOf(prefs.railOnRight) }
     var doubleTapLikes by remember { mutableStateOf(prefs.doubleTapLikes) }
     var showLocation by remember { mutableStateOf(prefs.showMediaLocation) }
-    var relativeDates by remember { mutableStateOf(prefs.relativeDates) }
 
     // 位置自检。三种失败（没授权 / 系统拒绝读该字段 / 内容本身没位置）
     // 在界面上的表现完全一样，所以这里主动查一次、把结论直接说出来。
@@ -168,7 +170,7 @@ fun SettingsScreen(
                         text = "相对时间",
                         selected = relativeDates,
                         onClick = {
-                            relativeDates = true
+                            onRelativeDatesChange(true)
                             prefs.relativeDates = true
                         },
                     )
@@ -176,7 +178,7 @@ fun SettingsScreen(
                         text = "具体日期",
                         selected = !relativeDates,
                         onClick = {
-                            relativeDates = false
+                            onRelativeDatesChange(false)
                             prefs.relativeDates = false
                         },
                     )
@@ -523,7 +525,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.70",
+                text = "取舍 1.3.71",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

@@ -112,6 +112,14 @@ fun FavoritesScreen(
      * 表现就是"刚收藏完，同步按钮还是灰的"。
      */
     onFavoritesChanged: () -> Unit,
+    /**
+     * 时间格式（相对时间 = true）。
+     *
+     * 由外层持有 state（见 `AppRoot.relativeDates`）—— **不能在这里直接读
+     * `prefs.relativeDates`**：SharedPreferences 读不是 Compose 的可观察状态，
+     * 设置改完不会触发重组，胶囊要切换几下才跟上（用户反馈）。
+     */
+    relativeDates: Boolean,
     autoSyncEnabled: Boolean,
     onRequestSync: () -> Unit,
     /** 详情面板里的地名；null = 没授权 / 没解析出来 / 还在读。 */
@@ -691,7 +699,7 @@ fun FavoritesScreen(
                     // 结果整行看过去胶囊并不在屏幕正中（用户反馈"没有居中"）。
                     InfoPill(
                         // 文案来自唯一来源（与另外两处同一套）
-                        primary = infoPillPrimary(item, container.prefs.relativeDates),
+                        primary = infoPillPrimary(item, relativeDates),
                         secondary = infoPillSecondary(item),
                         modifier = Modifier.align(Alignment.Center),
                         onClick = { detailItem = item },
