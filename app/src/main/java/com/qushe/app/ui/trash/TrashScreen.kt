@@ -296,7 +296,7 @@ fun TrashScreen(container: AppContainer) {
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     PreviewActionButton(
-                        label = "恢复到相册",
+                        label = "恢复",
                         accent = AccentKeep,
                         modifier = Modifier.weight(1f),
                     ) {

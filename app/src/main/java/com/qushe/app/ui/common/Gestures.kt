@@ -148,10 +148,16 @@ suspend fun Animatable<Float, AnimationVector1D>.flingTo(target: Float) {
 suspend fun Animatable<Float, AnimationVector1D>.settleToPage(target: Float) {
     animateTo(
         targetValue = target,
-        // visibilityThreshold = 1px：到位就算完成，别在终点上反复微调。
+        // ---- 刚度比"软弹簧"高一档，代价是到达时间明显变短 ----
+        // `onDecision` 是在这段动画**跑完之后**才换 index 的（换早了会出现
+        // "照片瞬移回正中"的跳变），所以这段动画的时长**直接等于换页的等待时间**。
+        // 用 `StiffnessMediumLow` 时走完一整屏要 400~600ms —— 单次滑动感觉不出来，
+        // 连续滑动就变成"滑一张要等一下才能滑下一张"（用户反馈）。
+        // 换成 `StiffnessMedium` + `visibilityThreshold = 24px`：
+        // 速度依然连续（还是弹簧），等待缩到 ~300ms。
         animationSpec = spring(
-            stiffness = Spring.StiffnessMediumLow,
-            visibilityThreshold = 1f,
+            stiffness = Spring.StiffnessMedium,
+            visibilityThreshold = 24f,
         ),
     )
 }
