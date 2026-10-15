@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -359,25 +360,26 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
             (TRASH_RETENTION_DAYS.toInt() - used).coerceIn(0, TRASH_RETENTION_DAYS.toInt())
         }
         if (daysLeft != null) {
-            Box(
+            // 只留文字，不加底色块（用户要求）。底色块在 1/3 列的格子里
+            // 又占地方又显脏；可读性靠**文字自身的描边阴影**来保 ——
+            // 浅色缩略图上也能看清，而且不遮内容。
+            Text(
+                // 角标只留数字，单位已经在语境里了（回收站页 + 左上角位置）。
+                text = when (daysLeft) {
+                    0 -> "今天到期"
+                    else -> "$daysLeft 天"
+                },
+                style = MaterialTheme.typography.labelSmall,
+                color = if (daysLeft <= 3) AccentDelete else Color.White,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(3.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xB3000000))
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
-            ) {
-                Text(
-                    // 角标只留数字，单位已经在语境里了（回收站页 + 左上角位置）。
-                    // 「还剩」两个字在 1/3 列的格子里会把数字挤到换行。
-                    text = when (daysLeft) {
-                        0 -> "今天到期"
-                        else -> "$daysLeft 天"
-                    },
-                    style = MaterialTheme.typography.labelSmall,
-                    color = if (daysLeft <= 3) AccentDelete else TextPrimary,
-                )
-            }
+                    .padding(5.dp)
+                    .shadow(
+                        elevation = 3.dp,
+                        shape = RoundedCornerShape(2.dp),
+                        clip = false,
+                    ),
+            )
         }
         val tag = when {
             item.kind == MediaKind.VIDEO && item.durationMillis > 0L ->

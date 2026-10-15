@@ -62,6 +62,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -774,7 +775,23 @@ fun PhotoSessionScreen(
                 onDragDir = { d -> if (pageDir != d) pageDir = d },
                 // 放大态把单指手势整条让给 ZoomableImage —— 否则长图放大后拖不动
                 zoomed = zoomed,
-                onTap = { chromeHidden = !chromeHidden },
+                // ---- 单击：chrome 与胶片栏**同进同退** ----
+                //
+                // 用户原话："应该把 chrome 的显隐逻辑都和胶片栏看齐"。
+                // 之前两者是两套开关（`chromeHidden` 只管图标、`filmstripVisible`
+                // 只管胶片条），点一下只动一边 ⇒ 看起来像"没反应"。
+                //
+                // 三态循环，用胶片栏当前状态当指针：
+                //   ① 胶片栏收 + chrome 显（默认，专注看当前这张）
+                //   ② 胶片栏展 + chrome 显（要看全貌）
+                //   ③ 胶片栏收 + chrome 隐（沉浸，屏幕上什么都不留）
+                // 再点一次回到 ①。
+                onTap = {
+                    val showFilmstrip = !filmstripVisible
+                    filmstripVisible = showFilmstrip
+                    // 收起胶片栏时顺手把 chrome 也收掉 —— 这才是"点一下进沉浸"。
+                    chromeHidden = !showFilmstrip
+                },
                 onDecision = { decision ->
                     if (decision != SwipeDecision.NEXT) pageDir = 0
                     when (decision) {
@@ -849,8 +866,9 @@ fun PhotoSessionScreen(
                             null
                         }
                     },
-                    // 单击展开/收起胶片条（用户要求：单击才弹出，再单击收起）
-                    onSingleTap = { filmstripVisible = !filmstripVisible },
+                    // 单击**不**在这里处理：它要和双击判定共存，必然延后 280ms，
+                    // 手感是钝的，而且会和下面 [onTap] 那条路互相抵消。
+                    // 单击统一走 DraggablePhoto 的"没拖过"分支（松手当帧判定）。
                     // 长按播放实况片段，与 iOS 相册的习惯一致
                     onLongPressStart = if (looksLikeMotion) {
                         { startMotionPlayback(current) }
@@ -1335,6 +1353,16 @@ private fun DraggablePhoto(
     // 所以 pointerInput 内部拿不到 launch —— 必须自己带一个进来。
     val scope = rememberCoroutineScope()
 
+    // ★ `zoomed` 必须用 state 转发，不能直读。
+    //
+    // 下面那个 `pointerInput(item.storeKey())` 的闭包**只在换照片时重启**，
+    // 直读参数拿到的是**首次组合时**的值（永远是 false）⇒
+    // "放大态放行单指"那段代码从来没执行过，长图放大后照样拖不动
+    // （用户实测"还是不能上下拖"）。同理 `onTap` 也要转发，
+    // 否则调用点之后改了什么，这里都还在用旧值。
+    val zoomedState = rememberUpdatedState(zoomed)
+    val tapState = rememberUpdatedState(onTap)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1374,7 +1402,7 @@ private fun DraggablePhoto(
                     // 放大态：这一层**一个事件都不消费**，单指拖动整个让给
                     // `ZoomableImage`（它才是"放大后拖动看细节"的那个）。
                     // 第二根手指照旧走下面的 multiTouch 分支去捏合。
-                    if (zoomed) {
+                    if (zoomedState.value) {
                         val pointerId = down.id
                         while (true) {
                             val ev = awaitPointerEvent()
@@ -1497,7 +1525,7 @@ private fun DraggablePhoto(
                         // 摸上去是"钝"的。而这里在松手当帧就能判定。
                         // 双击时这里会被调用两次（净效果为零），正好互不干扰 ——
                         // 和瀑布流放大页（`DayZoomView`）用的是同一套分工。
-                        if (!multiTouch) onTap()
+                        if (!multiTouch) tapState.value.invoke()
                         return@awaitEachGesture
                     }
 
