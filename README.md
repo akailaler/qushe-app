@@ -35,10 +35,31 @@
 
 **当前稳定版：`v1.3.54`（git tag）** —— 用户评价「比较完美」，后续以此为回归基准。
 
-APK 已随工程提供：`qushe-v1.3.64-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.65-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.65**（长图放大清晰度 + 收藏/喜欢页预览的详细信息）
+
+1. **"长图放大后不够清晰"—— 是 1.3.62 去掉 `contentRatio` 的连带后果**。
+   `decodeSize`（决定 Coil 解码多大）的条件是 `knownRatio != null`，
+   而 `knownRatio` 就是 `contentRatio`。去掉之后 `decodeSize = null`
+   ⇒ Coil **按容器尺寸（1080×2400）解码** ⇒ 放大 2x 就是 2 倍插值，必然糊。
+   当时只顾着放开放大上限，没意识到 `contentRatio` 还管着解码。
+
+   现在给 `ZoomableImage` 加 `sourceSize`（媒体的原始像素）：解码尺寸
+   `min(容器 × 放大上限, 原图)`。长图 1080×5400 / 容器 1080×2400 时
+   从荒谬的 `8640×19200`（Coil 只能 clamp，白跑一趟）变成 `1080×5400`
+   —— 正好原图，**放大到原始像素这一段一定是清晰的**。
+   整理页和预览页都传。
+   （再往大放仍是插值，那是物理上限，不是 bug。）
+2. **喜欢页 / 收藏页预览的底部加「ⓘ 详情」**，和整理照片页共用
+   `PhotoDetailContent`。面板走 `MediaPreviewOverlay` 的 `overlayContent`
+   （**同一个 Dialog 窗口**）—— 用 ModalBottomSheet 会被那个窗口压住，
+   这正是当初日期视图"打开了却看不见"的原因。
+   为此把 `overlayContent` 的类型从 `() -> Unit` 改成 `BoxScope.() -> Unit`，
+   调用方才有 `align` 可用。
 
 **1.3.64**（收藏同步的副作用修掉 + 设置页手动同步 + 回顾计数拆成照片/视频）
 
