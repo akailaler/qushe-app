@@ -172,6 +172,19 @@ fun ZoomableImage(
      */
     onPinchToDateProgress: ((Float) -> Unit)? = null,
     /**
+     * 这张图的**原始像素尺寸**（媒体的 width/height）。
+     *
+     * 只用来给解码尺寸封顶：`decodeSize` 原本是"容器 × 放大上限"，
+     * 而放大上限可能远大于原图（长图不传 `contentRatio` 时上限是 8），
+     * 于是会向 Coil 请求一个比原图大好几倍的荒谬尺寸 ——
+     * 轻则被 clamp（白跑一趟），重则解码失败回落到容器尺寸，
+     * **放大之后就是插值的糊图**（用户反馈"长图放大后看的不够清晰"）。
+     *
+     * 有原图尺寸时按它封顶：解码最多到原图大小，
+     * "放大到原始像素"这一段一定是清晰的，再往大才是插值（物理上无法更清楚）。
+     */
+    sourceSize: IntSize? = null,
+    /**
      * 图片自身四角的圆角（1x 时）。放大后图片会超出这个圆角，
      * 那时就不再裁 —— 否则放大看到的是"圆角里的一块方图"，很怪。
      */
@@ -320,15 +333,23 @@ fun ZoomableImage(
     val uri = model as? Uri
 
     val knownRatio = ratioState.value
-    val decodeSize = remember(container, knownRatio) {
-        if (knownRatio == null || knownRatio <= 0f) return@remember null
+    val decodeSize = remember(container, knownRatio, sourceSize) {
         if (container.width <= 0 || container.height <= 0) return@remember null
+        // 放大上限。没传 `contentRatio` 时它就是 `maxScale`（可能 8 倍）——
+        // 那时候必须靠 `sourceSize` 封顶，否则解码尺寸会远超原图。
         val cap = effectiveMax(container)
-        if (cap <= 1.01f) return@remember null
-        IntSize(
-            (container.width * cap).roundToInt().coerceAtLeast(1),
-            (container.height * cap).roundToInt().coerceAtLeast(1),
-        )
+        val w = (container.width * cap).roundToInt().coerceAtLeast(1)
+        val h = (container.height * cap).roundToInt().coerceAtLeast(1)
+        val capped = sourceSize?.let { src ->
+            // 容器是 1080x2400、长图原图 1080x5400 时：
+            // 不封顶 → 8640x19200（Coil 只能 clamp，白跑）；封顶 → 1080x5400（正好原图）。
+            IntSize(w.coerceAtMost(src.width.coerceAtLeast(1)), h.coerceAtMost(src.height.coerceAtLeast(1)))
+        } ?: IntSize(w, h)
+        // 封顶之后可能已经小于容器 —— 那就没有"放大后要更清楚"这件事，按容器解。
+        if (capped.width <= container.width && capped.height <= container.height) {
+            return@remember null
+        }
+        capped
     }
 
     /**

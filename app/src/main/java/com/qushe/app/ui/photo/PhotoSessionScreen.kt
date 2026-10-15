@@ -869,6 +869,12 @@ fun PhotoSessionScreen(
                     // （那里也没传，用户实测长图可以自由查看）。代价是可能拖出
                     // 一丁点黑边 —— 那比"看不了细节"好得多。
                     contentRatio = null,
+                    // 解码尺寸按原图封顶：长图放大时不会因为请求了荒谬尺寸而糊掉
+                    sourceSize = if (current.width > 0 && current.height > 0) {
+                        androidx.compose.ui.unit.IntSize(current.width, current.height)
+                    } else {
+                        null
+                    },
                     // ---- 单击：推进 chrome 三态 ----
                     //
                     // **必须交给 [detectTapsWithoutConsuming] 判**：那里已经内置

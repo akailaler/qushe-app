@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -158,7 +159,7 @@ fun MediaPreviewOverlay(
      *
      * 所以要盖在预览上面，就必须由这里往同一个窗口里塞。
      */
-    overlayContent: (@Composable () -> Unit)? = null,
+    overlayContent: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     if (items.isEmpty()) return
 

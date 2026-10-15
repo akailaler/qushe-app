@@ -42,6 +42,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import com.qushe.app.ui.photo.PhotoDetailContent
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -113,6 +118,14 @@ fun FavoritesScreen(
     var items by remember { mutableStateOf(emptyList<MediaItem>()) }
     var loading by remember { mutableStateOf(true) }
     var previewIndex by remember { mutableStateOf<Int?>(null) }
+
+    // ---- 预览里的「ⓘ」详细信息 ----
+    //
+    // 和整理照片页共用 [PhotoDetailContent]。面板必须走
+    // `MediaPreviewOverlay` 的 `overlayContent`（**同一个 Dialog 窗口**）——
+    // 用 ModalBottomSheet 会被那个窗口整个压住，
+    // 这正是日期视图当初"打开了却什么都看不见"的原因。
+    var detailItem by remember { mutableStateOf<MediaItem?>(null) }
 
     // ---- 预览里的标记（喜欢 / 收藏）当场生效，列表等退出浏览才刷新 ----
     //
@@ -544,6 +557,35 @@ fun FavoritesScreen(
                         introImageSize = dayIntroSize,
                     )
                 }
+
+                // ---- 详细信息面板（和整理照片页那颗 i 同一份内容）----
+                detailItem?.let { detail ->
+                    // 点面板外面关闭；面板本身吃掉点击，否则点里面任何位置都会关掉它。
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(Color(0xB3000000))
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                            ) { detailItem = null },
+                    )
+                    Column(
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(18.dp))
+                            .background(Surface2)
+                            .clickable(
+                                indication = null,
+                                interactionSource = remember { MutableInteractionSource() },
+                            ) {}
+                            .padding(20.dp)
+                            .verticalScroll(rememberScrollState()),
+                    ) {
+                        PhotoDetailContent(item = detail, exif = null, locationName = null)
+                    }
+                }
             },
             // 默认静音是全 App 级设置：预览里播的视频同样不外放。
             videoMutedByDefault = container.prefs.videoMuted,
@@ -611,6 +653,15 @@ fun FavoritesScreen(
                             val key = item.storeKey()
                             pendingDelete = if (doomed) pendingDelete - key
                             else pendingDelete + key
+                        }
+                        // 详细信息：和整理照片页那颗 i 是同一份内容
+                        Spacer(Modifier.width(10.dp))
+                        RoundActionButton(
+                            icon = Icons.Filled.Info,
+                            label = "详情",
+                            tint = TextPrimary,
+                        ) {
+                            detailItem = item
                         }
                     }
                 }
