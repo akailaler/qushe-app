@@ -33,10 +33,33 @@
 - `lintDebug` — **0 错误、0 警告**
 - 产出的 APK 已通过 `apkanalyzer` 校验（`com.qushe.app` / minSdk 30 / targetSdk 35）
 
-APK 已随工程提供：`qushe-v1.3.50-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供：`qushe-v1.3.51-debug.apk`（约 33 MB，debug 签名，可直接安装）。
 
 
 ### 更新日志
+
+**1.3.51**（Dialog 里日期视图底部被切 + 接缝改对地方 + 双击动画补渲染 + 纳入 git）
+
+1. **「刻度条和按钮只显示上半部分」= 整体偏下，而且偏得比一个状态栏更多**。
+   承接上一条：预览那个 `Dialog` 的内容框**并不与屏幕重合** ——
+   顶边在状态栏下沿，**底边还越过屏幕下沿**（这段实测就写在 `MediaPreviewOverlay` 里）。
+   `DayViewScreen` 用 `fillMaxSize`，填的是**窗口**而不是屏幕，底部那截直接跑到屏幕外。
+   现在 `overlayContent` 显式给"屏幕上还看得见的那一段"高度（`屏幕高 − 窗口顶边`），
+   顶边不动（Dialog 里 `statusBarsPadding()` 读到 0，窗口那点偏移正好补上）。
+2. **接缝改对地方**：缩略图网格**回到 4.dp**（密集小图的间距，和大图接缝不是一回事），
+   `rememberPageGap()` 改加在**预览左右翻页的大图之间**（`HorizontalPager(pageSpacing = …)`）。
+   现在三处同一个值：瀑布流格子 / 整理页翻页接缝 / 预览大图接缝。
+3. **瀑布流放大后的双击动画上一版根本没渲染** —— 状态会切、但什么都不显示
+   （插入锚点没匹配上，脚本静默失败了）。已补在 chrome 之后，也就是最上层。
+4. **纳入 git 版本控制**（见下）。
+
+**工程已建立 git 仓库**（`qushe-android/.git`）：
+- 首次提交 `34aa660`，1.3.51 为 `dd51aa2`
+- `.gitignore` 排除 `build/`、`.gradle/`、`.kotlin/`、`local.properties`（含本机 SDK 路径）、
+  `*.apk`（散落 38 个共 1.2 GB）、以及 `*.jks`/`*.keystore` 等签名材料
+- `.gitattributes` 统一按 LF 存取，避免 Windows 上满仓库 CRLF 差异
+- 仓库当前 56 个文件 / 约 536 KB
+- **尚未推送到远端**（需要你决定推到哪、以及是否要我配好凭据）
 
 **1.3.50**（收藏/喜欢页的「回到那天」真正修好 + 网格接缝 + 瀑布流放大后双击喜欢）
 
