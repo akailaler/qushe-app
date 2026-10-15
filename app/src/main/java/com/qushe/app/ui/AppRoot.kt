@@ -173,7 +173,18 @@ fun AppRoot(container: AppContainer) {
     // 侧边返回手势：不在「整理」页时先退回整理页，而不是直接退出应用。
     // 这一段必须声明在会话/预览之前 —— Compose 的返回回调是后注册者优先，
     // 会话页和预览层各自注册的处理会自然地盖住这里。
-    BackHandler(enabled = tab != Tab.Review) { tab = Tab.Review }
+    // ---- 侧边返回手势：必须走 goToTab，不能只改 tab ----
+    //
+    // 原来这里写的是 `tab = Tab.Review`：底栏读 `tab` ⇒ 选中态立刻变成"首页"，
+    // 而 **pager 根本没动** ⇒ 上面的内容还停在这一页。
+    // 用户反馈"底部导航栏回到了首页，但上面的部分并没有回到首页"，
+    // 症状和原因都正好对上。`goToTab` 里是"`tab` + `scrollToPage`"两件事一起做。
+    //
+    // 判据也一并改成看 **pager 当前页**：停在「喜欢」那一页时 `tab` 本来就是 Review，
+    // 用 `tab` 判断会让返回手势直接失效（应该回到首页，而不是退出应用）。
+    BackHandler(enabled = pagerState.currentPage != Tab.Review.ordinal + 1) {
+        goToTab(Tab.Review)
+    }
 
     LaunchedEffect(syncNotice) {
         if (syncNotice != null) {
@@ -475,14 +486,17 @@ fun AppRoot(container: AppContainer) {
         ) { padding ->
             HorizontalPager(
                 state = pagerState,
-                // ---- 提前把相邻页组合好 ----
+                // ---- 这里**刻意不开** `beyondViewportPageCount` ----
                 //
-                // 默认只组合当前页，于是"从首页滑向收藏页"这一下，
-                // 收藏页的网格、设置页那一长列都要在**手势进行中**现组合 + 现测量，
-                // 掉帧就在这里（用户反馈"首页左右滑动到其他页面感觉有些卡顿"）。
-                // 改成 1 之后这些成本挪到"你还没开始滑"的时候，
-                // 滑动过程里只做绘制位移 ⇒ 手感顺。5 页规模，多组合一页代价可忽略。
-                beyondViewportPageCount = 1,
+                // 试过设成 1（提前把相邻页组合好），确实能减轻"滑过去那一帧"的组合压力，
+                // 但代价更大：启动时**同时**组合三页（喜欢 + 首页 + 收藏），
+                // 其中两页都是缩略图网格、各自还要查一次 MediaStore ——
+                // 于是后台一直在解码/查询，正要画的那一帧就得和它们抢资源。
+                // 症状是"从喜欢页往右滑到首页"比以前更卡（用户反馈 1.3.56 撤回）。
+                //
+                // 真正的解法是**把那两页本身做轻**（设置页已改成 LazyColumn），
+                // 而不是靠多养一页来抢帧。剩下网格页首屏的成本，
+                // 需要拿录屏逐帧量才知道值不值得再动，先不猜。
                 // 在空白区域左右滑就能切页。内容里的竖向列表不受影响；
                 // 横向可滚动的子元素（比如缩略图条）会自己把手势消费掉，不会误触翻页。
                 modifier = Modifier.fillMaxSize().padding(padding),
