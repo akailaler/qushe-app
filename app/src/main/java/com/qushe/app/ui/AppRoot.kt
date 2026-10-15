@@ -126,6 +126,15 @@ fun AppRoot(container: AppContainer) {
     // 把「喜欢」当成"首页左边的一页"，是这里最省事的解法 ——
     // 这样"在首页右滑进入喜欢"天然成立，而四个 tab 之间的左右滑也不冲突，
     // 一个 Pager 就把两件事一起解决了，不需要额外的手势判断。
+    // `beyondViewportPageCount = 1`：**提前把相邻页组合好**。
+    //
+    // 默认是 0 —— 只组合当前页。于是"从首页滑向收藏页"这一下，
+    // 收藏页的网格、设置页那一长列都要在**手势进行中**现组合 + 现测量，
+    // 掉帧就在这里（用户反馈"首页左右滑动到其他页面感觉有些卡顿"）。
+    //
+    // 改成 1 之后：那些成本挪到"你还没开始滑"的时候（停留时组合），
+    // 滑动过程里只做绘制位移 ⇒ 手感顺。
+    // 5 页的规模，多组合一页的内存代价可以忽略。
     val pagerState = rememberPagerState(initialPage = Tab.Review.ordinal + 1, pageCount = { 5 })
     val pagerScope = rememberCoroutineScope()
 
@@ -466,6 +475,14 @@ fun AppRoot(container: AppContainer) {
         ) { padding ->
             HorizontalPager(
                 state = pagerState,
+                // ---- 提前把相邻页组合好 ----
+                //
+                // 默认只组合当前页，于是"从首页滑向收藏页"这一下，
+                // 收藏页的网格、设置页那一长列都要在**手势进行中**现组合 + 现测量，
+                // 掉帧就在这里（用户反馈"首页左右滑动到其他页面感觉有些卡顿"）。
+                // 改成 1 之后这些成本挪到"你还没开始滑"的时候，
+                // 滑动过程里只做绘制位移 ⇒ 手感顺。5 页规模，多组合一页代价可忽略。
+                beyondViewportPageCount = 1,
                 // 在空白区域左右滑就能切页。内容里的竖向列表不受影响；
                 // 横向可滚动的子元素（比如缩略图条）会自己把手势消费掉，不会误触翻页。
                 modifier = Modifier.fillMaxSize().padding(padding),
