@@ -41,6 +41,7 @@ import com.qushe.app.core.MediaKind
 import com.qushe.app.core.Stats
 import com.qushe.app.core.formatSize
 import com.qushe.app.ui.theme.AccentDelete
+import com.qushe.app.ui.theme.AccentFolder
 import com.qushe.app.ui.theme.AccentInfo
 import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.AccentPurple
@@ -148,40 +149,21 @@ fun HomeScreen(
 
         Spacer(Modifier.height(10.dp))
 
-        // ---- 按文件夹挑一批 ----
+        // ---- 整理某个文件夹 ----
         //
-        // 整库随机抽适合"随便刷刷"，但下载目录、聊天软件保存的图各有各的堆法，
-        // 「把这个文件夹清一遍」是另一类很实际的需求。
-        // 做成低调的一行（不是第四个 EntryCard）：它是入口的补充，不该和三个主入口抢注意力。
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(16.dp))
-                .background(Color(0x14FFFFFF))
-                .clickable(enabled = photoAllowed || videoAllowed) { folderSheet = true }
-                .padding(horizontal = 16.dp, vertical = 13.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = "按文件夹挑一批",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (photoAllowed || videoAllowed) TextPrimary else TextSecondary,
-                    fontWeight = FontWeight.Medium,
-                )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    text = "只清一个文件夹，比如 Download、Pictures/Twitter",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextTertiary,
-                )
-            }
-            Text(
-                text = "›",
-                style = MaterialTheme.typography.titleMedium,
-                color = TextTertiary,
-            )
-        }
+        // 和上面三个**同一套视觉与文案结构**：它们是并列的四种"开一组"的方式，
+        // 不是"三个主入口 + 一个附属入口"。早先做成了低调的一行，
+        // 结果看起来像另一类东西（用户反馈）。
+        // 没有数量概念（它背后是"挑哪个文件夹"，不是"共有多少条"），所以关掉右侧计数。
+        EntryCard(
+            title = "整理文件夹",
+            subtitle = "挑一个文件夹单独清，比如 Download、Pictures/Twitter",
+            count = null,
+            enabled = photoAllowed || videoAllowed,
+            accent = AccentFolder,
+            showCount = false,
+            onClick = { folderSheet = true },
+        )
 
         Spacer(Modifier.height(28.dp))
 
@@ -240,6 +222,8 @@ private fun EntryCard(
     count: Int?,
     enabled: Boolean,
     accent: Color,
+    /** false = 这类入口背后没有"多少条"的概念（比如「整理文件夹」）。 */
+    showCount: Boolean = true,
     onClick: () -> Unit,
 ) {
     Row(
@@ -284,16 +268,18 @@ private fun EntryCard(
         // 数量。**null = 还在数**，显示 `…` 而不是 `0` ——
         // 否则首页一进来先闪一个"0"再跳成真实数字（用户报的观感问题）。
         // 真的数出来是 0（设备里确实没有照片）才显示 "0"。
-        Text(
-            text = when {
-                !enabled -> "—"
-                count == null -> "…"
-                else -> count.toString()
-            },
-            style = MaterialTheme.typography.titleLarge,
-            color = if (enabled) accent else TextTertiary,
-            fontWeight = FontWeight.Medium,
-        )
+        if (showCount) {
+            Text(
+                text = when {
+                    !enabled -> "—"
+                    count == null -> "…"
+                    else -> count.toString()
+                },
+                style = MaterialTheme.typography.titleLarge,
+                color = if (enabled) accent else TextTertiary,
+                fontWeight = FontWeight.Medium,
+            )
+        }
     }
 }
 

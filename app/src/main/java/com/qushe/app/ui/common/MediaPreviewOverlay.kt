@@ -88,6 +88,17 @@ import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.platform.LocalViewConfiguration
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.layout.onSizeChanged
+import kotlinx.coroutines.launch
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import com.qushe.app.ui.common.flingTo
 
 /**
  * 全屏媒体预览。
@@ -109,6 +120,12 @@ import kotlinx.coroutines.delay
  *    VerticalPager（竖滑），横滑才空闲，给快进；混排时翻页走
  *    HorizontalPager，横滑归它。强行两个都挂会让翻页时灵时不灵。
  */
+/** 下滑退出：滑过多少屏高算数（和 `DayZoomView` 同一档手感）。 */
+private const val PREVIEW_DISMISS_FRACTION = 0.22f
+
+/** 下滑退出：甩动速度门槛（px/s）。只判距离的话，快速一甩会判成"没到"，每次都弹回去。 */
+private const val PREVIEW_DISMISS_FLING = 1200f
+
 @Composable
 fun MediaPreviewOverlay(
     items: List<MediaItem>,
@@ -428,9 +445,95 @@ fun MediaPreviewOverlay(
     var windowTopPx by remember { mutableIntStateOf(0) }
     var screenHeightPx by remember { mutableIntStateOf(0) }
 
+    // ---- 下滑退出 ----
+    //
+    // 和瀑布流点开大图（`DayZoomView`）同一套手感：跟手位移 + 同时淡出，
+    // 松手时**距离够 或 甩得够快**都算退出，否则弹回。阈值也沿用那边（0.22 屏高 / 1200px/s）。
+    //
+    // ⚠️ 这一屏里还有 `HorizontalPager`（左右翻页）和 `ZoomableImage`（放大后拖动看局部），
+    // 所以认领手势前必须过三道关，否则会把它们全吃掉：
+    //   ① 越过 touchSlop 后判**主轴** —— 横向优先的一律放手（交给 pager）；
+    //   ② 只有**向下**才归我（向上放手）；
+    //   ③ `change.isConsumed` 为真 ⇒ 子节点已在处理（放大态的 `ZoomableImage`
+    //      会消费竖直拖动），立刻放手。子节点在 Main pass 里先拿到事件，
+    //      所以这个判断是可靠的 —— 比额外维护一个 zoomed 状态更不会漏。
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val viewConfiguration = LocalViewConfiguration.current
+    val dismissY = remember { Animatable(0f) }
+    var boxHeightPx by remember { mutableFloatStateOf(0f) }
+    var dismissing by remember { mutableStateOf(false) }
+    val dismissThresholdPx = maxOf(
+        boxHeightPx * PREVIEW_DISMISS_FRACTION,
+        with(density) { 120.dp.toPx() },
+    )
+    val fadeP = if (dismissThresholdPx <= 0f) 0f
+    else (dismissY.value / dismissThresholdPx).coerceIn(0f, 1f)
+
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .onSizeChanged { boxHeightPx = it.height.toFloat() }
+            .pointerInput(boxHeightPx) {
+                val slop = viewConfiguration.touchSlop
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val tracker = VelocityTracker()
+                    tracker.addPosition(down.uptimeMillis, down.position)
+                    val startY = down.position.y
+                    val startX = down.position.x
+                    var lastY = startY
+                    // 本次手势内自己累加，`snapTo` 写绝对值 —— 增量式写法会丢帧。
+                    var dragY = 0f
+                    var claimed = false
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val pressed = event.changes.filter { it.pressed }
+                        if (pressed.isEmpty()) break
+                        // 第二根手指 / 子节点已消费 ⇒ 放手（捏合、放大后拖动都归子节点）
+                        if (pressed.size >= 2) break
+                        val change = pressed.first { it.id == down.id }
+                        if (change.isConsumed) break
+                        tracker.addPosition(change.uptimeMillis, change.position)
+                        val totalY = change.position.y - startY
+                        val totalX = change.position.x - startX
+                        if (!claimed) {
+                            if (kotlin.math.abs(totalY) <= slop) continue
+                            // ① 主轴是横向 ⇒ 放手，交给 pager
+                            if (kotlin.math.abs(totalX) > kotlin.math.abs(totalY)) break
+                            // ② 只有向下算"退出"
+                            if (totalY <= 0f) break
+                            claimed = true
+                            dragY = totalY
+                            scope.launch { dismissY.snapTo(dragY) }
+                        } else {
+                            dragY += change.position.y - lastY
+                            scope.launch { dismissY.snapTo(dragY) }
+                        }
+                        lastY = change.position.y
+                        change.consume()
+                    }
+                    if (!claimed || dismissing) return@awaitEachGesture
+                    val flung = tracker.calculateVelocity().y >= PREVIEW_DISMISS_FLING
+                    if (dismissY.value >= dismissThresholdPx || flung) {
+                        dismissing = true
+                        scope.launch {
+                            dismissY.flingTo(maxOf(boxHeightPx, 1f) * 1.15f)
+                            onDismiss()
+                        }
+                    } else {
+                        scope.launch {
+                            dismissY.animateTo(0f, spring(stiffness = Spring.StiffnessMediumLow))
+                        }
+                    }
+                }
+            }
+            // alpha/位移写在 `background` **之前**：`Modifier.background` 只影响它
+            // 之后的那截链 —— 反过来写的话黑底在 alpha 层外面，永远不透明。
+            .graphicsLayer {
+                translationY = dismissY.value
+                alpha = 1f - fadeP
+            }
             .background(Color.Black)
             // ---- 校正量在这里**每次布局后都重读一次** ----
             //

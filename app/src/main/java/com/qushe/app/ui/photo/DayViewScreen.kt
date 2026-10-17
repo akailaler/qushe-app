@@ -277,8 +277,9 @@ fun DayViewScreen(
     dayStart: Long,
     /** 进来时瞄准的那张（用户在整理页正看着的）。null = 从头开始。 */
     focusItem: MediaItem?,
-    /** 「i」胶囊第一行用相对时间还是具体日期（透传设置）。 */
+    /** 「i」胶囊是否显示相对时间 / 具体日期（透传设置）。 */
     relativeDates: Boolean = true,
+    absoluteDates: Boolean = false,
     /** 已经被标记删除的项（[MediaItem.storeKey] 集合）—— 这些不再出现在瀑布流里。 */
     markedKeys: Set<Long>,
     /** true = 上滑删除；false = 上滑收藏。和整理页共用同一条设置。 */
@@ -525,6 +526,8 @@ fun DayViewScreen(
             // 所以这里挂一个 tick；「读仓库」只在这一处发生。
             val zoomedItem = shown[at]
             DayZoomView(
+                relativeDates = relativeDates,
+                absoluteDates = absoluteDates,
                 item = zoomedItem,
                 isFavorite = remember(zoomedItem.storeKey(), zoomActionTick) {
                     isFavorite(zoomedItem)
@@ -2692,6 +2695,9 @@ private fun DayZoomView(
     onToggleLike: (() -> Unit)?,
     isFavorite: Boolean,
     isLiked: Boolean,
+    /** 胶囊第一行是否显示相对时间 / 具体日期（透传设置）。 */
+    relativeDates: Boolean = true,
+    absoluteDates: Boolean = false,
     onClose: () -> Unit,
 ) {
     var chromeVisible by remember { mutableStateOf(true) }
@@ -2965,6 +2971,8 @@ private fun DayZoomView(
                     onToggleLike = onToggleLike,
                     isFavorite = isFavorite,
                     isLiked = isLiked,
+                    relativeDates = relativeDates,
+                    absoluteDates = absoluteDates,
                 )
             }
         }
@@ -2993,6 +3001,8 @@ private fun BoxScope.DayZoomChrome(
     onToggleLike: (() -> Unit)?,
     isFavorite: Boolean,
     isLiked: Boolean,
+    relativeDates: Boolean,
+    absoluteDates: Boolean,
 ) {
     // 顶栏：日期居中
     Row(
@@ -3062,8 +3072,8 @@ private fun BoxScope.DayZoomChrome(
             }
             InfoPill(
                 // 文案来自唯一来源（与整理照片页、收藏页预览同一套）
-                primary = infoPillPrimary(item),
-                secondary = infoPillSecondary(item),
+                primary = infoPillPrimary(item, relativeDates, absoluteDates),
+                secondary = infoPillSecondary(item, relativeDates, absoluteDates),
                 modifier = Modifier.align(Alignment.Center),
                 onClick = onToggleExpanded,
             )

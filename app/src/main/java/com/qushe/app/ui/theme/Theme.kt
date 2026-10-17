@@ -21,6 +21,15 @@ val AccentInfo = Color(0xFF6BA8FF)
 /** 截屏分类的强调色。 */
 val AccentPurple = Color(0xFFAFA9EC)
 
+/**
+ * 「按文件夹挑」用的强调色。
+ *
+ * 前四个色已经和内容类型绑定了（绿=照片、紫=截屏、蓝=视频、红=删除）。
+ * 文件夹不是"另一类内容"，而是"另一种抽取方式"，所以给它一个独立的色 ——
+ * 复用上面任何一个都会和已有含义打架。
+ */
+val AccentFolder = Color(0xFFF0B65C)
+
 val Ink = Color(0xFF0B0B0D)
 val Surface1 = Color(0xFF16161A)
 val Surface2 = Color(0xFF1F1F25)

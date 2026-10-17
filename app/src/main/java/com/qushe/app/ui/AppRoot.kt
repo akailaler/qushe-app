@@ -293,6 +293,9 @@ fun AppRoot(container: AppContainer) {
      */
     var relativeDates by remember { mutableStateOf(container.prefs.relativeDates) }
 
+    /** 显示具体日期（与相对时间是两个独立开关，四种组合都合法）。 */
+    var absoluteDates by remember { mutableStateOf(container.prefs.absoluteDates) }
+
     /** 本轮总条数 / 已确认写入条数，只用于给用户一句进度。 */
     var syncTotal by remember { mutableIntStateOf(0) }
     var syncDone by remember { mutableIntStateOf(0) }
@@ -625,7 +628,7 @@ fun AppRoot(container: AppContainer) {
                             favoriteCount = container.sessions.favoriteCount()
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
-                        relativeDates = relativeDates,
+                        relativeDates = relativeDates, absoluteDates = absoluteDates,
                         autoSyncEnabled = false,
                         onRequestSync = {},
                         likeMode = true,
@@ -667,7 +670,7 @@ fun AppRoot(container: AppContainer) {
                             favoriteCount = container.sessions.favoriteCount()
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
-                        relativeDates = relativeDates,
+                        relativeDates = relativeDates, absoluteDates = absoluteDates,
                         autoSyncEnabled = container.prefs.autoSyncFavorites,
                         onRequestSync = { startFavoriteSync() },
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
@@ -697,6 +700,8 @@ fun AppRoot(container: AppContainer) {
                         },
                         relativeDates = relativeDates,
                         onRelativeDatesChange = { relativeDates = it },
+                        absoluteDates = absoluteDates,
+                        onAbsoluteDatesChange = { absoluteDates = it },
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
                             // 只是由用户点一下触发 —— 两条路各自实现一遍必然漂移。
@@ -767,7 +772,8 @@ fun AppRoot(container: AppContainer) {
                         isLiked = { container.sessions.isLiked(it) },
                         onToggleLike = { container.sessions.toggleLike(it) },
                         doubleTapLikes = prefs.doubleTapLikes,
-                        relativeDates = prefs.relativeDates,
+                        relativeDates = relativeDates,
+                        absoluteDates = absoluteDates,
                         onSeen = { container.sessions.markSeen(listOf(it)) },
                         buildDeleteRequest = buildDeleteRequest,
                         probeMotion = { container.repo.probeMotion(it) },

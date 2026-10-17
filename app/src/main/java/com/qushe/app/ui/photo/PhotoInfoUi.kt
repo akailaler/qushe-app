@@ -111,11 +111,29 @@ fun StarButton(
  * 规则：**胶囊只有一行，只放「日期 · 文件夹 · 大小」**；
  * 其余信息一律留给详情面板。
  */
-fun infoPillPrimary(item: MediaItem, relativeDates: Boolean = true): String =
-    if (relativeDates) relativeDayLabel(item.dateTakenMillis)
-    else exactDateLabel(item.dateTakenMillis)
+fun infoPillPrimary(
+    item: MediaItem,
+    relativeDates: Boolean = true,
+    absoluteDates: Boolean = false,
+): String? = when {
+    // 两个都开：第一行放相对时间，具体日期挪到第二行（见 infoPillSecondary）——
+    // 一行塞不下两种表达，硬塞就是被省略号截断。
+    relativeDates -> relativeDayLabel(item.dateTakenMillis)
+    absoluteDates -> exactDateLabel(item.dateTakenMillis)
+    // 都不显示：胶囊只剩「文件夹 · 大小」那一行。
+    else -> null
+}
 
-fun infoPillSecondary(item: MediaItem): String = buildString {
+fun infoPillSecondary(
+    item: MediaItem,
+    relativeDates: Boolean = true,
+    absoluteDates: Boolean = false,
+): String = buildString {
+    // 只有"两种都显示"时，具体日期才需要挤到第二行来（第一行被相对时间占了）。
+    if (relativeDates && absoluteDates) {
+        append(exactDateLabel(item.dateTakenMillis))
+        append(" · ")
+    }
     val bucket = item.bucket.trim()
     if (bucket.isNotEmpty()) {
         append(bucket)
@@ -126,7 +144,8 @@ fun infoPillSecondary(item: MediaItem): String = buildString {
 
 @Composable
 fun InfoPill(
-    primary: String,
+    /** null / 空白 = 不显示第一行（设置里把两种时间都关掉时就是这样）。 */
+    primary: String?,
     secondary: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -147,14 +166,16 @@ fun InfoPill(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier.widthIn(max = 230.dp),
         ) {
-            Text(
-                text = primary,
-                style = MaterialTheme.typography.labelLarge,
-                color = TextPrimary,
-                maxLines = 1,
-            )
+            if (!primary.isNullOrBlank()) {
+                Text(
+                    text = primary,
+                    style = MaterialTheme.typography.labelLarge,
+                    color = TextPrimary,
+                    maxLines = 1,
+                )
+            }
             if (secondary.isNotBlank()) {
-                Spacer(Modifier.height(1.dp))
+                if (!primary.isNullOrBlank()) Spacer(Modifier.height(1.dp))
                 Text(
                     text = secondary,
                     style = MaterialTheme.typography.labelSmall,

@@ -160,8 +160,9 @@ fun PhotoSessionScreen(
     onToggleLike: (MediaItem) -> Boolean,
     /** 双击画面 = 喜欢（true）还是收藏（false）。和视频页、设置页同一套语义。 */
     doubleTapLikes: Boolean,
-    /** 「i」胶囊第一行：相对时间（true）还是具体日期（false）。见设置里的「时间格式」。 */
+    /** 「i」胶囊是否显示相对时间 / 具体日期。见设置里的两个开关。 */
     relativeDates: Boolean,
+    absoluteDates: Boolean,
     onSeen: (MediaItem) -> Unit,
     buildDeleteRequest: (List<MediaItem>) -> IntentSender?,
     probeMotion: suspend (MediaItem) -> MotionPhoto.Resolution,
@@ -1150,8 +1151,8 @@ fun PhotoSessionScreen(
                     // 文案来自唯一来源（见 `infoPillPrimary/Secondary`），
                     // 三处胶囊共用一套，绝不各拼各的。
                     InfoPill(
-                        primary = infoPillPrimary(currentForInfo, relativeDates),
-                        secondary = infoPillSecondary(currentForInfo),
+                        primary = infoPillPrimary(currentForInfo, relativeDates, absoluteDates),
+                        secondary = infoPillSecondary(currentForInfo, relativeDates, absoluteDates),
                         modifier = Modifier.align(Alignment.Center),
                         onClick = { detailVisible = true },
                     )
@@ -1247,6 +1248,10 @@ fun PhotoSessionScreen(
             // 捏合进来的那张。日期视图打开时列表页会停在这一张，
             // 但为防它已经滑走，这里现取一次当前索引，保证"跳到的就是正看着的这张"。
             focusItem = list.getOrNull(index),
+            // 时间格式透传给放大页 —— 1.3.73 加了这个参数却忘了在调用处传，
+            // 结果放大页的胶囊一直用默认值（永远显示相对时间），不跟随设置。
+            relativeDates = relativeDates,
+            absoluteDates = absoluteDates,
             // 这一组里已经标记删除的，在瀑布流里就不再出现。
             markedKeys = marked.map { it.storeKey() }.toSet(),
             // 上滑做什么跟着设置走，和这一页的单张手势同一条规则。

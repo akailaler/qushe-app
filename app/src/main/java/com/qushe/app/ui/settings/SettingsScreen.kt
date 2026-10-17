@@ -68,9 +68,12 @@ fun SettingsScreen(
     onSyncFavoritesNow: suspend () -> String,
     /** 还有多少项没写入系统相册。 */
     pendingFavoriteSync: Int,
-    /** 时间格式（相对时间 = true）。由外层持有 state，见 `AppRoot.relativeDates`。 */
+    /** 显示相对时间（3 天前）。由外层持有 state，见 `AppRoot.relativeDates`。 */
     relativeDates: Boolean,
     onRelativeDatesChange: (Boolean) -> Unit,
+    /** 显示具体日期（2020/6/6）。 */
+    absoluteDates: Boolean,
+    onAbsoluteDatesChange: (Boolean) -> Unit,
 ) {
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
@@ -158,31 +161,35 @@ fun SettingsScreen(
 
             // ---- 时间格式 ----
             //
-            // 两个胶囊而不是开关：开关只能表达"是不是相对时间"，
-            // 用户还得在脑子里把"关闭"翻译成"那就是具体日期"。
-            // 两个胶囊把选项和示例都摆在明面上，没有这一步翻译。
+            // 两个**独立开关**而不是二选一：四种组合都要能表达
+            // （只相对 / 只具体 / 都显示 / 都不显示）。
+            // 二选一的胶囊做不到后两种 —— 关掉一个就等于选中另一个。
             SettingBlock(
-                title = "时间格式",
-                subtitle = "相对时间如「3 天前」，具体日期如「2020/6/6」。详情面板两种都显示。",
+                title = "相对时间",
+                subtitle = "「3 天前」这种写法。两个都关时，胶囊只显示文件夹和大小。",
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Chip(
-                        text = "相对时间",
-                        selected = relativeDates,
-                        onClick = {
-                            onRelativeDatesChange(true)
-                            prefs.relativeDates = true
-                        },
-                    )
-                    Chip(
-                        text = "具体日期",
-                        selected = !relativeDates,
-                        onClick = {
-                            onRelativeDatesChange(false)
-                            prefs.relativeDates = false
-                        },
-                    )
-                }
+                Switch(
+                    checked = relativeDates,
+                    onCheckedChange = {
+                        onRelativeDatesChange(it)
+                        prefs.relativeDates = it
+                    },
+                    colors = switchColors(),
+                )
+            }
+
+            SettingBlock(
+                title = "具体日期",
+                subtitle = "「2020/6/6」这种写法。和相对时间同时开启时，它会显示在胶囊第二行。",
+            ) {
+                Switch(
+                    checked = absoluteDates,
+                    onCheckedChange = {
+                        onAbsoluteDatesChange(it)
+                        prefs.absoluteDates = it
+                    },
+                    colors = switchColors(),
+                )
             }
 
             SettingBlock(
@@ -525,7 +532,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.73",
+                text = "取舍 1.3.74",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

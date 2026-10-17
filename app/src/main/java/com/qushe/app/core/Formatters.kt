@@ -53,6 +53,14 @@ fun formatDate(millis: Long): String {
 }
 
 /** 相对时间，用在卡片底部信息栏，比绝对日期更有"回忆感"。 */
+/**
+ * 相对时间：「今天」「昨天」「3 天前」「2 周前」「5 个月前」「3 年前」。
+ *
+ * ⚠️ **一年以前不要再拼上具体日期**（曾经写成 `"${days/365} 年前 · 2024/5/3"`）。
+ * 这个函数是"相对时间"这**一种**格式的唯一出口 —— 它输出的东西就应该
+ * 只有相对时间一种表达。要同时显示具体日期，是调用方另外拼一行的事
+ * （见 `InfoPill` 的两行结构），不该混在同一个字符串里。
+ */
 fun relativeDayLabel(millis: Long): String {
     if (millis <= 0L) return "时间未知"
     val zone = ZoneId.systemDefault()
@@ -65,7 +73,7 @@ fun relativeDayLabel(millis: Long): String {
         days in 2L..6L -> "$days 天前"
         days < 30L -> "${days / 7} 周前"
         days < 365L -> "${days / 30} 个月前"
-        else -> "${days / 365} 年前 · ${target.format(DATE_FORMATTER)}"
+        else -> "${days / 365} 年前"
     }
 }
 

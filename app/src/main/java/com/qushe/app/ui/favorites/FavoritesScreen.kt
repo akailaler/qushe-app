@@ -120,6 +120,8 @@ fun FavoritesScreen(
      * 设置改完不会触发重组，胶囊要切换几下才跟上（用户反馈）。
      */
     relativeDates: Boolean,
+    /** 是否显示具体日期（和相对时间是两个独立开关）。 */
+    absoluteDates: Boolean,
     autoSyncEnabled: Boolean,
     onRequestSync: () -> Unit,
     /** 详情面板里的地名；null = 没授权 / 没解析出来 / 还在读。 */
@@ -712,8 +714,8 @@ fun FavoritesScreen(
                     // 结果整行看过去胶囊并不在屏幕正中（用户反馈"没有居中"）。
                     InfoPill(
                         // 文案来自唯一来源（与另外两处同一套）
-                        primary = infoPillPrimary(item, relativeDates),
-                        secondary = infoPillSecondary(item),
+                        primary = infoPillPrimary(item, relativeDates, absoluteDates),
+                        secondary = infoPillSecondary(item, relativeDates, absoluteDates),
                         modifier = Modifier.align(Alignment.Center),
                         onClick = { detailItem = item },
                     )

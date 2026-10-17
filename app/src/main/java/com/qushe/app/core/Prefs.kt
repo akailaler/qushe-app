@@ -47,12 +47,23 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_DELETE_TO_TRASH, value).apply()
 
     /**
-     * 「i」胶囊上第一行的时间怎么显示。
-     * true = 相对时间（3 天前）；false = 具体日期（2020/6/6）。
+     * 「i」胶囊上要不要显示**相对时间**（3 天前）。
+     *
+     * 和 [absoluteDates] 是两个**独立**开关，四种组合都合法：
+     * 只相对 / 只具体 / 都显示 / 都不显示。
+     * 早先是一个二选一的布尔，但"都显示"和"都不显示"都用表达不出来（用户要求）。
      */
     var relativeDates: Boolean
         get() = sp.getBoolean(KEY_RELATIVE_DATES, true)
         set(value) = sp.edit().putBoolean(KEY_RELATIVE_DATES, value).apply()
+
+    /**
+     * 「i」胶囊上要不要显示**具体日期**（2020/6/6）。
+     * 默认关闭 —— 和 1.3.73 之前的行为保持一致（那时只有相对时间）。
+     */
+    var absoluteDates: Boolean
+        get() = sp.getBoolean(KEY_ABSOLUTE_DATES, false)
+        set(value) = sp.edit().putBoolean(KEY_ABSOLUTE_DATES, value).apply()
 
     /** 视频默认静音，避免在地铁上点开就外放。 */
     var videoMuted: Boolean
@@ -212,5 +223,6 @@ class Prefs(context: Context) {
         private const val KEY_FREED_BYTES = "freed_bytes"
         private const val KEY_ROUNDS = "rounds"
         private const val KEY_RELATIVE_DATES = "relative_dates"
+        private const val KEY_ABSOLUTE_DATES = "absolute_dates"
     }
 }
