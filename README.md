@@ -2158,7 +2158,33 @@ verify.bat --install    # 先装最新的 qushe-v*.apk，再检查
 
 ---
 
-## 三、功能对照
+## 三、版本库备份
+
+本地备份已配好：**每次 `git commit` 后自动同步到 `D:/backup/qushe-android.git`**。
+（`.git/hooks/post-commit` 里，失败不阻塞提交 —— 备份出问题不该变成新的麻烦。）
+
+```bash
+# 手动同步一次
+git push backup --all
+
+# 从备份恢复（换机器时）
+git clone D:/backup/qushe-android.git
+```
+
+**异地备份（可选）**：需要一个 **private** 仓库（代码是产品，别用 public）。
+
+```bash
+git remote add origin https://github.com/<你>/<仓库>.git
+git push -u origin master
+git push origin --tags
+```
+
+⚠️ 推送前检查：仓库目前 59 个文件 / 370 KiB，**不含任何密钥或签名材料**
+（`.gitignore` 已排除 `*.jks` / `*.keystore` / `keystore.properties` / `*.apk`）。
+
+---
+
+## 四、功能对照
 
 | 能力           | 去留 linger (iOS)      | 本项目 (Android)             |
 | ------------ | -------------------- | ------------------------- |
@@ -2187,7 +2213,7 @@ verify.bat --install    # 先装最新的 qushe-v*.apk，再检查
 
 ---
 
-## 四、几个关键设计决策
+## 五、几个关键设计决策
 
 这部分比代码本身重要。如果你想改这个项目，先读这里。
 
@@ -2295,7 +2321,7 @@ MediaStore 里图片和视频是**两张独立的表**，各自的 `_id` 都从 
 
 ---
 
-## 五、已知限制
+## 六、已知限制
 
 1. **只做过编译期验证，没有跑过真机。** 工程已构建通过（零错误零警告）并通过 Lint 检查，  
    但运行期行为（手势手感、系统删除弹窗、回收站读写）必须在真机上才能确认。
@@ -2357,7 +2383,7 @@ MediaStore 里图片和视频是**两张独立的表**，各自的 `_id` 都从 
 
 ---
 
-## 六、后续可以做的
+## 七、后续可以做的
 
 按性价比排序：
 
@@ -2373,7 +2399,7 @@ MediaStore 里图片和视频是**两张独立的表**，各自的 `_id` 都从 
 
 ---
 
-## 七、代码地图
+## 八、代码地图
 
 ```
 app/src/main/java/com/qushe/app/
@@ -2410,7 +2436,7 @@ app/src/main/java/com/qushe/app/
 
 ---
 
-## 八、致谢
+## 九、致谢
 
 手势设计与产品思路来自王波粒关于「去留 linger」的公开设计思考：
 
