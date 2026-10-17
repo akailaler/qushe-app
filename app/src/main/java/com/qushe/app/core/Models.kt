@@ -102,6 +102,19 @@ fun mediaStoreKey(id: Long, isVideo: Boolean): Long =
 
 fun MediaItem.storeKey(): Long = mediaStoreKey(id, kind == MediaKind.VIDEO)
 
+/**
+ * 一个相册文件夹（MediaStore 的 `BUCKET_DISPLAY_NAME`）。
+ *
+ * 用户库里这类文件夹动辄几十个（`Pictures/Twitter/`、`Download/`、
+ * `Pictures/Gallery/owner/xxx/`…），按文件夹挑一批来整理，
+ * 比"整库随机抽"更有针对性 —— 下载目录里堆的东西和相机拍的是两回事。
+ */
+data class BucketInfo(
+    val name: String,
+    val kind: MediaKind,
+    val count: Int,
+)
+
 /** 一次滑动的判定结果。 */
 enum class SwipeDecision { NONE, DELETE, FAVORITE, NEXT, PREV }
 

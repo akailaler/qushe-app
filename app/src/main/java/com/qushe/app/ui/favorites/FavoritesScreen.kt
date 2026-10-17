@@ -250,7 +250,20 @@ fun FavoritesScreen(
         }
     }
 
-    LaunchedEffect(refreshToken, likeMode) { reload() }
+    /**
+     * 外层通知"收藏/喜欢变了"时重建列表。
+     *
+     * ⚠️ **大图打开期间不重建** —— 否则用户在大图里点一下星（取消收藏），
+     * 列表一刷新，这一项就从 `items` 里消失，`MediaPreviewOverlay` 的
+     * `items` 随之变化，**预览被直接关掉**（用户反馈：像被踢出来了）。
+     *
+     * 大图里改的标记本来就已经写进存储了（`mark()` 里 toggle + persist），
+     * 只是"列表要不要现在重排"的问题。退出大图时 `onDismiss` 会看
+     * `listDirty` 补一次刷新，所以这里不重建不会漏。
+     */
+    LaunchedEffect(refreshToken, likeMode) {
+        if (previewIndex == null) reload()
+    }
 
     val deleteLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()

@@ -26,7 +26,22 @@ class SessionRepository(
      * 所有回忆，而不是反复看到同一批。剩余不足一组时就把剩下的全给你，
      * 不做补齐（补齐意味着重复，而重复正是要消灭的东西）。
      */
-    suspend fun buildSession(kind: MediaKind, size: Int): SessionSnapshot {
+    /**
+     * @param bucket 非空时**只从这个文件夹里抽**，而且**不套用「只抽没看过的」**
+     *   —— 按文件夹整理是"我想把这个文件夹清一遍"，用户明确要求这个模式下
+     *   不要被"看过"过滤掉（否则某个文件夹刷过一遍就再也抽不出来了）。
+     */
+    suspend fun buildSession(
+        kind: MediaKind,
+        size: Int,
+        bucket: String? = null,
+    ): SessionSnapshot {
+        // 按文件夹：纯随机抽，不看 seen
+        if (!bucket.isNullOrBlank()) {
+            val items = repo.sampleFromBucket(kind, bucket, size)
+            return SessionSnapshot(items, roundJustCompleted = false, total = 0)
+        }
+
         // 关键：**只抽样，不把整张表读进来**。
         // 过去这里是 repo.all(kind)，几万张照片的设备上光填充 CursorWindow 就要一两秒；
         // 现在只需要一个 ID 列表 + 那十几条的完整信息，代价与库的大小无关。

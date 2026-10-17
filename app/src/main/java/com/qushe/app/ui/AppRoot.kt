@@ -477,7 +477,11 @@ fun AppRoot(container: AppContainer) {
         }
     }
 
-    fun startSession(kind: MediaKind) {
+    /**
+     * @param bucket 非空时只从这个文件夹抽（见 `buildSession` 的说明）。
+     *   文件夹自带 kind，所以权限检查、SessionScreen 都照原路走，不需要第二套逻辑。
+     */
+    fun startSession(kind: MediaKind, bucket: String? = null) {
         // 截屏和照片共用图片权限，只有视频是另一条 —— 用 isImage 判断，别再按 PHOTO 判断
         val allowed = if (kind.isImage) photoAllowed else videoAllowed
         if (!allowed) {
@@ -496,7 +500,7 @@ fun AppRoot(container: AppContainer) {
         }
         session = SessionUi.Loading(kind)
         scope.launch {
-            val snapshot = container.sessions.buildSession(kind, container.prefs.groupSize)
+            val snapshot = container.sessions.buildSession(kind, container.prefs.groupSize, bucket)
             session = if (snapshot.items.isEmpty()) {
                 SessionUi.Empty(kind, container.repo.lastQueryFailed)
             } else {
@@ -651,6 +655,8 @@ fun AppRoot(container: AppContainer) {
                         onRequestPermission = { kind ->
                             permissionLauncher.launch(permissionsFor(kind))
                         },
+                        loadBuckets = { container.repo.buckets() },
+                        onStartBucket = { b -> startSession(b.kind, b.name) },
                     )
 
                     Tab.Favorites -> FavoritesScreen(

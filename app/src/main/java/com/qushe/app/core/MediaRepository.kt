@@ -397,6 +397,65 @@ class MediaRepository(private val context: Context) {
         return picked.mapNotNull { byKey[storeKeyOf(kind, it)] } to exhausted
     }
 
+    /**
+     * 列出所有文件夹 + 各自的条数，按条数从多到少。
+     *
+     * ---- 为什么是"读一列再内存统计"，而不是 SQL 的 GROUP BY ----
+     * `GROUP BY` + `COUNT(*)` 需要别名（`AS _count`），而 MediaProvider
+     * 对 projection 的列名有白名单校验，别名容易被拒 —— 一旦被拒就整个功能不可用。
+     * 只投影 `bucket_display_name` 一列是**确定能用**的写法；
+     * Cursor 跨窗口时会自动换页，12 万条也不会撑爆 2MB 的 CursorWindow，
+     * 代价是多几次 IPC（实测可接受，而且只在打开文件夹列表时跑一次）。
+     */
+    suspend fun buckets(): List<BucketInfo> = withContext(Dispatchers.IO) {
+        val out = ArrayList<BucketInfo>()
+        out += bucketsIn(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, MediaKind.PHOTO)
+        out += bucketsIn(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, MediaKind.VIDEO)
+        out.sortByDescending { it.count }
+        out
+    }
+
+    private fun bucketsIn(collection: Uri, kind: MediaKind): List<BucketInfo> {
+        val col = bucketColumn(kind)
+        val counts = HashMap<String, Int>()
+        runCatching {
+            resolver.query(collection, arrayOf(col), null, null, null)?.use { c ->
+                val i = c.getColumnIndex(col)
+                if (i < 0) return emptyList()
+                while (c.moveToNext()) {
+                    val name = c.getString(i)?.trim().orEmpty()
+                    if (name.isEmpty()) continue
+                    counts[name] = (counts[name] ?: 0) + 1
+                }
+            }
+        }.onFailure { Log.w(TAG, "读取文件夹失败", it) }
+        return counts.map { (name, n) -> BucketInfo(name, kind, n) }
+    }
+
+    /**
+     * 从指定文件夹里随机抽一批。
+     *
+     * 走和 [sampleItems] 同一套"先拿 ID 再洗牌"的路子 —— 只是 ID 来源换成了
+     * 带 `BUCKET_DISPLAY_NAME` 条件的查询。一个文件夹几百上千条，代价可以忽略。
+     */
+    suspend fun sampleFromBucket(
+        kind: MediaKind,
+        bucket: String,
+        wanted: Int,
+    ): List<MediaItem> = withContext(Dispatchers.IO) {
+        val ids = rawIds(
+            if (kind == MediaKind.VIDEO) MediaStore.Video.Media.EXTERNAL_CONTENT_URI
+            else MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
+            "${bucketColumn(kind)} = ?",
+            arrayOf(bucket),
+        )
+        if (ids.isEmpty()) return@withContext emptyList()
+        val picked = ids.shuffled().take(wanted)
+        val byKey = byKeys(picked.map { storeKeyOf(kind, it) }.toSet())
+            .associateBy { it.storeKey() }
+        picked.mapNotNull { byKey[storeKeyOf(kind, it)] }
+    }
+
     private fun storeKeyOf(kind: MediaKind, id: Long): Long =
         id * 2L + if (kind == MediaKind.VIDEO) 1L else 0L
 

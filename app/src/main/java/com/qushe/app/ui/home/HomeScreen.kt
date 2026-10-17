@@ -20,6 +20,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import com.qushe.app.core.BucketInfo
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -37,6 +50,7 @@ import com.qushe.app.ui.theme.Surface2
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import androidx.compose.runtime.remember
 
 /**
  * 首页。
@@ -59,7 +73,19 @@ fun HomeScreen(
     swipeUpDeletes: Boolean,
     onStart: (MediaKind) -> Unit,
     onRequestPermission: (MediaKind) -> Unit,
+    /** 列出所有文件夹（懒加载 —— 打开选择面板时才调，别拖慢首页）。 */
+    loadBuckets: suspend () -> List<BucketInfo>,
+    /** 从某个文件夹开一组。 */
+    onStartBucket: (BucketInfo) -> Unit,
 ) {
+    var folderSheet by remember { mutableStateOf(false) }
+    var buckets by remember { mutableStateOf<List<BucketInfo>?>(null) }
+
+    // 只在第一次打开时读一次 —— 这一步要扫全库的 bucket 列，不该在首页启动时做。
+    LaunchedEffect(folderSheet) {
+        if (folderSheet && buckets == null) buckets = loadBuckets()
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -120,6 +146,43 @@ fun HomeScreen(
             onClick = { if (videoAllowed) onStart(MediaKind.VIDEO) else onRequestPermission(MediaKind.VIDEO) },
         )
 
+        Spacer(Modifier.height(10.dp))
+
+        // ---- 按文件夹挑一批 ----
+        //
+        // 整库随机抽适合"随便刷刷"，但下载目录、聊天软件保存的图各有各的堆法，
+        // 「把这个文件夹清一遍」是另一类很实际的需求。
+        // 做成低调的一行（不是第四个 EntryCard）：它是入口的补充，不该和三个主入口抢注意力。
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(Color(0x14FFFFFF))
+                .clickable(enabled = photoAllowed || videoAllowed) { folderSheet = true }
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "按文件夹挑一批",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (photoAllowed || videoAllowed) TextPrimary else TextSecondary,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = "只清一个文件夹，比如 Download、Pictures/Twitter",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextTertiary,
+                )
+            }
+            Text(
+                text = "›",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextTertiary,
+            )
+        }
+
         Spacer(Modifier.height(28.dp))
 
         Text(
@@ -156,6 +219,17 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+
+    if (folderSheet) {
+        FolderSheet(
+            buckets = buckets,
+            onPick = { picked ->
+                folderSheet = false
+                onStartBucket(picked)
+            },
+            onDismiss = { folderSheet = false },
+        )
     }
 }
 
@@ -238,5 +312,106 @@ private fun StatCell(value: String, label: String, accent: Color) {
             style = MaterialTheme.typography.labelSmall,
             color = TextTertiary,
         )
+    }
+}
+
+/**
+ * 文件夹选择面板。
+ *
+ * 用 `ModalBottomSheet` 而不是新开一页：这个选择是**一次性**的，
+ * 选完就进整理，不需要保留页面栈；而文件夹可能有几十个，
+ * 用底部面板能直接滚动，不必再设计一套页面导航。
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun FolderSheet(
+    buckets: List<BucketInfo>?,
+    onPick: (BucketInfo) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Surface2,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 22.dp)) {
+            Text(
+                text = "按文件夹挑一批",
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+                fontWeight = FontWeight.Medium,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                // 明确说明这个模式和默认模式的区别 —— 否则用户会以为"只抽没看过的"失效了
+                text = "只从这个文件夹里随机抽。这个模式下不看「只抽没看过的」，方便把一个文件夹整轮清一遍。",
+                style = MaterialTheme.typography.bodySmall,
+                color = TextTertiary,
+            )
+            Spacer(Modifier.height(14.dp))
+
+            if (buckets == null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 120.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.width(22.dp).height(22.dp),
+                        color = TextSecondary,
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Text("正在统计文件夹…", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                }
+            } else if (buckets.isEmpty()) {
+                Text(
+                    text = "没有找到文件夹。",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    modifier = Modifier.padding(vertical = 24.dp),
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 460.dp),
+                    contentPadding = PaddingValues(bottom = 24.dp),
+                ) {
+                    items(buckets, key = { "${it.kind}-${it.name}" }) { b ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(10.dp))
+                                .clickable { onPick(b) }
+                                .padding(horizontal = 4.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = b.name,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = TextPrimary,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                                Spacer(Modifier.height(2.dp))
+                                Text(
+                                    text = "${b.count} 条 · " +
+                                        if (b.kind == MediaKind.VIDEO) "视频" else "照片",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = TextTertiary,
+                                )
+                            }
+                            Text(
+                                text = "›",
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextTertiary,
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
