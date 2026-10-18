@@ -108,7 +108,7 @@ def find_sdk():
     return None, False
 
 
-def step_memory():
+def step_memory(force=False):
     print("\n1) 项目记忆")
     if not os.path.isdir(MEM_SRC):
         bad("仓库里没有 docs/agent-memory/", "这台机器之前没提交过记忆？")
@@ -118,16 +118,24 @@ def step_memory():
         bad("docs/agent-memory/ 是空的")
         return
     os.makedirs(MEM_DST, exist_ok=True)
-    copied = 0
+    copied, kept = 0, 0
     for f in files:
         src = os.path.join(MEM_SRC, f)
         dst = os.path.join(MEM_DST, f)
-        # 只在新机器上无脑覆盖；本机重跑时若目标更新则跳过，避免把当天新写的日志盖掉
-        if os.path.isfile(dst) and os.path.getmtime(dst) >= os.path.getmtime(src):
+        # ⚠️ **默认绝不覆盖已存在的文件**。
+        # 这条规则是踩出来的：仓库镜像是"上次提交时"的快照，
+        # 如果本机刚写了新记忆还没提交，无脑覆盖就等于**把今天的日志删了**。
+        # 只有新机器（目录是空的）才需要复制；本机想强制回滚用 `--force`。
+        if os.path.isfile(dst) and not force:
+            kept += 1
             continue
         shutil.copy2(src, dst)
         copied += 1
-    ok(f"记忆已恢复到 {MEM_DST}", f"{len(files)} 个文件，本次更新 {copied} 个")
+    if copied:
+        ok(f"记忆已恢复到 {MEM_DST}", f"共 {len(files)} 个，本次写入 {copied} 个")
+    else:
+        ok(f"记忆已在本机（未改动）", f"{kept} 个文件，仓库镜像没有覆盖它们")
+        info("要从仓库强制覆盖回来：python setup.py --force")
 
 
 def step_jdk():
@@ -185,13 +193,14 @@ def step_device():
 
 
 def main():
+    force = "--force" in sys.argv
     print("=" * 52)
     print("取舍 · 换机器环境准备")
     print("=" * 52)
     print(f"\n仓库   {ROOT}")
     print(f"工作区 {WORKSPACE}")
 
-    step_memory()
+    step_memory(force)
     jdk = step_jdk()
     sdk = step_sdk()
     step_device()
