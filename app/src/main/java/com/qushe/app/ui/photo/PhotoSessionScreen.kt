@@ -130,6 +130,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.abs
+import com.qushe.app.ui.common.fitInside
+import com.qushe.app.ui.common.scaledAboutCenter
 
 /**
  * 照片 / 截屏整理：卡片堆叠 + 滑动决策 + 缩放查看 + 缩略胶片条。
@@ -264,7 +266,7 @@ fun PhotoSessionScreen(
         label = "chromeAlpha",
     )
     var dayViewItems by remember { mutableStateOf<List<MediaItem>?>(null) }
-    var dayTarget by remember { mutableStateOf(0L) }
+    var dayTarget by remember { mutableLongStateOf(0L) }
     var daySwitching by remember { mutableStateOf(false) }
     /**
      * 本次水平拖拽的方向：+1 往右、-1 往左、0 = 没在水平拖。
@@ -463,7 +465,7 @@ fun PhotoSessionScreen(
     // 这正是"点了收藏红心还是空心的""翻到已收藏的照片也不亮"的根因：
     // 状态确实变了，只是没有任何东西在听。
     // 用一个计数当作"收藏已变更"的信号，配合 remember 的键强制重算。
-    var favoriteTick by remember { mutableStateOf(0) }
+    var favoriteTick by remember { mutableIntStateOf(0) }
 
     // ---- 双击"喜欢/收藏"的反馈 ----
     //
@@ -1901,22 +1903,6 @@ private const val BEHIND_FADE_FRACTION = 1.2f
  * 等价于 `ContentScale.Fit` 的算法 —— 和 `ZoomableImage` 的 `contentScale`
  * 是同一套规则。飞入动效的起点必须和它一致，否则第一帧就会看到图片"跳一下"。
  */
-private fun fitInside(box: Rect, ratio: Float): Rect {
-    if (ratio <= 0f || box.width <= 0f || box.height <= 0f) return box
-    val w: Float
-    val h: Float
-    if (box.width / box.height > ratio) {
-        // 容器比图更宽 → 高度顶满
-        h = box.height
-        w = h * ratio
-    } else {
-        w = box.width
-        h = w / ratio
-    }
-    val left = box.left + (box.width - w) / 2f
-    val top = box.top + (box.height - h) / 2f
-    return Rect(left, top, left + w, top + h)
-}
 
 /**
  * 以中心为基准把矩形缩放到 [factor] 倍。
@@ -1924,14 +1910,6 @@ private fun fitInside(box: Rect, ratio: Float): Rect {
  * 用于"捏合进「回到那天」"的飞行起点：照片页的 ZoomableImage 缩放时
  * `offset` 是归零的（缩放围绕中心），所以起点矩形也要围绕中心缩。
  */
-private fun scaledAboutCenter(source: Rect, factor: Float): Rect {
-    if (factor <= 0f || factor == 1f) return source
-    val cx = source.center.x
-    val cy = source.center.y
-    val halfW = source.width * factor / 2f
-    val halfH = source.height * factor / 2f
-    return Rect(cx - halfW, cy - halfH, cx + halfW, cy + halfH)
-}
 
 /**
  * 顶栏左右两格的固定宽度。

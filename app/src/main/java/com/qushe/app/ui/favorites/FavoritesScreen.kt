@@ -85,6 +85,8 @@ import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
+import com.qushe.app.ui.common.fitInside
+import com.qushe.app.ui.common.scaledAboutCenter
 
 /**
  * 收藏夹。
@@ -788,33 +790,5 @@ private fun rememberMarkState(
 }
 
 /** 在 [box] 里按 [ratio] 居中放一张图之后那张图占的矩形（= `ContentScale.Fit`）。 */
-private fun fitInside(box: androidx.compose.ui.geometry.Rect, ratio: Float): androidx.compose.ui.geometry.Rect {
-    if (ratio <= 0f || box.width <= 0f || box.height <= 0f) return box
-    val w: Float
-    val h: Float
-    if (box.width / box.height > ratio) {
-        h = box.height
-        w = h * ratio
-    } else {
-        w = box.width
-        h = w / ratio
-    }
-    val left = box.left + (box.width - w) / 2f
-    val top = box.top + (box.height - h) / 2f
-    return androidx.compose.ui.geometry.Rect(left, top, left + w, top + h)
-}
 
 /** 以中心为基准把矩形缩放到 [factor] 倍（捏合时照片是缩着被触发的）。 */
-private fun scaledAboutCenter(
-    source: androidx.compose.ui.geometry.Rect,
-    factor: Float,
-): androidx.compose.ui.geometry.Rect {
-    if (factor <= 0f || factor == 1f) return source
-    val cx = source.center.x
-    val cy = source.center.y
-    val halfW = source.width * factor / 2f
-    val halfH = source.height * factor / 2f
-    return androidx.compose.ui.geometry.Rect(
-        cx - halfW, cy - halfH, cx + halfW, cy + halfH,
-    )
-}

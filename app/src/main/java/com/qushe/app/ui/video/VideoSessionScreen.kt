@@ -110,6 +110,7 @@ import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.delay
 import com.qushe.app.ui.common.RailAction
+import com.qushe.app.ui.common.VideoProgressBar
 
 /**
  * 视频整理：抖音式上下滑。
@@ -167,7 +168,7 @@ fun VideoSessionScreen(
     // 落在视线里。用户反馈"双击没反应、不知道是喜欢还是收藏"就是在这里丢的。
     // 所以每次双击都在画面正中弹一个心形/星形的大图标。
     var actionFlash by remember { mutableStateOf<DoubleTapFlash?>(null) }
-    var actionFlashTick by remember { mutableStateOf(0) }
+    var actionFlashTick by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(actionFlashTick) {
         if (actionFlash == null) return@LaunchedEffect
@@ -401,7 +402,7 @@ fun VideoSessionScreen(
 
     // 收藏状态必须能被 Compose 观察到 —— 和照片页同一个坑：
     // IdSetStore 内部就是普通 HashSet，改它不触发重组，所以侧栏的红心点了也不会变。
-    var favoriteTick by remember { mutableStateOf(0) }
+    var favoriteTick by remember { mutableIntStateOf(0) }
     val currentIsFavorite = remember(current?.id, favoriteTick) {
         current?.let { isFavorite(it) } == true
     }
@@ -887,52 +888,4 @@ private fun VideoPage(
 /** 左右滑动跳转的上限：满屏宽最多跳 3 分钟，避免长视频一划就过头。 */
 private const val MAX_SEEK_SPAN_MS = 3 * 60 * 1000L
 
-/** 只吃横向拖拽的进度条 —— 竖直方向的手势必须留给 Pager 翻页。 */
-@Composable
-private fun VideoProgressBar(
-    ratio: Float,
-    modifier: Modifier = Modifier,
-    onScrubStart: () -> Unit,
-    onScrub: (Float) -> Unit,
-    onScrubEnd: () -> Unit,
-) {
-    Box(
-        modifier = modifier
-            .height(26.dp)
-            .pointerInput(Unit) {
-                detectHorizontalDragGestures(
-                    onDragStart = { offset ->
-                        onScrubStart()
-                        onScrub((offset.x / size.width.toFloat()).coerceIn(0f, 1f))
-                    },
-                    onHorizontalDrag = { change, _ ->
-                        change.consume()
-                        onScrub((change.position.x / size.width.toFloat()).coerceIn(0f, 1f))
-                    },
-                    onDragEnd = { onScrubEnd() },
-                    onDragCancel = { onScrubEnd() },
-                )
-            },
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(2.dp)
-                .clip(RoundedCornerShape(1.dp))
-                .background(Color(0x4DFFFFFF)),
-        )
-        Box(
-            Modifier
-                // 必须显式指定 CenterStart。父容器用了 Alignment.Center 是为了让
-                // 2dp 的细线在 26dp 的触摸区里垂直居中，但那同时也把子元素横向居中了，
-                // 结果进度就从中间往两边长。这里把它按回左边。
-                .align(Alignment.CenterStart)
-                .fillMaxWidth(ratio.coerceIn(0.001f, 1f))
-                .height(2.dp)
-                .clip(RoundedCornerShape(1.dp))
-                .background(AccentKeep),
-        )
-    }
-}
 

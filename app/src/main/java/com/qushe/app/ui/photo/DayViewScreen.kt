@@ -2410,7 +2410,7 @@ private fun DayScrubber(
     onUndoDelete: () -> Unit,
     canUndo: Boolean,
 ) {
-    var rulerWidth by remember { mutableStateOf(0f) }
+    var rulerWidth by remember { mutableFloatStateOf(0f) }
     var draggingFraction by remember { mutableStateOf<Float?>(null) }
 
     // ---- 指针位置：**只在绘制阶段读滚动值** ----

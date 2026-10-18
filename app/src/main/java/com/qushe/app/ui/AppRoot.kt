@@ -167,7 +167,7 @@ fun AppRoot(container: AppContainer) {
     }
     var session by remember { mutableStateOf<SessionUi>(SessionUi.None) }
     var stats by remember { mutableStateOf(container.prefs.stats()) }
-    var favoriteCount by remember { mutableStateOf(container.sessions.favoriteCount()) }
+    var favoriteCount by remember { mutableIntStateOf(container.sessions.favoriteCount()) }
     // ---- 首页三个计数：null = 还在数，不等于0 ----
     //
     // 之前初值是 `0`，而真正的数量要等`LaunchedEffect(permissionTick)` 里

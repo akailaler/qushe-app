@@ -2158,20 +2158,48 @@ verify.bat --install    # 先装最新的 qushe-v*.apk，再检查
 
 ---
 
-## 三、版本库备份
+## 三、备份与换电脑继续开发
 
-本地备份已配好：**每次 `git commit` 后自动同步到 `D:/backup/qushe-android.git`**。
-（`.git/hooks/post-commit` 里，失败不阻塞提交 —— 备份出问题不该变成新的麻烦。）
+### 哪些东西必须跟着走
+
+| 东西 | 在哪 | 怎么跟着走 |
+|---|---|---|
+| 代码 + 全部提交历史 + tag | `qushe-android/` | git（D 盘裸仓库 + 私有远端） |
+| **项目记忆**（`MEMORY.md` + 每日日志） | `<工作区>/.workbuddy/memory/` | **`pre-commit` 自动镜像到 `docs/agent-memory/`**，跟着代码一起提交 |
+| 构建环境（JDK 17 / Android SDK） | 各自机器 | `python setup.py` 重新指向本机路径 |
+| 签名材料 / `local.properties` / APK | 各自机器 | **刻意不进仓库**（`.gitignore` 已排除） |
+
+记忆那一条是重点：记忆目录在仓库**外面**，git 管不到。
+换一台电脑 clone 下来如果只有代码、没有记忆，下一次对话就等于失忆 ——
+会重新踩那些已经用实测结论钉死的坑（"小米相册到底读不读 `IS_FAVORITE`"查了五轮）。
+所以每次提交前会自动把记忆复制进 `docs/agent-memory/`。
+
+### 换到另一台电脑
 
 ```bash
-# 手动同步一次
-git push backup --all
-
-# 从备份恢复（换机器时）
-git clone D:/backup/qushe-android.git
+git clone <你的私有仓库地址> qushe-android
+cd qushe-android
+python setup.py
 ```
 
-**异地备份（可选）**：需要一个 **private** 仓库（代码是产品，别用 public）。
+`setup.py` 做四件事（幂等，随便重跑）：恢复记忆 → 找 JDK 17 → 找 Android SDK
+并生成 `local.properties` → 报告还缺什么。全 `[OK]` 后它会打印构建命令。
+
+### 两台机器来回切换的纪律（重要）
+
+**离开前 `commit` + `push`，回来先 `pull`。** 少了这一步就会两边都改了、然后合并冲突。
+
+```bash
+# 离开那台机器前
+git add -A && git commit -m "..." && git push origin master
+
+# 回到这台机器
+git pull origin master
+```
+
+### 配远端（一次性）
+
+需要一个 **private** 仓库 —— 代码是产品，别用 public。
 
 ```bash
 git remote add origin https://github.com/<你>/<仓库>.git
@@ -2179,8 +2207,13 @@ git push -u origin master
 git push origin --tags
 ```
 
-⚠️ 推送前检查：仓库目前 59 个文件 / 370 KiB，**不含任何密钥或签名材料**
-（`.gitignore` 已排除 `*.jks` / `*.keystore` / `keystore.properties` / `*.apk`）。
+Gitee 同理，国内访问更快。当前分支是 `master`。
+
+⚠️ 仓库不含任何密钥或签名材料（`.gitignore` 已排除
+`*.jks` / `*.keystore` / `keystore.properties` / `*.apk` / `local.properties`）。
+
+**本地备份**（已配好）：每次 `git commit` 后自动同步到 `D:/backup/qushe-android.git`，
+`.git/hooks/post-commit` 里，失败不阻塞提交 —— 备份出问题不该变成新的麻烦。
 
 ---
 
