@@ -50,6 +50,8 @@ export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
 - 备份 `D:/backup/qushe-android.git`（remote `backup`，`post-commit` 自动 push）；记忆经 `pre-commit` 镜像到 `docs/agent-memory/` 跟着仓库走。**异地远端仍未配。**
 - 稳定 tag **`v1.3.54`**（用户评价"比较完美"，回归基准）。
 - 构建后 `app-debug.apk` 复制为 `qushe-vX.Y-debug.apk`；改版本号别漏 `SettingsScreen.kt` 里硬编码的字符串。
+- **★ 包体积先看构成再动手**：debug 32.6MB 里 **dex 占 99%**（native 44KB、资源 761KB）⇒ 删 ABI / 压资源全是无效功，**只有 R8 有效**。`isMinifyEnabled + isShrinkResources` + debug 签名 ⇒ **3.7MB（-89%）**。**release 不可 `run-as`**，收藏核对要用 debug 包。
+- **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写代码注释里）。用户明确要求过文案简洁。
 - 大范围编辑前 `git status` 确认干净；改坏了 `git checkout -- <file>` 一键回退。
 
 ---
