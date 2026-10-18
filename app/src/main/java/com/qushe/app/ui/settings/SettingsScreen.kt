@@ -134,7 +134,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "每组数量",
-                subtitle = "太小没有仪式感，太大一次做不完。默认 $DEFAULT_LABEL 张。",
+                subtitle = "默认 $DEFAULT_LABEL 张。太小没感觉，太大做不完。",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GROUP_SIZE_CHOICES.forEach { choice ->
@@ -166,7 +166,7 @@ fun SettingsScreen(
             // 二选一的胶囊做不到后两种 —— 关掉一个就等于选中另一个。
             SettingBlock(
                 title = "相对时间",
-                subtitle = "「3 天前」这种写法。两个都关时，胶囊只显示文件夹和大小。",
+                subtitle = "「3 天前」。两种都关时胶囊只显示文件夹和大小。",
             ) {
                 Switch(
                     checked = relativeDates,
@@ -180,7 +180,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "具体日期",
-                subtitle = "「2020/6/6」这种写法。和相对时间同时开启时，它会显示在胶囊第二行。",
+                subtitle = "「2020/6/6」。两种都开时显示在胶囊第二行。",
             ) {
                 Switch(
                     checked = absoluteDates,
@@ -194,7 +194,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "只抽没看过的",
-                subtitle = "看过的在整轮内不再出现；刷完一轮会自动开启新一轮。",
+                subtitle = "看过的本轮不再出现；刷完一轮自动开新一轮。",
             ) {
                 Switch(
                     checked = onlyUnseen,
@@ -236,7 +236,7 @@ fun SettingsScreen(
                         .padding(12.dp),
                 ) {
                     Text(
-                        text = "提醒：本地文件彻底删除后不可恢复。建议先跑一段时间回收站模式。",
+                        text = "彻底删除后不可恢复，建议先用回收站模式。",
                         style = MaterialTheme.typography.labelSmall,
                         color = AccentDelete,
                     )
@@ -252,8 +252,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "默认静音",
-                subtitle = "看任何视频都不外放：整理视频页、收藏 / 喜欢 / 回收站的预览、" +
-                    "长按播放的实况片段，都认这一条。预览页顶栏右上角可随时切回有声。",
+                subtitle = "所有视频不外放；预览页右上角可切回有声。",
             ) {
                 Switch(
                     checked = videoMuted,
@@ -284,7 +283,7 @@ fun SettingsScreen(
             // 两个选项各自写清位置，就没有这一步翻译了。
             SettingBlock(
                 title = "操作栏放在哪",
-                subtitle = "影响整理视频、收藏页、喜欢页的侧边操作（喜欢 / 收藏 / 删除）。",
+                subtitle = "影响视频页与收藏 / 喜欢页的侧边按钮。",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip(
@@ -496,7 +495,7 @@ fun SettingsScreen(
 
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "统计数字只记录你完成了多少，不显示还剩多少没做 —— " +
+                text = "只记完成，不记剩余 —— " +
                     "「还剩」是家务，「已完成」才是成果。",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary,
@@ -532,7 +531,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.75",
+                text = "取舍 1.3.76",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

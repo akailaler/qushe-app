@@ -15,18 +15,27 @@ android {
         // 直接操作文件，完全另一套代码路径。回留同样只支持 Android 11+。
         minSdk = 30
         targetSdk = 35
-        versionCode = 123
-        versionName = "1.3.75"
+        versionCode = 124
+        versionName = "1.3.76"
         resourceConfigurations += listOf("zh", "en")
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // ---- 为什么不瘦身 debug，而是另出一个 release ----
+            // debug 包 32 MB，其中 **32 MB 全是 dex**（native 库只有 44 KB、资源 761 KB）。
+            // 也就是说：删 x86 库、压资源都毫无意义，**唯一有效的是代码裁剪（R8）**。
+            // 但 debug 包必须保留可调试信息，所以正解是：调试继续用 debug，
+            // 日常装机和分发用 release。
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            // 用 debug 签名：这样产出的 release 包能**直接 adb install**，
+            // 也能覆盖安装现有的 debug 包（签名相同）。正式分发再换成自己的 keystore。
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 

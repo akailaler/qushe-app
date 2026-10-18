@@ -37,15 +37,22 @@ warnings = []
 # 基础设施
 # ---------------------------------------------------------------------------
 
-def adb(*args, timeout=25):
-    """跑一条 adb 命令，返回 stdout（失败返回空串）。"""
+def adb(*args, timeout=25, with_stderr=False):
+    """跑一条 adb 命令，返回 stdout（失败返回空串）。
+
+    `with_stderr=True` 时把 stderr 也拼进来 —— `run-as` 的报错（"package not
+    debuggable"）只在 stderr 里，不带就分不清"设备没连"和"装的是 release 包"。
+    """
     try:
         r = subprocess.run(
             ["adb", *args],
             capture_output=True, text=True, encoding="utf-8",
             errors="replace", timeout=timeout,
         )
-        return r.stdout or ""
+        out = r.stdout or ""
+        if with_stderr:
+            out += r.stderr or ""
+        return out
     except (FileNotFoundError, subprocess.TimeoutExpired):
         return ""
 
@@ -209,9 +216,14 @@ def _query_favorite_ids(collection):
 def check_favorites():
     section(2, "收藏同步（取舍收藏夹 ↔ 系统 IS_FAVORITE）")
 
-    raw = adb("shell", "run-as", PKG, "cat", "files/favorites.txt")
-    if not raw.strip() and not raw.strip("\r\n"):
-        skip("读不到 favorites.txt（设备未连接 / 未安装 debug 包？）")
+    raw = adb("shell", "run-as", PKG, "cat", "files/favorites.txt", with_stderr=True)
+    if not raw.strip():
+        # run-as 只在 debuggable 包上工作。日常装的如果是 release 包（R8 精简版），
+        # 这里必然读不到 —— 那是"看不到"，不是"没同步"，必须说清楚。
+        if "not debuggable" in raw or "unknown package" in raw:
+            skip("装的是 release 包（不可 run-as），核对收藏要换 debug 包")
+        else:
+            skip("读不到 favorites.txt（设备未连接 / 未安装？）")
         return
     favs = {int(x) for x in raw.split() if x.strip().isdigit()}
     if not favs:
@@ -358,6 +370,17 @@ def check_artifacts():
         bad("app-debug.apk 体积异常", f"{size_mb:.1f} MB（正常 30+ MB）")
     else:
         ok("app-debug.apk", f"{size_mb:.1f} MB")
+
+    # release 包：R8 裁剪后的体积，日常装机用这个
+    rel = os.path.join(ROOT, "app", "build", "outputs", "apk", "release", "app-release.apk")
+    if os.path.exists(rel):
+        rmb = os.path.getsize(rel) / 1024 / 1024
+        if rmb >= size_mb:
+            bad("release 不比 debug 小", f"{rmb:.1f} MB vs {size_mb:.1f} MB —— R8 没生效？")
+        else:
+            ok("app-release.apk（R8 裁剪后）", f"{rmb:.1f} MB（比 debug 小 {100 - rmb / size_mb * 100:.0f}%）")
+    else:
+        skip("没有 app-release.apk（assembleRelease 还没跑过）")
 
     # 版本号要能从 APK 里读出来（aapt 不一定有，直接查字符串兜底）
     vn = re.search(r'versionName\s*=\s*"([^"]+)"',

@@ -157,7 +157,7 @@ fun HomeScreen(
         // 没有数量概念（它背后是"挑哪个文件夹"，不是"共有多少条"），所以关掉右侧计数。
         EntryCard(
             title = "整理文件夹",
-            subtitle = "挑一个文件夹单独清，比如 Download、Pictures/Twitter",
+            subtitle = "单独清一个文件夹，如 Download、Twitter",
             count = null,
             enabled = photoAllowed || videoAllowed,
             accent = AccentFolder,
@@ -330,7 +330,7 @@ private fun FolderSheet(
             Spacer(Modifier.height(4.dp))
             Text(
                 // 明确说明这个模式和默认模式的区别 —— 否则用户会以为"只抽没看过的"失效了
-                text = "只从这个文件夹里随机抽。这个模式下不看「只抽没看过的」，方便把一个文件夹整轮清一遍。",
+                text = "只从这个文件夹抽；不套用「只看没看过的」。",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextTertiary,
             )

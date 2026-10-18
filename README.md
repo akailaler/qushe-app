@@ -35,10 +35,43 @@
 
 **当前稳定版：`v1.3.54`（git tag）** —— 用户评价「比较完美」，后续以此为回归基准。
 
-APK 已随工程提供：`qushe-v1.3.75-debug.apk`（约 33 MB，debug 签名，可直接安装）。
+APK 已随工程提供，两种（都是 debug 签名，可直接安装、可互相覆盖）：
+
+| 包 | 体积 | 用途 |
+|---|---|---|
+| `qushe-v1.3.76-release.apk` | **3.7 MB** | **日常用这个** —— R8 裁剪过，启动和体积都更好 |
+| `qushe-v1.3.76-debug.apk` | 32.6 MB | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作）|
+
+**为什么 debug 有 32 MB**：32 MB 里全是 dex（native 库只有 44 KB、资源 761 KB）。
+debug 包不做代码裁剪，Compose / Material3 / Media3 里没用到的部分全带着。
+开 R8 后 32.6 → 3.7 MB（**减 89%**）。
+
+构建命令：
+
+```bash
+gradle assembleDebug                 # 调试包
+gradle assembleRelease               # 精简包（R8 + 资源压缩）
+gradle assembleDebug assembleRelease lintDebug   # 两个都要 + lint
+```
+
+⚠️ release 包混淆过，崩溃堆栈要看 `app/build/outputs/mapping/release/mapping.txt` 反解
+（这个文件 39 MB，**不进仓库**，每次构建重新生成）。
+
+---
 
 
 ### 更新日志
+
+**1.3.76**（安装包减 89% + 文案精简）
+
+1. **release 包开启 R8 + 资源压缩**：**32.6 MB → 3.7 MB（-89%）**。
+   先分析了体积构成才动手：**32 MB 全是 dex**（native 库 44 KB、资源 761 KB），
+   所以"删 x86 库""压资源"都毫无意义，唯一有效的是代码裁剪。
+   release 用 debug 签名 ⇒ 能直接 `adb install`、也能覆盖安装现有 debug 包。
+   `verify.py` 新增这项检查（release 必须比 debug 小，否则说明 R8 没生效）。
+2. **UI 说明文案精简**（10 条）：副标题只保留"影响什么"，不解释"为什么"。
+   例：默认静音 60 字 → 20 字；文件夹面板 42 字 → 22 字。
+3. 顺手修 4 处废弃 API（`quadraticBezierTo` → `quadraticTo`），现在**构建零警告**。
 
 **1.3.75**（内部重构 + 换电脑支持，**行为无变化**）
 

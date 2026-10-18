@@ -1036,19 +1036,19 @@ private fun cornerMaskPath(
     return Path().apply {
         moveTo(left, top)
         lineTo(left + r, top)
-        quadraticBezierTo(left, top, left, top + r)
+        quadraticTo(left, top, left, top + r)
         close()
         moveTo(right, top)
         lineTo(right - r, top)
-        quadraticBezierTo(right, top, right, top + r)
+        quadraticTo(right, top, right, top + r)
         close()
         moveTo(left, bottom)
         lineTo(left + r, bottom)
-        quadraticBezierTo(left, bottom, left, bottom - r)
+        quadraticTo(left, bottom, left, bottom - r)
         close()
         moveTo(right, bottom)
         lineTo(right - r, bottom)
-        quadraticBezierTo(right, bottom, right, bottom - r)
+        quadraticTo(right, bottom, right, bottom - r)
         close()
     }
 }
