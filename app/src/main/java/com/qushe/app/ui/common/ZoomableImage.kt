@@ -349,9 +349,9 @@ fun ZoomableImage(
     val uri = model as? Uri
 
     /**
-     * 这张图是不是**超长图**（高宽比 > 3）。
+     * 这张图是不是**长图**（高宽比 > 2）。
      *
-     * 超长图绝不能整张解码：828×30656 = 25MP ≈ 101MB，Coil 的 `size()`
+     * 长图绝不能整张解码：828×30656 = 25MP ≈ 101MB，Coil 的 `size()`
      * 只影响 `inSampleSize`（2 的幂），按宽度算下来仍然会解整张 ——
      * 用户看到的就是"怎么放大都看不清"，同时还有 OOM 闪退的风险。
      *
@@ -361,17 +361,17 @@ fun ZoomableImage(
      * 清晰度的天花板仍然是原图（828 宽的图最多显示成 1080 宽），但至少是
      * 真正的原图像素，而不是从一张小图上硬拉。
      */
-    val ultraLongRatio = contentRatio?.takeIf { it > 0f }
-    val ultraLong = !isAnimated && uri != null && ultraLongRatio != null &&
+    val longRatio = contentRatio?.takeIf { it > 0f }
+    val isLongImage = !isAnimated && uri != null && longRatio != null &&
         ((sourceSize != null && sourceSize.width > 0 &&
-            sourceSize.height.toLong() > sourceSize.width.toLong() * 3L) ||
-            ultraLongRatio < 1f / 3f)
+            sourceSize.height.toLong() > sourceSize.width.toLong() * 2L) ||
+            longRatio < 0.5f)
 
     val knownRatio = ratioState.value
-    val decodeSize = remember(container, knownRatio, sourceSize, ultraLong) {
+    val decodeSize = remember(container, knownRatio, sourceSize, isLongImage) {
         if (container.width <= 0 || container.height <= 0) return@remember null
-        if (ultraLong) {
-            // ---- 超长图：底图只解"够 1x 看"的一份 ----
+        if (isLongImage) {
+            // ---- 长图：底图只解"够 1x 看"的一份 ----
             //
             // 1x 时图片是 Fit 的，显示宽度 = 容器高 × 宽高比
             // （828×30656 在 1080×2400 的屏上只有 64.8px 宽）。
@@ -542,9 +542,9 @@ fun ZoomableImage(
     // （他这次明确说了是"糊"不是"黑"）。
     // 这一层按容器尺寸解，清楚得多（长图在屏上本来也就那么宽），
     // 解码只要几十毫秒，正好夹在"很糊"和"很清楚"中间。
-    val previewRequest = remember(uri, container, decodeSize, ultraLong) {
-        if (uri == null || container.width <= 0 || decodeSize == null || ultraLong) {
-            // 超长图不走这一层：中间层按容器尺寸解，对 828×30656 来说
+    val previewRequest = remember(uri, container, decodeSize, isLongImage) {
+        if (uri == null || container.width <= 0 || decodeSize == null || isLongImage) {
+            // 长图不走这一层：中间层按容器尺寸解，对 828×30656 来说
             // 还是会把整张解出来（只是采样大一点），白白多占几十 MB。
             null
         } else {
@@ -586,7 +586,7 @@ fun ZoomableImage(
         }
     }
 
-    // ---- 超长图：放大后只解"当前可见的那一段" ----
+    // ---- 长图：放大后只解"当前可见的那一段" ----
     //
     // 底图只有"够 1x 看"的分辨率，放大之后必然糊。这里按当前的 scale/offset
     // 反算出屏幕正在看的是原图的哪一段，用 `BitmapRegionDecoder` 单独解那一块
@@ -595,8 +595,8 @@ fun ZoomableImage(
     // 关键在于**不要每帧重解**：`conflate` 会把解不完的中间帧丢掉，
     // 而且只有"当前这块已经盖不住视口"时才真的去解下一块。
     var longTile by remember(model) { mutableStateOf<RegionTile?>(null) }
-    LaunchedEffect(ultraLong, uri, container, contentRatio) {
-        if (!ultraLong) {
+    LaunchedEffect(isLongImage, uri, container, contentRatio) {
+        if (!isLongImage) {
             longTile = null
             return@LaunchedEffect
         }
@@ -987,7 +987,7 @@ awaitEachGesture {
                 .fillMaxSize(),
         )
 
-        // ---- 超长图的高清区域：盖在底图之上、跟着同一个变换走 ----
+        // ---- 长图的高清区域：盖在底图之上、跟着同一个变换走 ----
         //
         // 位置按"区域在原图里的比例"折算成 1x 坐标，再交给外层 graphicsLayer
         // 统一缩放平移 —— 所以它和底图、圆角遮罩永远是同一套几何。

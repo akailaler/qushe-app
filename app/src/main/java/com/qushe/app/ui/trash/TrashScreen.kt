@@ -161,9 +161,9 @@ fun TrashScreen(container: AppContainer) {
                 // 关掉「删除进回收站」后删除走的是永久删除，
                 // 内容根本不会到这里 —— 那时候这句常驻描述是假的。
                 text = if (container.prefs.deleteToTrash) {
-                    "删除的内容会先到这里，系统保留 30 天后自动清理。"
+                    "删除的内容会先到这里，系统保留 30 天后自动清理"
                 } else {
-                    "当前是彻底删除模式：删除的内容不经过回收站，立刻释放空间且无法恢复。"
+                    "当前是彻底删除模式：删除的内容不经过回收站，立刻释放空间且无法恢复"
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextTertiary,
@@ -193,7 +193,7 @@ fun TrashScreen(container: AppContainer) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = "回收站是空的。\n\n如果这里始终没有内容，可能是这台设备的系统\n没有提供回收站接口，删除会直接生效。",
+                    text = "回收站是空的。如果这里始终没有内容，可能是这台设备的系统没有提供回收站接口，删除会直接生效",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextTertiary,
                     textAlign = TextAlign.Center,

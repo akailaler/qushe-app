@@ -103,7 +103,7 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "像刷短视频一样刷自己的相册。\n不用下决心整理，想起来就划两下。",
+            text = "像刷短视频一样刷自己的相册。不用下决心整理，想起来就划两下",
             style = MaterialTheme.typography.bodyMedium,
             color = TextTertiary,
         )
@@ -203,7 +203,7 @@ fun HomeScreen(
         if (stats.rounds > 0) {
             Spacer(Modifier.height(10.dp))
             Text(
-                text = "你已经完整地刷完相册 ${stats.rounds} 轮了。",
+                text = "你已经完整地刷完相册 ${stats.rounds} 轮了",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextTertiary,
             )
@@ -339,7 +339,7 @@ private fun FolderSheet(
             Spacer(Modifier.height(4.dp))
             Text(
                 // 明确说明这个模式和默认模式的区别 —— 否则用户会以为"只抽没看过的"失效了
-                text = "只从这个文件夹抽；不套用「只看没看过的」。",
+                text = "只从这个文件夹抽；不套用「只看没看过的」",
                 style = MaterialTheme.typography.bodySmall,
                 color = TextTertiary,
             )
@@ -363,7 +363,7 @@ private fun FolderSheet(
                 }
             } else if (buckets.isEmpty()) {
                 Text(
-                    text = "没有找到文件夹。",
+                    text = "没有找到文件夹",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                     modifier = Modifier.padding(vertical = 24.dp),

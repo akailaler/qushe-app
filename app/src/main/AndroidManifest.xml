@@ -15,9 +15,13 @@
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
 
+    <!-- largeHeap：这是图片类应用，缩略图墙一次会同时持有几十张位图。
+         默认 256MB 的 Java 堆在快速拖刻度条（大量格子瞬间进出组合）时
+         很容易被 LMK 杀掉；翻倍到 512MB 能显著降低"滑一下就闪退"。 -->
     <application
         android:name=".QusheApp"
         android:allowBackup="true"
+        android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="true"

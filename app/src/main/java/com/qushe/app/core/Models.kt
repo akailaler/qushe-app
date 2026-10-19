@@ -70,20 +70,18 @@ data class MediaItem(
         get() = mimeType.equals("image/gif", ignoreCase = true) ||
             mimeType.equals("image/webp", ignoreCase = true)
 
-    /** 长图：高度远大于宽度的图，基本就是截屏，需要放大才看得清细节。 */
-    val isLongImage: Boolean
-        get() = height > 0 && width > 0 && height >= width * 2
-
     /**
-     * **超长图**：高宽比 > 3（用户定的阈值）。
+     * 长图：高宽比 > 2（截图 / 聊天记录）。
      *
-     * 和 [isLongImage]（≥2）刻意分开：
-     *  · [isLongImage] 只决定格子上的"长图"角标，2:1、2.5:1 的竖图也算；
-     *  · [isUltraLong] 决定**缩略图怎么解** —— 超过 3:1 装进格子只会变成
-     *    一根细条，这时改成"只解原图中间一块 4:3"，并放弃整张解码。
+     * **一条规则管两件事**（用户要求合并新老规则）：
+     *  · 角标显示"长图"；
+     *  · 瀑布流缩略图按 **高:宽 = 2:1** 摆，且只解原图中间一块同比例区域。
+     *
+     * 2:1 是刻意的：4:3 太宽、原比例又细成一根线，2:1 既认得出画面
+     * 又保住了"这是一张竖长图"的形状。
      */
-    val isUltraLong: Boolean
-        get() = height > 0 && width > 0 && height.toLong() > width.toLong() * 3
+    val isLongImage: Boolean
+        get() = height > 0 && width > 0 && height.toLong() > width.toLong() * 2
 }
 
 /**

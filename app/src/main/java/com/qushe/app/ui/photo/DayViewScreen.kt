@@ -613,7 +613,6 @@ private fun DayFilmstrip(
                 storeKey = it.storeKey(),
                 isAnimated = it.isAnimated,
                 isLongImage = it.isLongImage,
-                isUltraLong = it.isUltraLong,
             )
         }
     }
@@ -1671,10 +1670,13 @@ private fun CellSlot(
                     actions = actions,
                     // 只有飞入动效的焦点格需要垫底图 —— 它一进来就在屏幕正中、
                     // 用户盯着看，空白的几十毫秒就是"黑屏一下"。
-                    // 其余格子是在动画后半段淡入的，那点解码时间被动画盖住了。
-                    placeholder = rememberFocusPlaceholder(
-                        if (isFocusCell) cell.uri else null,
-                    ),
+                    // 长图**不垫**：系统缩略图是整张长图按 Fit 生成的细条，
+                    // 铺进 2:1 的格子里只会看到一条糊线，交接时反而像闪了一下。
+                    placeholder = if (isFocusCell && !cell.isLongImage) {
+                        rememberFocusPlaceholder(cell.uri)
+                    } else {
+                        null
+                    },
                     focusDecodeSize = focusDecodeSize,
                 )
             }
@@ -1706,12 +1708,12 @@ class DayIntroAnim(
 )
 
 /**
- * 一格缩略图该有多宽 —— 普通图严格按原图比例，超长图固定 4:3。
+ * 一格缩略图该有多宽 —— 普通图严格按原图比例，长图固定高:宽 = 2:1。
  *
  * 规则：
  *  · 竖图 / 方图：高度顶满行高，宽度 = 行高 × 比例；
  *  · 横图：宽度顶到 [CELL_MAX_WIDTH]（否则一张超宽横图会占掉大半个屏幕）；
- *  · **超长图（高宽比 > 3）**：固定 4:3（宽 = 行高 × 4/3）。原比例会让
+ *  · **长图（高宽比 > 2）**：固定 高:宽 = 2:1（宽 = 行高 / 2）。原比例会让
  *    828×30656 变成一根细条，画面交给区域解码取中间一块。
  *
  * 抽成纯函数是为了让"可见区间估算"和"真实布局"用**同一套算法** ——
@@ -1719,20 +1721,20 @@ class DayIntroAnim(
  * 整排会越滚越歪。
  */
 private fun cellWidthDp(item: MediaItem, rowHeight: Dp): Dp =
-    if (item.isUltraLong) {
-        // 超长图不按原比例摆 —— 否则 828×30656 会变成一根 96dp 的细条。
-        // 统一成 4:3（宽度 = 行高 × 4/3），画面由区域解码给出中间一块。
-        rowHeight * ULTRA_LONG_DISPLAY_ASPECT
+    if (item.isLongImage) {
+        // 长图不按原比例摆 —— 否则 828×30656 会变成一根 96dp 的细条。
+        // 统一成 高:宽 = 2:1（宽度 = 行高 / 2），画面由区域解码给出中间一块。
+        rowHeight * LONG_DISPLAY_ASPECT
     } else {
         cellWidthForRatio(itemRatio(item), rowHeight)
     }
 
-/** 超长图在瀑布流里的显示宽高比（固定 4:3，不拉伸）。 */
-private const val ULTRA_LONG_DISPLAY_ASPECT = 4f / 3f
+/** 长图在瀑布流里的显示宽高比（固定 1:2 竖图 = 高:宽 2:1，不拉伸）。 */
+private const val LONG_DISPLAY_ASPECT = 1f / 2f
 
-/** 分排均衡用的宽度权重：超长图按它实际占的 4:3 宽度算，不能按原比例。 */
+/** 分排均衡用的宽度权重：长图按它实际占的 1/2 行高算，不能按原比例。 */
 private fun displayWidthRatio(item: MediaItem): Float =
-    if (item.isUltraLong) ULTRA_LONG_DISPLAY_ASPECT else itemRatio(item)
+    if (item.isLongImage) LONG_DISPLAY_ASPECT else itemRatio(item)
 
 /**
  * [cellWidthDp] 的 ratio 版 —— 可见区间估算与真实布局共用。
@@ -1754,7 +1756,7 @@ private fun itemRatio(item: MediaItem): Float = when {
 }.coerceIn(0.25f, 4f)
 
 /**
- * 一格缩略图。普通图宽高按原图比例算，超长图固定 4:3（见 [cellWidthDp]）。
+ * 一格缩略图。普通图宽高按原图比例算，长图固定高:宽 = 2:1（见 [cellWidthDp]）。
  *
  * 宽度由外部传进来 —— 它必须和屏幕外那些占位用的是同一个值，
  * 否则真格子的实际宽度和预留宽度不一致，滚动位置就会漂。
@@ -1833,7 +1835,7 @@ private fun DayCell(
     // 硬切会像闪了一下；其余格子关掉（见下面的说明）。
     val fadeIn = placeholder != null
     val imageRequest = remember(
-        cell.uri, cellH, cellW, cell.isAnimated, cell.isUltraLong,
+        cell.uri, cellH, cellW, cell.isAnimated, cell.isLongImage,
         imgDensity, fadeIn, focusDecodeSize,
     ) {
         // ---- 请求尺寸必须和布局用**同一个**值 ----
@@ -1860,14 +1862,14 @@ private fun DayCell(
             ImageRequest.Builder(imgContext)
                 .data(cell.uri)
                 .apply {
-                    if (cell.isUltraLong) {
-                        // ---- 超长图：只解原图中间一块 4:3，绝不解整张 ----
+                    if (cell.isLongImage) {
+                        // ---- 长图：只解原图中间一块 2:1，绝不解整张 ----
                         //
                         // 828×30656 请求 292×1080 的格子时，`inSampleSize` 只能降到 2
                         // ⇒ 每格解 414×15328 ≈ 25MB，滑几格就 OOM（拖底部进度条闪退）；
                         // 而且整张缩进格子只是一根 6px 宽的细条。
-                        // 交给 LongThumbnailFetcher 区域解码：828×621 ≈ 2MB，
-                        // 画面正好铺满 4:3 的格子（不拉伸、不裁成细条）。
+                        // 交给 LongThumbnailFetcher 区域解码（828×1656），再缩到格子尺寸：
+                        // 内存 ~2MB，画面正好铺满 2:1 的格子（不拉伸、不裁成细条）。
                         setParameter(LongThumbnailFetcher.REQUEST_KEY, true)
                         size(wPx, hPx)
                     } else if (focusDecodeSize != null) {
@@ -2344,11 +2346,6 @@ private class DayCellUi(
     val isAnimated: Boolean,
     /** 长图（长截图 / 聊天记录）—— 用来显示角标。 */
     val isLongImage: Boolean = false,
-    /**
-     * 超长图（高宽比 > 3）—— 缩略图改走"中间 4:3 区域解码"，
-     * 格子宽度固定按 4:3 摆，不再按原比例压成细条。
-     */
-    val isUltraLong: Boolean = false,
 )
 
 /**

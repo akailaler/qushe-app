@@ -7,6 +7,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import com.qushe.app.core.AppContainer
+import com.qushe.app.core.CrashLog
 import com.qushe.app.core.LongThumbnailFetcher
 import com.qushe.app.core.SystemThumbnailFetcher
 
@@ -17,6 +18,8 @@ class QusheApp : Application(), ImageLoaderFactory {
 
     override fun onCreate() {
         super.onCreate()
+        // 先装崩溃捕获：AppContainer 初始化里出问题也能留下堆栈
+        CrashLog.install(this)
         container = AppContainer(this)
     }
 

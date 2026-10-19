@@ -341,8 +341,8 @@ fun FavoritesScreen(
             Text(
                 text = when {
                     loading -> "正在读取…"
-                    items.isEmpty() && likeMode -> "还没有喜欢的内容。整理时点左下角的红心。"
-                    items.isEmpty() -> "整理时点右下角的星形，就会收藏到这里。"
+                    items.isEmpty() && likeMode -> "还没有喜欢的内容。整理时点左下角的红心"
+                    items.isEmpty() -> "整理时点右下角的星形，就会收藏到这里"
                     viewOnly -> "${shown.size} 项 · 纯观看模式，不会改动任何内容"
                     likeMode -> "${shown.size} 项 · 喜欢只记在本应用里，不会同步到系统相册"
                     // 跟随「同步收藏到系统相册」开关 ——
@@ -453,9 +453,9 @@ fun FavoritesScreen(
             shown.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = if (items.isEmpty()) {
-                        "这里还是空的。\n去整理一组，把想留的挑出来。"
+                        "这里还是空的。去整理一组，把想留的挑出来"
                     } else {
-                        "这个分类下还没有收藏。\n换到另一个分类看看？"
+                        "这个分类下还没有收藏。换到另一个分类看看？"
                     },
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextTertiary,

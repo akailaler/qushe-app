@@ -33,9 +33,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.content.Intent
 import kotlinx.coroutines.launch
+import com.qushe.app.core.CrashLog
 import com.qushe.app.core.MediaRepository
 import com.qushe.app.core.Prefs
 import com.qushe.app.core.Stats
@@ -108,6 +111,9 @@ fun SettingsScreen(
     var importingFavorites by remember { mutableStateOf(false) }
     var importNote by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // 只有真的崩过才有内容；被系统 LMK 杀掉不会留下堆栈
+    val crashText = remember { CrashLog.read(context) }
 
     // ---- 用 `LazyColumn` 而不是 `Column + verticalScroll` ----
     //
@@ -201,7 +207,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "只抽没看过的",
-                subtitle = "看过的本轮不再出现；刷完一轮自动开新一轮。",
+                subtitle = "看过的本轮不再出现；刷完一轮自动开新一轮",
             ) {
                 Switch(
                     checked = onlyUnseen,
@@ -219,9 +225,9 @@ fun SettingsScreen(
             SettingBlock(
                 title = "删除进回收站",
                 subtitle = if (deleteToTrash) {
-                    "系统保留 30 天，期间随时可以恢复。"
+                    "系统保留 30 天，期间随时可以恢复"
                 } else {
-                    "直接彻底删除，立刻释放空间，无法恢复。"
+                    "直接彻底删除，立刻释放空间，无法恢复"
                 },
             ) {
                 Switch(
@@ -243,7 +249,7 @@ fun SettingsScreen(
                         .padding(12.dp),
                 ) {
                     Text(
-                        text = "彻底删除后不可恢复，建议先用回收站模式。",
+                        text = "彻底删除后不可恢复，建议先用回收站模式",
                         style = MaterialTheme.typography.labelSmall,
                         color = AccentDelete,
                     )
@@ -273,7 +279,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "自动播放",
-                subtitle = "进入即开始播放，不用再点一下。",
+                subtitle = "进入即开始播放，不用再点一下",
             ) {
                 Switch(
                     checked = autoPlay,
@@ -318,14 +324,14 @@ fun SettingsScreen(
             SettingBlock(
                 title = "双击画面做什么",
                 subtitle = if (doubleTapLikes) {
-                    "双击 = 喜欢。只记在本应用里，不碰系统相册；整理时左下角的红心也是它。"
+                    "双击 = 喜欢。只记在本应用里，不碰系统相册；整理时左下角的红心也是它"
                 } else {
                     // 同上：跟随「同步收藏到系统相册」开关，不无条件承诺。
                     "双击 = 收藏。${
                         if (autoSync) {
-                            "会同步进系统相册的「收藏」夹；整理时右下角的星形也是它。"
+                            "会同步进系统相册的「收藏」夹；整理时右下角的星形也是它"
                         } else {
-                            "自动同步已关闭，只记在本应用内；可到「收藏」页手动同步。"
+                            "自动同步已关闭，只记在本应用内；可到「收藏」页手动同步"
                         }
                     }"
                 },
@@ -367,7 +373,7 @@ fun SettingsScreen(
                     )
                     Spacer(Modifier.height(6.dp))
                     Text(
-                        text = "喜欢：只存在本应用里，可以随手标记，不必担心同步。\n" +
+                        text = "喜欢：只存在本应用里，可以随手标记，不必担心同步，" +
                             "收藏：可写进系统相册的「收藏」",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextTertiary,
@@ -377,22 +383,22 @@ fun SettingsScreen(
 
             val probe = locationProbe
             val locationSubtitle = when {
-                !showLocation -> "已关闭，左下角不再显示地点。"
+                !showLocation -> "已关闭，左下角不再显示地点"
                 probe == null -> "已开启，正在检查这台设备能不能读到位置信息…"
                 !probe.hasPermission ->
-                    "还没有拿到「照片和视频的位置信息」权限 —— 点这一行去授权。"
-                probe.scanned == 0 -> "已授权，但相册里暂时没有可检查的内容。"
+                    "还没有拿到「照片和视频的位置信息」权限 —— 点这一行去授权"
+                probe.scanned == 0 -> "已授权，但相册里暂时没有可检查的内容"
                 probe.withPoint > 0 ->
                     "已授权。抽查 ${probe.scanned} 张，其中 ${probe.withPoint} 张有位置信息，" +
-                        "会显示在左下角。"
+                        "会显示在左下角"
                 probe.readFailed ->
-                    "已授权，但读取位置时系统报错，这台设备的媒体库可能不支持。"
+                    "已授权，但读取位置时系统报错，这台设备的媒体库可能不支持"
                 probe.columnMissing ->
                     "已授权。系统没有返回位置字段，已改走「直读照片 EXIF」那条路，" +
-                        "抽查 ${probe.scanned} 张都没有位置信息 —— 这些照片本身没记录地点。"
+                        "抽查 ${probe.scanned} 张都没有位置信息 —— 这些照片本身没记录地点"
                 else ->
                     "已授权。MediaStore 和照片 EXIF 两条路都查过，抽查 ${probe.scanned} 张" +
-                        "都没有位置信息 —— 这些照片本身没记录地点。"
+                        "都没有位置信息 —— 这些照片本身没记录地点"
             }
 
             SettingBlock(
@@ -445,7 +451,7 @@ fun SettingsScreen(
                 subtitle = when {
                     syncing -> "正在同步"
                     pendingFavoriteSync > 0 ->
-                        "有 $pendingFavoriteSync 项还没写进系统相册，点这里立刻同步。"
+                        "有 $pendingFavoriteSync 项还没写进系统相册，点这里立刻同步"
                     else -> "取舍里的收藏与系统相册已经同步"
                 },
                 // 同步中不接第二次点击 —— 再点一次会打乱批次队列。
@@ -544,18 +550,40 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.81",
+                text = "取舍 1.3.82",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )
             Spacer(Modifier.height(6.dp))
             Text(
-                text = "手势设计参考「去留 linger」的公开设计思考：\n" +
-                    "照片用浏览照片的手势，视频用浏览视频的手势；\n" +
-                    "导航归滑动，决策归双击与按钮。",
+                text = "手势设计参考「去留 linger」的公开设计思考：" +
+                    "照片用浏览照片的手势，视频用浏览视频的手势，" +
+                    "导航归滑动，决策归双击与按钮",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary,
             )
+
+            // ---- 崩溃日志导出 ----
+            // 只有崩溃过才出现。点一下走系统分享，直接发给开发者即可。
+            if (crashText != null) {
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    text = "导出崩溃日志",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = AccentInfo,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            val send = Intent(Intent.ACTION_SEND).apply {
+                                type = "text/plain"
+                                putExtra(Intent.EXTRA_SUBJECT, "取舍崩溃日志")
+                                putExtra(Intent.EXTRA_TEXT, crashText)
+                            }
+                            context.startActivity(Intent.createChooser(send, "分享崩溃日志"))
+                        }
+                        .padding(vertical = 8.dp, horizontal = 4.dp),
+                )
+            }
 
             // ---- 清零统计 ----
             //
@@ -576,8 +604,8 @@ fun SettingsScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "只把本应用的累计数字归零（已回顾 / 已删除 / 已收藏 / 瘦身）。\n" +
-                        "不会删除或恢复任何照片、视频，也不影响系统相册里的收藏。",
+                    text = "只把本应用的累计数字归零（已回顾 / 已删除 / 已收藏 / 瘦身），" +
+                        "不会删除或恢复任何照片、视频，也不影响系统相册里的收藏",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextTertiary.copy(alpha = 0.65f),
                 )
@@ -598,9 +626,9 @@ fun SettingsScreen(
             title = { Text("确认清零") },
             text = {
                 Text(
-                    "会把本应用的累计数字全部归零：已回顾、已删除、已收藏、瘦身。\n\n" +
+                    "会把本应用的累计数字全部归零：已回顾、已删除、已收藏、瘦身，" +
                         "照片和视频不会有任何变化，收藏记录也不会丢 —— " +
-                        "归零的只是那几个计数。此操作无法撤销。",
+                        "归零的只是那几个计数。此操作无法撤销",
                 )
             },
             confirmButton = {
