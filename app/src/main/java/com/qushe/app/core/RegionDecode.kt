@@ -42,7 +42,8 @@ class RegionTile(
  * 尺寸由解码器自己给出，正好解决 MediaStore 宽高缺失的情况。
  *
  * @param maxPixels 这块区域允许的解码像素上限。超了按 2 的幂降采样；
- *   一屏的量级是 828×1840 ≈ 1.5MP，留 4MP 已经绰绰有余。
+ *   一屏的量级是 828×1840 ≈ 1.5MP；留 6MP 是为了让"中等放大"
+ *   （区域约 828×5700）仍然按原像素解，不在宽度上打对折。
  * @return null = 解不出来（文件坏、权限没了、EXIF 旋转过的图不走这条路）。
  */
 @Suppress("DEPRECATION") // newInstance(FileDescriptor) 是 minSdk 30 上唯一的入口
@@ -53,7 +54,7 @@ suspend fun decodeRegionTile(
     topFraction: Float,
     rightFraction: Float,
     bottomFraction: Float,
-    maxPixels: Int = 4_000_000,
+    maxPixels: Int = 6_000_000,
 ): RegionTile? = withContext(Dispatchers.IO) {
     // 旋转过的图不碰：BitmapRegionDecoder 不应用 EXIF 旋转，
     // 解出来的方向会和底层那张 Fit 图对不上。超长图基本都是截图，正常方向。
