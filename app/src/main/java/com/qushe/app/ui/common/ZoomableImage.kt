@@ -305,9 +305,18 @@ fun ZoomableImage(
         return cover.coerceAtLeast(1f)
     }
 
-    /** 吸合上限与外部 `maxScale` 取小。 */
+    /**
+     * 真正允许放到的最大倍率。
+     *
+     * ⚠️ 原来是 `minOf(maxScale, snapScale)` —— 那等于**把"铺满屏幕"当成了上限**，
+     * 于是超长图永远只能放到刚铺满（比如 16.6 倍被 8 倍截断 ⇒ 宽度只有 520px，
+     * 左右一圈黑底、也看不清细节）。
+     *
+     * 现在取 `maxOf`：`snapScale` 的意义变成"**铺满屏幕所需的最小倍率**"（回弹下限），
+     * 而 `maxScale`（默认 8）是"最多能放多大"。长图能放到铺满、也能继续放大看局部。
+     */
     fun effectiveMax(size: IntSize): Float =
-        minOf(maxScaleState.value, snapScale(size))
+        maxOf(maxScaleState.value, snapScale(size))
 
     /**
      * 放大后要用的**解码尺寸**。
@@ -678,6 +687,28 @@ awaitEachGesture {
                         // 只有在"横向确实可拖"时才吸（`panLimit > 0`）——
                         // 图比屏幕窄时 offset.x 本来就是 0，没有可吸的东西。
                         if (scale > 1.01f) {
+                            // ---- 放大态的下限是「铺满屏幕」 ----
+                            //
+                            // `snapScale` 返回"短边正好等于屏幕"所需的倍数。
+                            // 放大到它以下时，图在某一轴比视口窄 ⇒ 四周必然露黑底。
+                            // 所以松手时**弹到铺满**（用户要求：短边回弹到屏幕尺寸，
+                            // 此时整屏被图片填满，长边方向可以滑动）。
+                            //
+                            // 缩放倍率按比例放大 offset，才能"停在同一处内容"上；
+                            // 否则弹一次，正在看的那段就被推到别处了。
+                            val cover = snapScale(size)
+                            if (cover > 1.02f && scale < cover - 0.01f) {
+                                val target = minOf(cover, effectiveMax(size))
+                                val keep = offset * (target / scale)
+                                tweenJob = scope.launch {
+                                    animateScaleTo(target, hardClamp(keep, target, size))
+                                }
+                                if (!pinchTriggered) pinchProgressState.value?.invoke(0f)
+                                onZoomedChange(true)
+                                return@awaitEachGesture
+                            }
+                        }
+                        if (scale > 1.01f) {
                             val (dw, _) = drawn(size, scale)
                             val xLimit = panLimit(size.width, dw)
                             if (xLimit > 0f && offset.x != 0f) {
@@ -902,13 +933,19 @@ private fun drawnSizePx(
     val cw = size.width.toFloat()
     val ch = size.height.toFloat()
     val (w, h) = if (ratio != null && ratio > 0f) {
-        // Fit（contain）：整张图放进容器，两边至少一边贴边。
+        // Fit（contain）：整张图放进容器，至少一边贴边。
+        //
+        // ⚠️ 这里曾经把**宽高写反**（两个分支都是）：容器 1080×2400、图 828×30656
+        // 时算出「2400 × 64.8」，而正确是「64.8 × 2400」。
+        // 后果极其隐蔽 —— 因为 `panLimit` 和 `snapScale` 全都用这个值：
+        // 长图 1x 时被当成"宽度已经 2400 宽"，于是放大后横向允许拖 1000+ 像素，
+        // 而实际图只有 65 宽 ⇒ 一拖就露出大片黑底（用户报"视口里出现空白背景"）。
         if (cw / ch > ratio) {
-            // 容器更宽 → 高度贴边
-            ch to (ch * ratio)
+            // 容器更宽 → 高度贴边，宽度按比例（变窄）
+            (ch * ratio) to ch
         } else {
-            // 容器更高 → 宽度贴边
-            (cw * ratio) to cw
+            // 容器更高（更"竖"）→ 宽度贴边，高度按比例（变高）
+            cw to (cw / ratio)
         }
     } else {
         cw to ch

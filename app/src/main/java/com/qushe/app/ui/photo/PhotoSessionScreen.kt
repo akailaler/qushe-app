@@ -873,7 +873,13 @@ fun PhotoSessionScreen(
                     // 不传就走 `maxScale` + 保守的边界估计，和收藏页预览完全一致
                     // （那里也没传，用户实测长图可以自由查看）。代价是可能拖出
                     // 一丁点黑边 —— 那比"看不了细节"好得多。
-                    contentRatio = null,
+                    // 同瀑布流：传真实比例，边界才按图片实际绘制尺寸算
+                    // （`drawnSizePx` 的宽高 bug 修掉之后，这里是正解）。
+                    contentRatio = if (current.width > 0 && current.height > 0) {
+                        current.width.toFloat() / current.height.toFloat()
+                    } else {
+                        null
+                    },
                     // 解码尺寸按原图封顶：长图放大时不会因为请求了荒谬尺寸而糊掉
                     sourceSize = if (current.width > 0 && current.height > 0) {
                         androidx.compose.ui.unit.IntSize(current.width, current.height)

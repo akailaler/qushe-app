@@ -182,6 +182,15 @@ fun AppRoot(container: AppContainer) {
     var videoCount by remember { mutableStateOf<Int?>(null) }
     var syncNotice by remember { mutableStateOf<String?>(null) }
 
+    /**
+     * 收藏同步**正在进行**。
+     *
+     * 之前用 `syncNotice` 那条灰色浮条报进度，用户明确说不要它
+     * （黑底上对比强，看着像白方块在闪）。改成让**设置页那颗按钮自己表达**：
+     * `已同步 → 同步中… → 已同步`，副标题同理。浮条只留给"失败/取消"这类必须说的事。
+     */
+    var syncRunning by remember { mutableStateOf(false) }
+
     // 侧边返回手势：不在「整理」页时先退回整理页，而不是直接退出应用。
     // 这一段必须声明在会话/预览之前 —— Compose 的返回回调是后注册者优先，
     // 会话页和预览层各自注册的处理会自然地盖住这里。
@@ -323,6 +332,7 @@ fun AppRoot(container: AppContainer) {
         if (result.resultCode == Activity.RESULT_OK) {
         }
         syncRemoves = emptyList()
+        syncRunning = false
         scope.launch { pendingSync = container.sessions.pendingSyncCount() }
     }
 
@@ -333,6 +343,7 @@ fun AppRoot(container: AppContainer) {
         syncAdds = emptyList()
 
         if (result.resultCode != Activity.RESULT_OK) {
+            syncRunning = false
             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
             syncNotice = "已取消，收藏没有写入系统相册"
             return@rememberLauncherForActivityResult
@@ -397,16 +408,11 @@ fun AppRoot(container: AppContainer) {
                 confirmed.size < adds.size ->
                     "已同步 ${confirmed.size} / ${adds.size} 项，其余没能写入系统"
 
-                else ->
-                    // ---- 说清"为什么相册里可能暂时看不到" ----
-                    //
-                    // 实测（2026-10-16）：取舍收藏 286 条全部写进系统 `is_favorite`，
-                    // 逐条对上 0 差异；但**小米相册要重启/等一段时间才显示全**
-                    // （用户实测：重启后从 256 涨到 270，在渐进刷新）。
-                    // 不说明这一点的话，用户会以为"没同步"，然后反复点。
-                    "已写入 ${adds.size} 项。" +
-                        "系统相册可能需要重启或等一会儿才会显示出来。"
+                // 成功：**不弹浮条**。按钮会从「同步中…」变回「已同步」，
+                // 副标题回到「已经同步」—— 这就是最好的反馈，不需要再叠一条浮条。
+                else -> null
             }
+            syncRunning = false
         }
     }
 
@@ -431,6 +437,7 @@ fun AppRoot(container: AppContainer) {
             .onFailure { Log.w(TAG, "系统拒绝了收藏请求", it) }
             .getOrNull()
         if (sender == null) {
+            syncRunning = false
             syncNotice = "系统拒绝了收藏请求（${batch.size} 项）"
             return@LaunchedEffect
         }
@@ -439,6 +446,7 @@ fun AppRoot(container: AppContainer) {
             addSyncer.launch(IntentSenderRequest.Builder(sender).build())
         }.onFailure { Log.w(TAG, "无法启动系统确认弹窗", it) }.isSuccess
         if (!launched) {
+            syncRunning = false
             syncNotice = "无法启动系统确认弹窗，这台设备可能不支持收藏接口"
             syncAdds = emptyList()
         }
@@ -453,10 +461,13 @@ fun AppRoot(container: AppContainer) {
      */
     fun startFavoriteSync() {
         scope.launch {
+            syncRunning = true
             val delta = container.sessions.favoriteSyncDelta()
             if (delta.isEmpty) {
+                syncRunning = false
                 pendingSync = container.sessions.pendingSyncCount()
-                syncNotice = "没有需要同步的收藏"
+                // 没有可同步的：**不弹浮条**（用户要的就是不弹），
+                // 按钮本来就在「已同步」上，用户能看出来。
                 return@launch
             }
             syncRemoves = delta.toRemove
@@ -481,6 +492,7 @@ fun AppRoot(container: AppContainer) {
                 syncRemoves = emptyList()
             }
 
+            syncRunning = false
             pendingSync = container.sessions.pendingSyncCount()
         }
     }
@@ -718,6 +730,7 @@ fun AppRoot(container: AppContainer) {
                             "开始全量写入，如有弹窗请确认"
                         },
                         pendingFavoriteSync = pendingSync,
+                        syncing = syncRunning,
                         onImportSystemFavorites = {
                             val keys = container.repo.allSystemFavoriteKeys()
                             val added = container.sessions.importSystemFavorites(keys)

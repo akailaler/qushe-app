@@ -68,6 +68,13 @@ fun SettingsScreen(
     onSyncFavoritesNow: suspend () -> String,
     /** 还有多少项没写入系统相册。 */
     pendingFavoriteSync: Int,
+    /**
+     * 同步**正在进行**。
+     *
+     * 用来把「立即同步」那颗按钮变成 `已同步 → 同步中… → 已同步`、
+     * 副标题变成「正在同步」—— 用户明确不要那条灰色浮条，反馈交给按钮自己。
+     */
+    syncing: Boolean,
     /** 显示相对时间（3 天前）。由外层持有 state，见 `AppRoot.relativeDates`。 */
     relativeDates: Boolean,
     onRelativeDatesChange: (Boolean) -> Unit,
@@ -434,19 +441,27 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "立即同步收藏到系统相册",
-                subtitle = if (pendingFavoriteSync > 0) {
-                    "有 $pendingFavoriteSync 项还没写进系统相册，点这里立刻同步。"
-                } else {
-                    "取舍里的收藏与系统相册已经同步"
+                // 三态：正在同步 / 有 N 项待写 / 已同步
+                subtitle = when {
+                    syncing -> "正在同步"
+                    pendingFavoriteSync > 0 ->
+                        "有 $pendingFavoriteSync 项还没写进系统相册，点这里立刻同步。"
+                    else -> "取舍里的收藏与系统相册已经同步"
                 },
-                onClick = {
-                    scope.launch { importNote = onSyncFavoritesNow() }
+                // 同步中不接第二次点击 —— 再点一次会打乱批次队列。
+                onClick = if (syncing) null else {
+                    // 它是 suspend 函数（要读系统状态），必须在协程里调。
+                    { scope.launch { onSyncFavoritesNow() } }
                 },
             ) {
                 Text(
-                    text = if (pendingFavoriteSync > 0) "同步" else "已同步",
+                    text = when {
+                        syncing -> "同步中…"
+                        pendingFavoriteSync > 0 -> "同步"
+                        else -> "已同步"
+                    },
                     style = MaterialTheme.typography.bodyMedium,
-                    color = if (pendingFavoriteSync > 0) AccentInfo else TextSecondary,
+                    color = if (syncing || pendingFavoriteSync > 0) AccentInfo else TextSecondary,
                 )
             }
 
@@ -529,7 +544,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.78",
+                text = "取舍 1.3.79",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )
@@ -639,7 +654,8 @@ private fun SettingBlock(
                         .clickable(onClick = onClick)
                 }
             )
-            .padding(bottom = 6.dp),
+            // 块与块之间的呼吸由下面的 Spacer + 分隔线负责，这里只留一点点。
+            .padding(bottom = 4.dp),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -659,9 +675,9 @@ private fun SettingBlock(
             style = MaterialTheme.typography.labelSmall,
             color = TextTertiary,
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
         HorizontalDivider(color = Surface3.copy(alpha = 0.5f))
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
     }
 }
 

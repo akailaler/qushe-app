@@ -2919,12 +2919,13 @@ private fun DayZoomView(
                 model = item.uri,
                 contentDescription = item.name,
                 isAnimated = item.isAnimated,
-                // ---- 长图**不传** contentRatio ----
-                // 传了它，`snapScale = 容器 / Fit 后绘制区` 会算出 1~1.25，
-                // 而且横向 `panLimit = 0` ⇒ **放大后上下左右都拖不动**，
-                // 解码尺寸也被这个上限压到容器大小 ⇒ 放大必然糊。
-                // （1.3.62→1.3.65 在整理页踩过一次，结论写在这里，别再犯。）
-                contentRatio = if (item.isLongImage) null else photoRatio,
+                // ---- 长图**也要传**比例 ----
+                // 之前这条写的是"长图不传"，理由是"传了会锁死在 1~1.25 倍"。
+                // 那个结论是**建立在 `drawnSizePx` 把宽高写反的 bug 上**的：
+                // 传比例反而算错，不传（退化成"绘制区=容器"）看起来更正常。
+                // Bug 修掉之后，**传比例才是对的** —— `panLimit` 和 `snapScale`
+                // 全靠它算真实绘制尺寸，不传就只能按容器估，一拖就露黑底。
+                contentRatio = photoRatio,
                 // 上限回到 `maxScale`（8x）之后，解码尺寸会变成"容器 × 8"（一张荒谬的巨图）。
                 // 用原始像素封顶，既清楚又不会白解。
                 sourceSize = if (item.width > 0 && item.height > 0) {
