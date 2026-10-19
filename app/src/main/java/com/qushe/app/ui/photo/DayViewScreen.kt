@@ -1,6 +1,7 @@
 package com.qushe.app.ui.photo
 
 import android.net.Uri
+import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
@@ -1893,7 +1894,16 @@ private fun DayCell(
                             (focusDecodeSize.height * k).toInt().coerceAtLeast(1),
                         )
                     } else {
-                        size(wPx, hPx)
+                        // ---- 普通缩略图按 0.75 倍解码 ----
+                        //
+                        // 瀑布流一屏十几格，每格按显示尺寸（1440×1080）解出来是 6MB；
+                        // 快速拖刻度条时十几个格子瞬间进出，峰值能到一百多 MB。
+                        // 0.75 倍后每格约 3.4MB，显示时放大 1.33 倍 —— 缩略图上
+                        // 肉眼几乎看不出差别，但这是"拖到最边上闪退"的主要来源。
+                        size(
+                            (wPx * THUMB_DECODE_SCALE).toInt().coerceAtLeast(1),
+                            (hPx * THUMB_DECODE_SCALE).toInt().coerceAtLeast(1),
+                        )
                     }
                 }
                 // 见上面 fadeIn：只有垫了缩略图的焦点格需要这一段淡入
@@ -2237,6 +2247,9 @@ private fun DayCell(
     }
 }
 
+/** 普通缩略图的解码比例（相对格子显示尺寸）：0.75 倍 = 内存约减半。 */
+private const val THUMB_DECODE_SCALE = 0.75f
+
 /** 往上滑多少像素算"确定触发"。和整理页单张手势的量级对齐。 */
 private const val SWIPE_UP_DELETE_PX = 96
 
@@ -2444,6 +2457,9 @@ private fun DayScrubber(
 ) {
     var rulerWidth by remember { mutableFloatStateOf(0f) }
     var draggingFraction by remember { mutableStateOf<Float?>(null) }
+    // 节流用：上次真正推动滚动的时间 / 还没提交的最终位置
+    var lastSeekAt by remember { mutableLongStateOf(0L) }
+    var pendingSeek by remember { mutableStateOf<Float?>(null) }
 
     // ---- 指针位置：**只在绘制阶段读滚动值** ----
     //
@@ -2491,7 +2507,17 @@ private fun DayScrubber(
                         val seek = { x: Float ->
                             val f = ((x - inset) / usable).coerceIn(0f, 1f)
                             draggingFraction = f
-                            onSeekFraction(f)
+                            pendingSeek = f
+                            // ---- 节流到 ~25fps ----
+                            //
+                            // 拖动时每个 pointer event 都改一次 scroll，会让可见区间
+                            // 每帧整体换一批（十几格同时进出组合 + 解码）。手指移动
+                            // 再快也不必 60fps 重排；40ms 一次肉眼完全跟得上。
+                            val now = SystemClock.uptimeMillis()
+                            if (now - lastSeekAt >= 40L) {
+                                lastSeekAt = now
+                                onSeekFraction(f)
+                            }
                         }
                         seek(down.position.x)
                         var event: PointerEvent
@@ -2502,6 +2528,9 @@ private fun DayScrubber(
                                 seek(change.position.x)
                             }
                         } while (event.changes.any { it.pressed })
+                        // 松手时把最后一次位置补上（节流可能刚好漏掉它）
+                        pendingSeek?.let(onSeekFraction)
+                        pendingSeek = null
                         draggingFraction = null
                     }
                 },

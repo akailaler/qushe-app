@@ -191,15 +191,6 @@ fun HomeScreen(
             StatCell(formatSize(stats.freedBytes), "瘦身", AccentInfo)
         }
 
-        Spacer(Modifier.height(12.dp))
-        Text(
-            // 和设置页统计那一块同一句话、同一套样式 —— 两处说的是同一件事，
-            // 措辞不该有第二种（用户要求加在这里）。
-            text = "只记完成，不记剩余 —— 「还剩」是任务，「已完成」是成果",
-            style = MaterialTheme.typography.labelSmall,
-            color = TextTertiary,
-        )
-
         if (stats.rounds > 0) {
             Spacer(Modifier.height(10.dp))
             Text(

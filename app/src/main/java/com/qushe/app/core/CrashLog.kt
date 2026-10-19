@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Build
 import java.io.File
 import java.io.PrintWriter
-import java.io.StringWriter
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -49,20 +48,21 @@ object CrashLog {
 
     private fun write(context: Context, thread: Thread, error: Throwable) {
         val dir = File(context.filesDir, DIR).apply { mkdirs() }
-        val stack = StringWriter().also { sw ->
-            PrintWriter(sw).use { error.printStackTrace(it) }
-        }.toString()
         val version = runCatching {
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "?"
-        val text = buildString {
-            appendLine("取舍 $version")
-            appendLine("时间：${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
-            appendLine("设备：${Build.MANUFACTURER} ${Build.MODEL} / Android ${Build.VERSION.RELEASE}")
-            appendLine("线程：${thread.name}")
-            appendLine()
-            appendLine(stack)
+        // 直接流式写盘，不在内存里拼整段字符串 ——
+        // OOM 崩溃时任何大分配都可能再次失败，那就一条日志都留不下。
+        runCatching {
+            PrintWriter(File(dir, FILE).bufferedWriter()).use { w ->
+                w.println("取舍 $version")
+                w.println("时间：${SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(Date())}")
+                w.println("设备：${Build.MANUFACTURER} ${Build.MODEL} / Android ${Build.VERSION.RELEASE}")
+                w.println("线程：${thread.name}")
+                w.println()
+                error.printStackTrace(w)
+                w.flush()
+            }
         }
-        runCatching { File(dir, FILE).writeText(text) }
     }
 }

@@ -417,6 +417,28 @@ fun ZoomableImage(
     }
 
     /**
+     * 长图"有效清晰"的放大上限：源图像素最多放大到 [MAX_USEFUL_UPSCALE] 倍。
+     *
+     * 444 宽的图要铺满 1080 的屏得插值 2.4 倍，怎么算都会糊；系统相册看起来
+     * 更清楚，是因为它没有把 444 硬拉到 1080。这里限制的是**松手吸合的目标**
+     * 和**双击放大**（默认读数用的倍率），手动继续捏合仍然可以超过它 ——
+     * 想更大的人自己捏，但默认停在"最清楚的那一档"。
+     *
+     * 828 宽的图：1.3 倍正好是 1080/828 ≈ 1.3 ⇒ 行为和之前完全一致。
+     */
+    fun maxUsefulScale(size: IntSize): Float {
+        if (!isLongImage) return Float.MAX_VALUE
+        val src = sourceSize ?: return Float.MAX_VALUE
+        val ratio = ratioState.value ?: return Float.MAX_VALUE
+        if (src.width <= 0 || size.width <= 0 || size.height <= 0) return Float.MAX_VALUE
+        val (dw0, _) = drawn(size, 1f)
+        if (dw0 <= 0f) return Float.MAX_VALUE
+        val localPerSource = dw0 / src.width.toFloat()
+        if (localPerSource <= 0f) return Float.MAX_VALUE
+        return (MAX_USEFUL_UPSCALE / localPerSource).coerceAtLeast(1f)
+    }
+
+    /**
      * **橡皮筋阻尼**：把越界的位移按递减增益压回来。
      *
      * ---- 为什么不能只有硬边界 ----
@@ -813,12 +835,15 @@ awaitEachGesture {
                             // 放大到它以下时，图在某一轴比视口窄 ⇒ 四周必然露黑底。
                             // 所以松手时**弹到铺满**（用户要求：短边回弹到屏幕尺寸，
                             // 此时整屏被图片填满，长边方向可以滑动）。
+                            // 长图例外：铺满会把 444 宽的源图硬拉 2.4 倍，默认只到
+                            // 「1.3 倍源像素」（见 [maxUsefulScale]），宁可两边留黑也不糊。
                             //
                             // 缩放倍率按比例放大 offset，才能"停在同一处内容"上；
                             // 否则弹一次，正在看的那段就被推到别处了。
                             val cover = snapScale(size)
-                            if (cover > 1.02f && scale < cover - 0.01f) {
-                                val target = minOf(cover, effectiveMax(size))
+                            // 松手吸合的目标：铺满屏幕，但不把源图放大超过 1.3 倍
+                            val target = minOf(cover, effectiveMax(size), maxUsefulScale(size))
+                            if (target > 1.02f && scale < target - 0.01f) {
                                 val keep = offset * (target / scale)
                                 tweenJob = scope.launch {
                                     animateScaleTo(target, hardClamp(keep, target, size))
@@ -882,7 +907,10 @@ awaitEachGesture {
                                 // 而不是写死的 2.5x —— 长图 2.5x 仍不够宽，
                                 // 看着就还是"没放大够"。
                                 // offset 归零 ⇒ 图回到正中，这就是用户要的"自动居中"。
-                                animateScaleTo(effectiveMax(size), offsetTarget = Offset.Zero)
+                                animateScaleTo(
+                                    minOf(effectiveMax(size), maxUsefulScale(size)),
+                                    offsetTarget = Offset.Zero,
+                                )
                             }
                             onZoomedChange(scale > 1.01f)
                         }
@@ -1140,6 +1168,15 @@ private fun drawnSizePx(
  * 24MP 是折中：828×30656 只缩到 800×29600（差 3%，肉眼无感）。
  */
 private const val MAX_DECODE_PIXELS = 24_000_000L
+
+/**
+ * 长图默认放大到"源图像素 × 1.3"就停 —— 再放大只是插值，不会更清楚。
+ *
+ * 1.3 这个数是量出来的：828 宽的图铺满 1080 的屏正好是 1.3 倍，
+ * 用户对那张的评价是"清楚了"。444 宽的图如果也铺满，就是 2.4 倍，
+ * 必然比系统相册（不硬拉）糊。
+ */
+private const val MAX_USEFUL_UPSCALE = 1.3f
 
 private const val PINCH_TO_DATE_AMOUNT = 0.10f
 
