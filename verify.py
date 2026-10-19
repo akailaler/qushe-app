@@ -146,13 +146,19 @@ def check_version():
     m = re.search(r'"取舍\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)', settings)
     settings_vn = m.group(1) if m else None
 
-    # 最新 APK 文件名
-    apks = [f for f in os.listdir(ROOT)
-            if re.fullmatch(r"qushe-v[0-9.]+-debug\.apk", f)]
-    apks.sort(key=lambda f: [int(x) for x in re.findall(r"\d+", f)])
+    # 最新 APK 文件名。**仓库目录和工作区根都要找** ——
+    # 版本化 APK 有时放在仓库里、有时放在工作区根，只认一处就会误报"版本落后"。
+    apks = []
+    for d in (ROOT, os.path.dirname(ROOT)):
+        if not os.path.isdir(d):
+            continue
+        for f in os.listdir(d):
+            if re.fullmatch(r"qushe-v[0-9.]+-debug\.apk", f):
+                apks.append(os.path.join(d, f))
+    apks.sort(key=lambda p: [int(x) for x in re.findall(r"\d+", os.path.basename(p))])
     apk_vn = None
     if apks:
-        m = re.fullmatch(r"qushe-v([0-9.]+)-debug\.apk", apks[-1])
+        m = re.fullmatch(r"qushe-v([0-9.]+)-debug\.apk", os.path.basename(apks[-1]))
         apk_vn = m.group(1) if m else None
 
     device_vn = ""
@@ -162,7 +168,7 @@ def check_version():
 
     print(f"     build.gradle.kts  : {gradle_vn} (code {gradle_vc})")
     print(f"     SettingsScreen    : {settings_vn}")
-    print(f"     最新 APK          : {apk_vn}  ({apks[-1] if apks else '无'})")
+    print(f"     最新 APK          : {apk_vn}  ({os.path.basename(apks[-1]) if apks else '无'})")
     print(f"     设备已安装        : {device_vn or '（未连接/未安装）'}")
     print()
 
@@ -188,7 +194,7 @@ def check_version():
         bad("设备上的版本不是最新", f"{device_vn} ≠ {gradle_vn}（忘了装机？）")
 
     # APK 是否比源码新 —— 防止"改了代码但装了旧包"
-    apk_path = os.path.join(ROOT, apks[-1]) if apks else None
+    apk_path = apks[-1] if apks else None
     if apk_path and os.path.exists(apk_path):
         apk_t = os.path.getmtime(apk_path)
         newest = 0.0
