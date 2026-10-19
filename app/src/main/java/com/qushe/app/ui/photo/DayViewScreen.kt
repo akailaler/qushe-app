@@ -103,6 +103,7 @@ import coil.compose.rememberAsyncImagePainter
 import coil.request.ImageRequest
 import com.qushe.app.core.MediaItem
 import com.qushe.app.core.MediaKind
+import com.qushe.app.core.LongThumbnailFetcher
 import com.qushe.app.core.dayStartOf
 import com.qushe.app.ui.common.DAY_INTRO_MS
 import com.qushe.app.ui.common.DoubleTapFlash
@@ -610,9 +611,9 @@ private fun DayFilmstrip(
                 kind = it.kind,
                 durationMillis = it.durationMillis,
                 storeKey = it.storeKey(),
-                ratio = itemRatio(it),
                 isAnimated = it.isAnimated,
                 isLongImage = it.isLongImage,
+                isUltraLong = it.isUltraLong,
             )
         }
     }
@@ -1499,7 +1500,7 @@ private fun splitRowsBalanced(
     var bottomW = 0f
     for (i in items.indices) {
         // 取不到尺寸时给个中性的权重（1:1），不影响均衡的 correctness。
-        val w = itemRatio(items[i]).coerceAtLeast(0.05f)
+        val w = displayWidthRatio(items[i]).coerceAtLeast(0.05f)
         // 焦点图直接进上排，不参与"谁短给谁"的博弈 ——
         // 否则它可能被分到下排，而进场定位要求它在上面。
         val toTop = i == focusIndex || topW <= bottomW
@@ -1705,27 +1706,40 @@ class DayIntroAnim(
 )
 
 /**
- * 一格缩略图该有多宽多高 —— **严格按原图比例**。
+ * 一格缩略图该有多宽 —— 普通图严格按原图比例，超长图固定 4:3。
  *
  * 规则：
  *  · 竖图 / 方图：高度顶满行高，宽度 = 行高 × 比例；
- *  · 横图：宽度顶到 [CELL_MAX_WIDTH]，高度按比例反推（否则一张超宽横图
- *    会占掉大半个屏幕，把带子的节奏撑断）；
- *  · 极端长图：宽度不小于 [CELL_MIN_WIDTH]，免得被压成一根线。
+ *  · 横图：宽度顶到 [CELL_MAX_WIDTH]（否则一张超宽横图会占掉大半个屏幕）；
+ *  · **超长图（高宽比 > 3）**：固定 4:3（宽 = 行高 × 4/3）。原比例会让
+ *    828×30656 变成一根细条，画面交给区域解码取中间一块。
  *
  * 抽成纯函数是为了让"可见区间估算"和"真实布局"用**同一套算法** ——
  * 两边只要有一点点不一致，屏幕外的占位宽度就会和真格子对不上，
  * 整排会越滚越歪。
  */
 private fun cellWidthDp(item: MediaItem, rowHeight: Dp): Dp =
-    cellWidthForRatio(itemRatio(item), rowHeight)
+    if (item.isUltraLong) {
+        // 超长图不按原比例摆 —— 否则 828×30656 会变成一根 96dp 的细条。
+        // 统一成 4:3（宽度 = 行高 × 4/3），画面由区域解码给出中间一块。
+        rowHeight * ULTRA_LONG_DISPLAY_ASPECT
+    } else {
+        cellWidthForRatio(itemRatio(item), rowHeight)
+    }
+
+/** 超长图在瀑布流里的显示宽高比（固定 4:3，不拉伸）。 */
+private const val ULTRA_LONG_DISPLAY_ASPECT = 4f / 3f
+
+/** 分排均衡用的宽度权重：超长图按它实际占的 4:3 宽度算，不能按原比例。 */
+private fun displayWidthRatio(item: MediaItem): Float =
+    if (item.isUltraLong) ULTRA_LONG_DISPLAY_ASPECT else itemRatio(item)
 
 /**
- * [cellWidthDp] 的 ratio 版 —— **图片解码尺寸也走这一个函数**。
+ * [cellWidthDp] 的 ratio 版 —— 可见区间估算与真实布局共用。
  *
  * 之前 `DayCell` 的 `ImageRequest` 用的是裸的 `行高 × ratio`，
  * 没有 CELL_MIN/MAX 夹紧，横图多解码 2.5 倍像素、竖长图解得比显示还小。
- * 让请求和布局共用同一个公式，两边才恒等。
+ * 现在请求直接用格子算好的宽度，两边天然恒等。
  */
 private fun cellWidthForRatio(ratio: Float, rowHeight: Dp): Dp {
     val widthAtRowHeight = rowHeight * ratio
@@ -1740,7 +1754,7 @@ private fun itemRatio(item: MediaItem): Float = when {
 }.coerceIn(0.25f, 4f)
 
 /**
- * 一格缩略图。宽高都按原图比例算（算法见 [cellWidthDp]）。
+ * 一格缩略图。普通图宽高按原图比例算，超长图固定 4:3（见 [cellWidthDp]）。
  *
  * 宽度由外部传进来 —— 它必须和屏幕外那些占位用的是同一个值，
  * 否则真格子的实际宽度和预留宽度不一致，滚动位置就会漂。
@@ -1795,7 +1809,6 @@ private fun DayCell(
      */
     focusDecodeSize: IntSize? = null,
 ) {
-    val ratio = cell.ratio
     val cellW = cellWidth
     // ---- 每张照片的**高度都顶满行高**，不随宽高比变 ----
     //
@@ -1820,28 +1833,20 @@ private fun DayCell(
     // 硬切会像闪了一下；其余格子关掉（见下面的说明）。
     val fadeIn = placeholder != null
     val imageRequest = remember(
-        cell.uri, cellH, cell.ratio, cell.isAnimated, imgDensity, fadeIn, focusDecodeSize,
+        cell.uri, cellH, cellW, cell.isAnimated, cell.isUltraLong,
+        imgDensity, fadeIn, focusDecodeSize,
     ) {
-        // ---- 请求尺寸必须和 `cellWidthDp` 用**同一个**公式 ----
+        // ---- 请求尺寸必须和布局用**同一个**值 ----
         //
         // 之前这里是裸的 `hPx * ratio`，没有 CELL_MIN/MAX 夹紧：
         //  · 横图（ratio 顶到 4）请求约 3600px 宽，格子只显示 1430px，
         //    `ContentScale.Crop` 把多余的裁掉 —— **多解码 2.5 倍像素**；
         //  · 竖长图（ratio 0.25）请求 225px 宽，格子要显示 264px，
         //    **解码得比显示还小，缩略图发虚**。
-        // 两头不讨好。抽一个 ratio 版给两边共用，请求与布局才恒等。
-        val hPx = with(imgDensity) { cellH.roundToPx() }
-        val wPx = with(imgDensity) { cellWidthForRatio(ratio, cellH).roundToPx() }
-            .coerceAtLeast(1)
-        ImageRequest.Builder(imgContext)
-            .data(cell.uri)
-            // ---- 缩略图不要交叉淡入 ----
-            //
-            // ImageLoader 全局开了 `crossfade(true)`，于是每个格子加载完
-            // 都多一层 `CrossfadeDrawable`（双绘制 + 200ms 动画器逐帧失效）。
-            // 瀑布流一屏 ~25 格、滑动时还在进出 —— 46dp 的缩略图上
-            // 淡入本就看不出来，纯付开销。请求级关掉，全屏查看器不受影响。
-            .crossfade(false)
+        // 现在直接用格子自己的宽（它由 `cellWidthDp` 统一算出），请求与布局恒等。
+        val hPx = with(imgDensity) { cellH.roundToPx() }.coerceAtLeast(1)
+        val wPx = with(imgDensity) { cellW.roundToPx() }.coerceAtLeast(1)
+        if (cell.isAnimated) {
             // ---- 动图**不要**给目标尺寸 ----
             //
             // 用户报过一次"动图进入回到那天触发闪退"。根因在这里：
@@ -1849,47 +1854,50 @@ private fun DayCell(
             // 但动图走的是 `ImageDecoderDecoder`，它会把 `size` 翻译成
             // `ImageDecoder.setTargetSize()` —— 对**动画**源这么设，
             // 系统解码器会在合成帧时抛异常（帧尺寸与目标尺寸不一致的路径），
-            // 于是整页崩掉。动图本身帧数就多、体积小，不降采样也负担得起。
-            if (cell.isAnimated) {
-                ImageRequest.Builder(imgContext).data(cell.uri).build()
-            } else {
-                ImageRequest.Builder(imgContext)
-                    .data(cell.uri)
-                    // 焦点格用**照片页那个尺寸** —— 同 uri + 同 size ⇒
-                    // memory cache 命中 ⇒ 立即出图、且是同一张高清图。
-                    // 其余格子按显示尺寸解（降采样，省内存也更快）。
-                    .apply {
-                        if (focusDecodeSize != null) {
-                            // ---- 封顶到"显示尺寸的 2 倍" ----
-                            //
-                            // 这个尺寸本来是为了"点开大图时缓存命中"（同 uri 同 size），
-                            // 但 `ZoomableImage` 的 decodeSize 对超长图可能是**原图**
-                            // （828×30656 ≈ 25MP ≈ 100MB）。照搬过来，瀑布流里那一格
-                            // 就要解一张 100MB 的图 ⇒ 一进"回到那天"一片空白、
-                            // 要等半天才出来（用户反馈 1.3.79 明显变慢）。
-                            //
-                            // 格子终究只是个 264dp 的缩略图，2 倍已经足够清晰；
-                            // 代价是点开大图时不再命中同一份缓存，
-                            // 但那边有缩略图垫底，换来的是整页秒开。
-                            val capW = (wPx * 2).coerceAtLeast(1)
-                            val capH = (hPx * 2).coerceAtLeast(1)
-                            val k = minOf(
-                                1f,
-                                capW.toFloat() / focusDecodeSize.width,
-                                capH.toFloat() / focusDecodeSize.height,
-                            )
-                            size(
-                                (focusDecodeSize.width * k).toInt().coerceAtLeast(1),
-                                (focusDecodeSize.height * k).toInt().coerceAtLeast(1),
-                            )
-                        } else {
-                            size(wPx, hPx)
-                        }
+            // 于是整页崩掉。
+            ImageRequest.Builder(imgContext).data(cell.uri).build()
+        } else {
+            ImageRequest.Builder(imgContext)
+                .data(cell.uri)
+                .apply {
+                    if (cell.isUltraLong) {
+                        // ---- 超长图：只解原图中间一块 4:3，绝不解整张 ----
+                        //
+                        // 828×30656 请求 292×1080 的格子时，`inSampleSize` 只能降到 2
+                        // ⇒ 每格解 414×15328 ≈ 25MB，滑几格就 OOM（拖底部进度条闪退）；
+                        // 而且整张缩进格子只是一根 6px 宽的细条。
+                        // 交给 LongThumbnailFetcher 区域解码：828×621 ≈ 2MB，
+                        // 画面正好铺满 4:3 的格子（不拉伸、不裁成细条）。
+                        setParameter(LongThumbnailFetcher.REQUEST_KEY, true)
+                        size(wPx, hPx)
+                    } else if (focusDecodeSize != null) {
+                        // 焦点格用**照片页那个尺寸** —— 同 uri + 同 size ⇒
+                        // memory cache 命中 ⇒ 立即出图、且是同一张高清图。
+                        // 其余格子按显示尺寸解（降采样，省内存也更快）。
+                        //
+                        // ---- 封顶到"显示尺寸的 2 倍" ----
+                        // `ZoomableImage` 的 decodeSize 对超长图可能是原图，
+                        // 照搬会让格子解一张巨大的图 ⇒ 一进"回到那天"一片空白。
+                        // 格子终究只是缩略图，2 倍已经足够清晰。
+                        val capW = (wPx * 2).coerceAtLeast(1)
+                        val capH = (hPx * 2).coerceAtLeast(1)
+                        val k = minOf(
+                            1f,
+                            capW.toFloat() / focusDecodeSize.width,
+                            capH.toFloat() / focusDecodeSize.height,
+                        )
+                        size(
+                            (focusDecodeSize.width * k).toInt().coerceAtLeast(1),
+                            (focusDecodeSize.height * k).toInt().coerceAtLeast(1),
+                        )
+                    } else {
+                        size(wPx, hPx)
                     }
-                    // 见上面 fadeIn：只有垫了缩略图的焦点格需要这一段淡入
-                    .crossfade(fadeIn)
-                    .build()
-            }
+                }
+                // 见上面 fadeIn：只有垫了缩略图的焦点格需要这一段淡入
+                .crossfade(fadeIn)
+                .build()
+        }
     }
 
     // ---- B 方案：跟手滑出，底下露动作色 ----
@@ -2326,8 +2334,6 @@ private class DayCellUi(
     val kind: MediaKind,
     val durationMillis: Long,
     val storeKey: Long,
-    /** 宽高比（已经收敛到 [0.25, 4]），格子的宽高和遮罩都用它。 */
-    val ratio: Float,
     /**
      * 动图（GIF / 动态 WebP / 动态 HEIF）。
      *
@@ -2336,8 +2342,13 @@ private class DayCellUi(
      * 而且要参与 `imageRequest` 的 `remember` 键。
      */
     val isAnimated: Boolean,
-    /** 长图（长截图 / 聊天记录）—— 只用来显示角标。 */
+    /** 长图（长截图 / 聊天记录）—— 用来显示角标。 */
     val isLongImage: Boolean = false,
+    /**
+     * 超长图（高宽比 > 3）—— 缩略图改走"中间 4:3 区域解码"，
+     * 格子宽度固定按 4:3 摆，不再按原比例压成细条。
+     */
+    val isUltraLong: Boolean = false,
 )
 
 /**

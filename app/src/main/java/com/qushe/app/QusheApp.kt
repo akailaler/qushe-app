@@ -7,6 +7,7 @@ import coil.decode.GifDecoder
 import coil.decode.ImageDecoderDecoder
 import coil.decode.VideoFrameDecoder
 import com.qushe.app.core.AppContainer
+import com.qushe.app.core.LongThumbnailFetcher
 import com.qushe.app.core.SystemThumbnailFetcher
 
 class QusheApp : Application(), ImageLoaderFactory {
@@ -37,6 +38,7 @@ class QusheApp : Application(), ImageLoaderFactory {
         ImageLoader.Builder(this)
             .components {
                 add(SystemThumbnailFetcher.Factory(this@QusheApp))
+                add(LongThumbnailFetcher.Factory(this@QusheApp))
                 add(VideoFrameDecoder.Factory())
                 add(GifDecoder.Factory())
                 add(ImageDecoderDecoder.Factory())

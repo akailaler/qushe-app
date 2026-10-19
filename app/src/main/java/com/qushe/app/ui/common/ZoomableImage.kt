@@ -28,14 +28,17 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.foundation.Canvas
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.unit.IntSize
+import androidx.compose.ui.unit.IntOffset
 import coil.compose.AsyncImage
 import coil.imageLoader
 import com.qushe.app.ui.theme.Ink
@@ -47,7 +50,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import coil.request.ImageRequest
 import com.qushe.app.core.MediaItem
+import com.qushe.app.core.RegionTile
 import com.qushe.app.core.SystemThumbnailFetcher
+import com.qushe.app.core.decodeRegionTile
+import kotlinx.coroutines.flow.conflate
+import androidx.compose.runtime.snapshotFlow
 
 /**
  * 可缩放的照片。双指捏合放大、放大后单指平移、双击在 1x 与 2.5x 之间切换。
@@ -341,9 +348,45 @@ fun ZoomableImage(
     /** 垫底那层要用到 Uri；`model` 是别的东西（极少见）时它为空，垫底层自动跳过。 */
     val uri = model as? Uri
 
+    /**
+     * 这张图是不是**超长图**（高宽比 > 3）。
+     *
+     * 超长图绝不能整张解码：828×30656 = 25MP ≈ 101MB，Coil 的 `size()`
+     * 只影响 `inSampleSize`（2 的幂），按宽度算下来仍然会解整张 ——
+     * 用户看到的就是"怎么放大都看不清"，同时还有 OOM 闪退的风险。
+     *
+     * 这里改成两层：
+     *  · **底图**只解一张够 1x 看的（宽度 = 1x 显示宽 × 2，上限 1024）；
+     *  · **放大后**用 `BitmapRegionDecoder` 只解"当前可见那一段"（见下面的 effect）。
+     * 清晰度的天花板仍然是原图（828 宽的图最多显示成 1080 宽），但至少是
+     * 真正的原图像素，而不是从一张小图上硬拉。
+     */
+    val ultraLongRatio = contentRatio?.takeIf { it > 0f }
+    val ultraLong = !isAnimated && uri != null && ultraLongRatio != null &&
+        ((sourceSize != null && sourceSize.width > 0 &&
+            sourceSize.height.toLong() > sourceSize.width.toLong() * 3L) ||
+            ultraLongRatio < 1f / 3f)
+
     val knownRatio = ratioState.value
-    val decodeSize = remember(container, knownRatio, sourceSize) {
+    val decodeSize = remember(container, knownRatio, sourceSize, ultraLong) {
         if (container.width <= 0 || container.height <= 0) return@remember null
+        if (ultraLong) {
+            // ---- 超长图：底图只解"够 1x 看"的一份 ----
+            //
+            // 1x 时图片是 Fit 的，显示宽度 = 容器高 × 宽高比
+            // （828×30656 在 1080×2400 的屏上只有 64.8px 宽）。
+            // 解到它的 2 倍就足够，再大都是浪费内存。
+            val ratio = knownRatio ?: return@remember null
+            if (ratio <= 0f) return@remember null
+            val (drawnW, _) = drawnSizePx(container, 1f, ratio)
+            var baseW = (drawnW * 2f).toInt().coerceIn(128, 1024)
+            // 别向 Coil 要超过原图的宽度（它不会 upscale，要了也是白要）
+            sourceSize?.let { src ->
+                if (src.width > 0) baseW = baseW.coerceAtMost(src.width)
+            }
+            val baseH = (baseW.toFloat() / ratio).toInt().coerceAtLeast(1)
+            return@remember IntSize(baseW, baseH)
+        }
         // 放大上限。没传 `contentRatio` 时它就是 `maxScale`（可能 8 倍）——
         // 那时候必须靠 `sourceSize` 封顶，否则解码尺寸会远超原图。
         val cap = effectiveMax(container)
@@ -499,8 +542,10 @@ fun ZoomableImage(
     // （他这次明确说了是"糊"不是"黑"）。
     // 这一层按容器尺寸解，清楚得多（长图在屏上本来也就那么宽），
     // 解码只要几十毫秒，正好夹在"很糊"和"很清楚"中间。
-    val previewRequest = remember(uri, container, decodeSize) {
-        if (uri == null || container.width <= 0 || decodeSize == null) {
+    val previewRequest = remember(uri, container, decodeSize, ultraLong) {
+        if (uri == null || container.width <= 0 || decodeSize == null || ultraLong) {
+            // 超长图不走这一层：中间层按容器尺寸解，对 828×30656 来说
+            // 还是会把整张解出来（只是采样大一点），白白多占几十 MB。
             null
         } else {
             ImageRequest.Builder(context)
@@ -538,6 +583,69 @@ fun ZoomableImage(
                 builder.size(size.width, size.height)
             }
             loader.enqueue(builder.build())
+        }
+    }
+
+    // ---- 超长图：放大后只解"当前可见的那一段" ----
+    //
+    // 底图只有"够 1x 看"的分辨率，放大之后必然糊。这里按当前的 scale/offset
+    // 反算出屏幕正在看的是原图的哪一段，用 `BitmapRegionDecoder` 单独解那一块
+    // （828×30656 的一屏 ≈ 828×1840 ≈ 1.5MP，几 MB），盖在底图上。
+    //
+    // 关键在于**不要每帧重解**：`conflate` 会把解不完的中间帧丢掉，
+    // 而且只有"当前这块已经盖不住视口"时才真的去解下一块。
+    var longTile by remember(model) { mutableStateOf<RegionTile?>(null) }
+    LaunchedEffect(ultraLong, uri, container, contentRatio) {
+        if (!ultraLong) {
+            longTile = null
+            return@LaunchedEffect
+        }
+        val longUri = uri ?: return@LaunchedEffect
+        val ratio = contentRatio ?: return@LaunchedEffect
+        if (container.width <= 0 || container.height <= 0 || ratio <= 0f) return@LaunchedEffect
+
+        snapshotFlow { scale to offset }.conflate().collect { (s, off) ->
+            if (s <= 1.01f) {
+                longTile = null
+                return@collect
+            }
+            val cw = container.width.toFloat()
+            val ch = container.height.toFloat()
+            val (w0, h0) = drawnSizePx(container, 1f, ratio)
+            if (w0 <= 0f || h0 <= 0f) return@collect
+            // 图片 1x 时在容器里的位置（与 AsyncImage 的 Fit 一致）
+            val left = (cw - w0) / 2f
+            val top = (ch - h0) / 2f
+            // 屏幕视口反算回 1x 坐标：graphicsLayer 以中心缩放、再平移
+            val lx0 = cw / 2f + (0f - off.x - cw / 2f) / s
+            val lx1 = cw / 2f + (cw - off.x - cw / 2f) / s
+            val ly0 = ch / 2f + (0f - off.y - ch / 2f) / s
+            val ly1 = ch / 2f + (ch - off.y - ch / 2f) / s
+            var fx0 = ((lx0 - left) / w0).coerceIn(0f, 1f)
+            var fx1 = ((lx1 - left) / w0).coerceIn(0f, 1f)
+            var fy0 = ((ly0 - top) / h0).coerceIn(0f, 1f)
+            var fy1 = ((ly1 - top) / h0).coerceIn(0f, 1f)
+            if (fx1 - fx0 < 0.001f || fy1 - fy0 < 0.001f) return@collect
+
+            // 手上这块已经盖住当前视口 ⇒ 什么都不用做
+            val current = longTile
+            if (current != null) {
+                val tl = current.left.toFloat() / current.srcWidth
+                val tt = current.top.toFloat() / current.srcHeight
+                val tr = (current.left + current.width).toFloat() / current.srcWidth
+                val tb = (current.top + current.height).toFloat() / current.srcHeight
+                if (fx0 >= tl && fx1 <= tr && fy0 >= tt && fy1 <= tb) return@collect
+            }
+
+            // 上下各多解半屏、左右多解 1/4 屏 ⇒ 小范围拖动不必重新解码
+            val my = (fy1 - fy0) * 0.5f
+            fy0 = (fy0 - my).coerceAtLeast(0f)
+            fy1 = (fy1 + my).coerceAtMost(1f)
+            val mx = (fx1 - fx0) * 0.25f
+            fx0 = (fx0 - mx).coerceAtLeast(0f)
+            fx1 = (fx1 + mx).coerceAtMost(1f)
+            val tile = decodeRegionTile(context, longUri, fx0, fy0, fx1, fy1)
+            if (tile != null) longTile = tile
         }
     }
 
@@ -878,6 +986,51 @@ awaitEachGesture {
                 // 裁这一层等于裁整屏，竖图上下那些黑边被裁、照片四角根本不在边上。
                 .fillMaxSize(),
         )
+
+        // ---- 超长图的高清区域：盖在底图之上、跟着同一个变换走 ----
+        //
+        // 位置按"区域在原图里的比例"折算成 1x 坐标，再交给外层 graphicsLayer
+        // 统一缩放平移 —— 所以它和底图、圆角遮罩永远是同一套几何。
+        val tile = longTile
+        val tileRatio = contentRatio
+        if (tile != null && tileRatio != null && tileRatio > 0f &&
+            container.width > 0 && container.height > 0
+        ) {
+            val (w0, h0) = drawnSizePx(container, 1f, tileRatio)
+            if (w0 > 0f && h0 > 0f) {
+                val left = (container.width - w0) / 2f
+                val top = (container.height - h0) / 2f
+                val dstW = tile.width / tile.srcWidth.toFloat() * w0
+                val dstH = tile.height / tile.srcHeight.toFloat() * h0
+                val dstLeft = left + tile.left / tile.srcWidth.toFloat() * w0
+                val dstTop = top + tile.top / tile.srcHeight.toFloat() * h0
+                Canvas(modifier = Modifier.fillMaxSize()) {
+                    val bw = tile.bitmap.width.toFloat()
+                    val bh = tile.bitmap.height.toFloat()
+                    if (bw <= 0f || bh <= 0f || dstW <= 0f || dstH <= 0f) return@Canvas
+                    // ---- 用浮点变换，而不是整数 dstRect ----
+                    //
+                    // 局部坐标里这块只有 65×288 这种量级，`IntOffset` 舍入 0.5px
+                    // 再乘 16 倍缩放就是屏幕上的 8px 错位 —— 图片边缘会露出一条
+                    // 没盖住的糊边。translate/scale 走浮点矩阵，没有这一步舍入。
+                    withTransform({
+                        // 显式 this：外层有个同名的 `scale` 状态，直接写容易看混
+                        this.translate(dstLeft, dstTop)
+                        this.scale(dstW / bw, dstH / bh, pivot = Offset.Zero)
+                    }) {
+                        drawImage(
+                            image = tile.bitmap,
+                            srcOffset = IntOffset.Zero,
+                            srcSize = IntSize(tile.bitmap.width, tile.bitmap.height),
+                            dstOffset = IntOffset.Zero,
+                            dstSize = IntSize(tile.bitmap.width, tile.bitmap.height),
+                            // 1.3x 的放大用高质量过滤，文字边缘才不会发毛
+                            filterQuality = FilterQuality.High,
+                        )
+                    }
+                }
+            }
+        }
         }
 
         // ---- 最后盖上四角的遮罩 ----

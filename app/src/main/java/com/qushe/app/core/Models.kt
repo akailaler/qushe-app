@@ -73,6 +73,17 @@ data class MediaItem(
     /** 长图：高度远大于宽度的图，基本就是截屏，需要放大才看得清细节。 */
     val isLongImage: Boolean
         get() = height > 0 && width > 0 && height >= width * 2
+
+    /**
+     * **超长图**：高宽比 > 3（用户定的阈值）。
+     *
+     * 和 [isLongImage]（≥2）刻意分开：
+     *  · [isLongImage] 只决定格子上的"长图"角标，2:1、2.5:1 的竖图也算；
+     *  · [isUltraLong] 决定**缩略图怎么解** —— 超过 3:1 装进格子只会变成
+     *    一根细条，这时改成"只解原图中间一块 4:3"，并放弃整张解码。
+     */
+    val isUltraLong: Boolean
+        get() = height > 0 && width > 0 && height.toLong() > width.toLong() * 3
 }
 
 /**
