@@ -354,11 +354,23 @@ fun ZoomableImage(
             // 不封顶 → 8640x19200（Coil 只能 clamp，白跑）；封顶 → 1080x5400（正好原图）。
             IntSize(w.coerceAtMost(src.width.coerceAtLeast(1)), h.coerceAtMost(src.height.coerceAtLeast(1)))
         } ?: IntSize(w, h)
+        // 最后再卡一道总像素（见 [MAX_DECODE_PIXELS]）：单张图的解码内存不能把
+        // Coil 的缓存整个吃掉，否则同页其它缩略图全被淘汰 ⇒ 一进去一片空白。
+        val kept = capped.width.toLong() * capped.height.toLong()
+        val finalSize = if (kept > MAX_DECODE_PIXELS) {
+            val k = kotlin.math.sqrt(MAX_DECODE_PIXELS.toDouble() / kept.toDouble()).toFloat()
+            IntSize(
+                (capped.width * k).toInt().coerceAtLeast(1),
+                (capped.height * k).toInt().coerceAtLeast(1),
+            )
+        } else {
+            capped
+        }
         // 封顶之后可能已经小于容器 —— 那就没有"放大后要更清楚"这件事，按容器解。
-        if (capped.width <= container.width && capped.height <= container.height) {
+        if (finalSize.width <= container.width && finalSize.height <= container.height) {
             return@remember null
         }
-        capped
+        finalSize
     }
 
     /**
@@ -966,6 +978,16 @@ private fun drawnSizePx(
  *
  * 再小会开始误触（手指落下时的自然张开也算数），10% 是"要真的往里捏"的下限。
  */
+/**
+ * 单张图解码的像素上限（约 96 MB ARGB_8888）。
+ *
+ * 超长图（828×30656 = 25MP ≈ 100MB）如果不限，Coil 的 memory cache 会被
+ * 一张图整个占满 ⇒ 同页面其它缩略图全被淘汰、重新解码
+ * （用户反馈 1.3.79 进"回到那天"一片空白）。
+ * 24MP 是折中：828×30656 只缩到 800×29600（差 3%，肉眼无感）。
+ */
+private const val MAX_DECODE_PIXELS = 24_000_000L
+
 private const val PINCH_TO_DATE_AMOUNT = 0.10f
 
 /**

@@ -1860,7 +1860,28 @@ private fun DayCell(
                     // 其余格子按显示尺寸解（降采样，省内存也更快）。
                     .apply {
                         if (focusDecodeSize != null) {
-                            size(focusDecodeSize.width, focusDecodeSize.height)
+                            // ---- 封顶到"显示尺寸的 2 倍" ----
+                            //
+                            // 这个尺寸本来是为了"点开大图时缓存命中"（同 uri 同 size），
+                            // 但 `ZoomableImage` 的 decodeSize 对超长图可能是**原图**
+                            // （828×30656 ≈ 25MP ≈ 100MB）。照搬过来，瀑布流里那一格
+                            // 就要解一张 100MB 的图 ⇒ 一进"回到那天"一片空白、
+                            // 要等半天才出来（用户反馈 1.3.79 明显变慢）。
+                            //
+                            // 格子终究只是个 264dp 的缩略图，2 倍已经足够清晰；
+                            // 代价是点开大图时不再命中同一份缓存，
+                            // 但那边有缩略图垫底，换来的是整页秒开。
+                            val capW = (wPx * 2).coerceAtLeast(1)
+                            val capH = (hPx * 2).coerceAtLeast(1)
+                            val k = minOf(
+                                1f,
+                                capW.toFloat() / focusDecodeSize.width,
+                                capH.toFloat() / focusDecodeSize.height,
+                            )
+                            size(
+                                (focusDecodeSize.width * k).toInt().coerceAtLeast(1),
+                                (focusDecodeSize.height * k).toInt().coerceAtLeast(1),
+                            )
                         } else {
                             size(wPx, hPx)
                         }

@@ -660,6 +660,21 @@ fun MediaPreviewOverlay(
                         } else {
                             null
                         },
+                        // ⚠️ 这两行原来**漏了**（整理页、瀑布流都传了，只有这里没传）。
+                        // 不传 `contentRatio`：`drawn()` 退化成"绘制区=容器"，
+                        // 边界按容器估 ⇒ 长图一拖就露黑底，而且放大上限被算成 8 倍
+                        //（828 宽的图要 16.6 倍才铺满）⇒ "收藏里打开还是看不清"。
+                        // 不传 `sourceSize`：解码尺寸按"容器×8"算，长图被高度限制压小 ⇒ 更糊。
+                        contentRatio = if (item.width > 0 && item.height > 0) {
+                            item.width.toFloat() / item.height
+                        } else {
+                            null
+                        },
+                        sourceSize = if (item.width > 0 && item.height > 0) {
+                            androidx.compose.ui.unit.IntSize(item.width, item.height)
+                        } else {
+                            null
+                        },
                         onSingleTap = { chromeVisible = !chromeVisible },
                     )
                 }
