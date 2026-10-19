@@ -371,9 +371,14 @@ fun AppRoot(container: AppContainer) {
 
             pendingSync = container.sessions.pendingSyncCount()
             syncNotice = when {
-                // 还有下一批在排队 ⇒ 先报进度，别让用户以为结束了
-                syncQueue.isNotEmpty() ->
-                    "已写入 $syncDone 项，继续下一批（共 $syncTotal 项）"
+                // 还有下一批在排队 ⇒ **一律不动提示**（把当前值原样返回）。
+                //
+                // 之前这里报"已写入 N 项，继续下一批"—— 而每一批结束都会重新赋一次值，
+                // 那条提示就被反复刷新/重置 ⇒ 用户看到一条深灰长条在屏幕上"闪"
+                // （黑底上对比强，他以为是白色方块）。
+                // 小米 ROM 上这个授权根本不弹窗，所以过程中没有任何东西该动。
+                // 等全部批次结束，走下面的分支报一次就够了。
+                syncQueue.isNotEmpty() -> syncNotice
 
                 confirmed.isEmpty() -> {
                     // ---- 如实说，不再偷偷关掉用户的开关 ----
@@ -710,7 +715,7 @@ fun AppRoot(container: AppContainer) {
                             // 记账会失真（导入时就把条目标成了"已同步"），
                             // 而用户点"同步"就是要一个"确定能重新写一遍"的动作。
                             startFavoriteSync()
-                            "开始全量写入，请逐批确认系统的弹窗"
+                            "开始全量写入，如有弹窗请确认"
                         },
                         pendingFavoriteSync = pendingSync,
                         onImportSystemFavorites = {

@@ -370,7 +370,7 @@ fun FavoritesScreen(
                 Spacer(Modifier.weight(1f))
                 // 纯观看模式：翻看自己攒下来的东西时不想误删，就开这个
                 Text(
-                    text = if (viewOnly) "纯观看中" else "可编辑",
+                    text = if (viewOnly) "纯观看" else "可编辑",
                     style = MaterialTheme.typography.labelMedium,
                     color = if (viewOnly) AccentInfo else TextTertiary,
                     modifier = Modifier

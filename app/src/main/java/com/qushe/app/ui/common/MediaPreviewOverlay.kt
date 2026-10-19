@@ -769,7 +769,7 @@ fun MediaPreviewOverlay(
                     .padding(horizontal = 14.dp, vertical = 7.dp),
             ) {
                 Text(
-                    text = "2× 快进中",
+                    text = "2× 快进",
                     style = MaterialTheme.typography.labelSmall,
                     color = Ink,
                     fontWeight = FontWeight.Medium,

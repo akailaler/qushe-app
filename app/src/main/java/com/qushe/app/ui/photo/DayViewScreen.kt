@@ -2670,7 +2670,7 @@ private fun DayViewHeader(
         val ready = items?.isNotEmpty() == true
         DayCircleButton(
             icon = Icons.Filled.Check,
-            contentDescription = "用这一天开一组整理",
+            contentDescription = "在这一天开一组整理",
             enabled = ready,
             onClick = onConfirm,
         )

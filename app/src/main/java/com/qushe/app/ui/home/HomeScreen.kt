@@ -157,7 +157,7 @@ fun HomeScreen(
         // 没有数量概念（它背后是"挑哪个文件夹"，不是"共有多少条"），所以关掉右侧计数。
         EntryCard(
             title = "整理文件夹",
-            subtitle = "单独清一个文件夹，如 Download、Twitter",
+            subtitle = "单独清一个文件夹，如 Download、Weixin",
             count = null,
             enabled = photoAllowed || videoAllowed,
             accent = AccentFolder,

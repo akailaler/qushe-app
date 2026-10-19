@@ -720,7 +720,7 @@ fun VideoSessionScreen(
                             append(formatSize(current.sizeBytes))
                             append(" · ")
                             append(formatDuration(current.durationMillis))
-                            if (speedUp) append(" · 2× 快进中")
+                            if (speedUp) append(" · 2× 快进")
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = if (speedUp) AccentKeep else TextTertiary,
@@ -836,7 +836,7 @@ fun VideoSessionScreen(
                         .padding(horizontal = 14.dp, vertical = 7.dp),
                 ) {
                     Text(
-                        text = "2× 快进中",
+                        text = "2× 快进",
                         style = MaterialTheme.typography.labelSmall,
                         color = Ink,
                         fontWeight = FontWeight.Medium,

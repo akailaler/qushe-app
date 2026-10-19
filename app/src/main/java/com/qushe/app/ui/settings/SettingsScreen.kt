@@ -134,7 +134,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "每组数量",
-                subtitle = "默认 $DEFAULT_LABEL 张。太小没感觉，太大做不完。",
+                subtitle = "默认 $DEFAULT_LABEL 张。太少不够刷，太多做不完",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GROUP_SIZE_CHOICES.forEach { choice ->
@@ -166,7 +166,7 @@ fun SettingsScreen(
             // 二选一的胶囊做不到后两种 —— 关掉一个就等于选中另一个。
             SettingBlock(
                 title = "相对时间",
-                subtitle = "「3 天前」。两种都关时胶囊只显示文件夹和大小。",
+                subtitle = "例：「3 天前」",
             ) {
                 Switch(
                     checked = relativeDates,
@@ -180,7 +180,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "具体日期",
-                subtitle = "「2020/6/6」。两种都开时显示在胶囊第二行。",
+                subtitle = "例：「2026/6/6」",
             ) {
                 Switch(
                     checked = absoluteDates,
@@ -252,7 +252,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "默认静音",
-                subtitle = "所有视频不外放；预览页右上角可切回有声。",
+                subtitle = "所有视频默认静音；页面内可切回有声",
             ) {
                 Switch(
                     checked = videoMuted,
@@ -282,8 +282,8 @@ fun SettingsScreen(
             // 用户还得在脑子里把"关闭"翻译成"那就是左边"。
             // 两个选项各自写清位置，就没有这一步翻译了。
             SettingBlock(
-                title = "操作栏放在哪",
-                subtitle = "影响视频页与收藏 / 喜欢页的侧边按钮。",
+                title = "操作栏",
+                subtitle = "视频的侧边按钮",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip(
@@ -361,7 +361,7 @@ fun SettingsScreen(
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = "喜欢：只存在本应用里，可以随手标记，不必担心同步。\n" +
-                            "收藏：会写进系统相册的「收藏」夹，手机自带的相册应用里也看得到。",
+                            "收藏：可写进系统相册的「收藏」",
                         style = MaterialTheme.typography.labelSmall,
                         color = TextTertiary,
                     )
@@ -417,10 +417,9 @@ fun SettingsScreen(
             SettingBlock(
                 title = "同步收藏到系统相册",
                 subtitle = if (autoSync) {
-                    "每轮整理结束会把新收藏写进系统相册的「收藏」。系统不允许应用静默修改，" +
-                        "所以每次会弹一个确认框；嫌打断可以关掉，之后到收藏页手动同步。"
+                    "每轮整理结束会把新收藏写进系统相册的「收藏」"
                 } else {
-                    "已关闭。收藏仍会记录在本应用内，需要时到「收藏」页一次性同步。"
+                    "已关闭"
                 },
             ) {
                 Switch(
@@ -438,14 +437,14 @@ fun SettingsScreen(
                 subtitle = if (pendingFavoriteSync > 0) {
                     "有 $pendingFavoriteSync 项还没写进系统相册，点这里立刻同步。"
                 } else {
-                    "取舍里的收藏与系统相册已经一致。"
+                    "取舍里的收藏与系统相册已经同步"
                 },
                 onClick = {
                     scope.launch { importNote = onSyncFavoritesNow() }
                 },
             ) {
                 Text(
-                    text = if (pendingFavoriteSync > 0) "同步" else "已一致",
+                    text = if (pendingFavoriteSync > 0) "同步" else "已同步",
                     style = MaterialTheme.typography.bodyMedium,
                     color = if (pendingFavoriteSync > 0) AccentInfo else TextSecondary,
                 )
@@ -453,8 +452,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "同步系统收藏到这里",
-                subtitle = importNote ?: "把系统相册里已经标了星的内容也收进本应用的「收藏」。" +
-                    "只加不删 —— 系统里没有的不会被移除。",
+                subtitle = importNote ?: "把系统收藏也收进本应用的「收藏」。只加不删 —— 系统里没有的不会被移除",
                 onClick = if (importingFavorites) {
                     null
                 } else {
@@ -496,7 +494,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(10.dp))
             Text(
                 text = "只记完成，不记剩余 —— " +
-                    "「还剩」是家务，「已完成」才是成果。",
+                    "「还剩」是任务，「已完成」是成果",
                 style = MaterialTheme.typography.labelSmall,
                 color = TextTertiary,
             )
@@ -513,7 +511,7 @@ fun SettingsScreen(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "管理媒体权限",
+                        text = "管理权限",
                         style = MaterialTheme.typography.bodyLarge,
                         color = TextPrimary,
                     )
@@ -531,7 +529,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.77",
+                text = "取舍 1.3.78",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )
@@ -557,7 +555,7 @@ fun SettingsScreen(
                     .padding(vertical = 10.dp),
             ) {
                 Text(
-                    text = "清零统计",
+                    text = "统计清零",
                     style = MaterialTheme.typography.labelMedium,
                     color = TextTertiary,
                 )
@@ -582,7 +580,7 @@ fun SettingsScreen(
             containerColor = Surface2,
             titleContentColor = TextPrimary,
             textContentColor = TextSecondary,
-            title = { Text("清零统计？") },
+            title = { Text("确认清零") },
             text = {
                 Text(
                     "会把本应用的累计数字全部归零：已回顾、已删除、已收藏、瘦身。\n\n" +
