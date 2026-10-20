@@ -5,6 +5,8 @@
 ## 本机环境
 
 - Win11/AMD64。GitHub release 下载被代理拦（502）→ 前缀 `https://ghfast.top/`，镜像必须用官方 sha256 校验。
+- **系统原先没装 Git**（只有工具链里的 PortableGit，用户终端用不了）。已把 PortableGit 2.55 复制到 `C:\Users\22120\Git`（含 GCM + bash）并加进**用户 PATH** —— 免管理员，`winget install Git.Git` 会卡在 github 下载。
+- **网络实测**：`github.com` 直连被代理拒（CONNECT 502），`api.github.com` 200；`ghfast.top` 能转发 `git push`（会返回 GitHub 的认证错误）但 **GCM 不认这个域名**，弹不出 GitHub 登录 ⇒ 要推代码得用 PAT，或用户自己在能直连的终端跑。
 - Bash 工具 PATH 缺 coreutils：先 `export PATH="/c/Users/22120/.workbuddy/binaries/PortableGit/versions/1.3.0/usr/bin:$PATH"`。
 - Git Bash 会把 python 正则 `\d` 转成 `/d`（静默失配）→ 写 `[0-9]`；`/tmp` 映射 Windows Temp → 用 `cygpath -w`；脚本用 `python - << 'PYEOF'`。
 - PowerShell 捕获 Python 子进程 stdout 会丢内容 → 重定向到文件再读。
