@@ -648,7 +648,7 @@ fun MediaPreviewOverlay(
                         )
                     }
                 } else {
-                    // 照片与截屏走可缩放视图：双指放大看长图细节，双击在 1x/2.5x 间切换。
+                    // 照片与截屏走可缩放视图：双指放大看长图细节，双击在 1x 与「刚铺满」之间切换。
                     // 它只吃双指和"已放大后的单指"，其余滑动照样传给 Pager 翻页。
                     ZoomableImage(
                         model = item.uri,

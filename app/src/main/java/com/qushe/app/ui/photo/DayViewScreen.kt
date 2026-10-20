@@ -182,27 +182,21 @@ private val CELL_MIN_WIDTH = 96.dp
  * 一轮布局里所有格子共用**同一个** [RoundedCornerShape] 实例。
  */
 /**
- * 同排左右间距 = 屏宽 **2.2%**。
+ * 圆角半径 = 屏宽 **2.3%**（上限见 [CELL_CORNER_MAX]）。
  *
- * 从 2.0% 提到 2.2% 的原因：用户实测"上下两排之间的间距很合适，
- * 但同一排左右有点窄"，要求两者**一样**。既然横竖要一致，
- * 就让它们共用同一个来源 —— [DayMetrics.gap] ——
- * 而不是各算一套、再祈祷两个数字碰巧接近。
+ * 间距**不在**这里 —— 它已经迁到 `ui/common/Shapes.kt` 的 `CELL_GAP_RATIO`，
+ * 而且上下左右共用同一个值（见 [DayMetrics.gap]）。
  */
 private const val CELL_CORNER_RATIO = 0.023f
-
-/** 同排格子间距的下限/上限 —— 比例算出来太小时至少还留得出一道缝。 */
 
 /** 圆角半径的上限 —— 再大就接近胶囊，照片墙会读成"药丸排"。 */
 private val CELL_CORNER_MAX = 14.dp
 
 /**
- * 一条带子内上下留白（让图片不贴着边缘）。
+ * 一条带子内**上下各留 2dp**，让图片不贴着带子边缘。
  *
- * 原来两排之间还有一个写死的 `ROW_GAP = 8.dp`（比同排略大）。
- * 用户实测下来"上下很合适、左右偏窄"，所以那个多出来的量已经并进
- * [CELL_GAP_RATIO] —— 现在**上下与左右用的是同一个 gap**，
- * 横竖缝一致，砖墙才真的整齐。留这个常量只为了写清来历。
+ * 它参与格子行高的计算（`maxHeight - VERTICAL_PAD * 2`）。
+ * 两排之间的间距不在这里 —— 那个和同排的左右间距共用 [DayMetrics.gap]。
  */
 private val VERTICAL_PAD = 2.dp
 
@@ -265,7 +259,7 @@ private val CELL_SHRINK_SPEC = tween<Float>(durationMillis = 560)
  *  3. **左右滑动看更多**，而不是一屏固定 8 张；
  *  4. 点某一张 → **放大成单张**，底部有 `i` 可展开完整信息。
  *
- * 另有一条：**某一格往上滑 = 标记删除**（设置里可改成收藏）。
+ * 另有一条：**某一格往上滑 = 标记删除**（1.3.48 起固定，没有设置项）。
  * 滑动过程中画面上要给出明确提示，松手后这一格收缩消失，
  * **同一排后面的照片跟着左移补上空位**（跨排不动 ——
  * 为了填补一个空位而让整屏照片重新排布，视觉上是一次不必要的地震）。
@@ -288,7 +282,12 @@ fun DayViewScreen(
     resolveLocation: suspend (MediaItem) -> String? = { null },
     /** 已经被标记删除的项（[MediaItem.storeKey] 集合）—— 这些不再出现在瀑布流里。 */
     markedKeys: Set<Long>,
-    /** true = 上滑删除；false = 上滑收藏。和整理页共用同一条设置。 */
+    /**
+     * true = 上滑删除；false = 上滑收藏。
+     *
+     * **现在恒为 true**：设置页那条开关 1.3.48 已删（上滑收藏是一条死路径，
+     * 关掉只会弹提示什么都不做）。参数保留是为了不动调用点，别再给它接 UI。
+     */
     swipeUpDeletes: Boolean,
     isFavorite: (MediaItem) -> Boolean,
     /** 「喜欢」状态（只记在本应用里，不写系统相册）。 */
@@ -1006,7 +1005,7 @@ private fun DayFilmstrip(
  * ---- 但 `Row` 会一次组合全部格子 ----
  * 一天可能几百张，全量组合意味着几百个 `AsyncImage`、几百个布局节点同时挂上去，
  * 首次进入必卡。所以这里**在组合层就做可见区间的裁剪**：
- * 只有落在"当前视口 ± 一屏"范围内的格子才真正组合成 [CellSlot]，
+ * 只有落在"当前视口前后各 0.5 屏"范围内的格子才真正组合成 [CellSlot]，
  * 屏幕外的用两个等宽 `Spacer`（前缀 / 后缀）把位置顶住。
  *
  * 占位的宽度和真格子完全一样，所以整排的总宽度、每个格子的位置都不变 ——
@@ -1064,7 +1063,7 @@ private fun FilmstripRow(
     positioned: MutableState<Boolean>,
     /** ⟲ 被点击一次就 +1：据此把视野拉回焦点格（只在焦点图所在那排响应）。 */
     recenterSignal: Int,
-    /** true = 上滑删除；false = 上滑收藏（与整理页同一条设置）。 */
+    /** true = 上滑删除；false = 上滑收藏。**现在恒为 true**（那条设置已删）。 */
     swipeUpDeletes: Boolean,
     /**
      * 本排的左右间距 —— **由外部传入，和上下间距同一个值**。
@@ -1078,8 +1077,9 @@ private fun FilmstripRow(
     /**
      * 把本排的总长（px）上报给外层，供刻度条当**分母**。
      *
-     * 分母跟着"当前那一排"走，所以这里报的是**本排自己**的跨度，
-     * 不是两排的较大者 —— 两排各滚各的之后，取大者会让指针读数失真。
+     * 报的是**本排自己**的跨度；外层取两排的较大者当分母。
+     * 不能直接用 `scroll.maxValue`：两排共用一个 `ScrollState`，
+     * Compose 每次布局都用"最后测量的那排"覆盖它，读数会在两个值之间跳。
      */
     onSpan: (Float) -> Unit,
     /**
@@ -1179,7 +1179,7 @@ private fun FilmstripRow(
         }
 
         // 累计偏移（px）：cumPx[i] = 第 i 格左边缘，相对第一格
-        // （不含两端各半个视口的垫片）。被标记删除的格子贡献 0 ——
+        // （不含两端那个 [EDGE_PAD]）。被标记删除的格子贡献 0 ——
         // 它连同自带的尾间距一起收缩没了，总宽度、后面每格的位置都跟着变。
         //
         // ---- 必须用 `roundToPx`，不能用 `toPx` ----
@@ -1396,8 +1396,8 @@ private fun FilmstripRow(
         // 否则第一帧按 offset = 0 组合格子（视图最左端），
         // 定位落地那一刻整片推翻重来：闪一下不说，还多花一倍组合成本。
         //
-        // `seededTarget` 就是那个"本排的目标偏移"：焦点图在本排时是它的正中，
-        // 否则由焦点序号折算出的对应格。两排各算各的，不需要外部广播。
+        // `seededTarget` 就是那个"本排的目标偏移"：焦点图在本排时是它的正中；
+        // 不在本排就是 -1（不播种，直接用 scroll.value）。
         val visibleRange by remember(
             scroll, viewportPx, cumPx, edgePadPx, positioned, rowOffsetPx, seededTarget,
         ) {
@@ -1888,7 +1888,7 @@ private fun CellSlot(
                     //    （见它的 min-side 检查），请求随后落到默认解码器 ——
                     //    那等于为一张 828×30656 解 101MB，绝对不能发生。
                     placeholder = if (!cell.isLongImage) {
-                        rememberFocusPlaceholder(cell.uri)
+                        rememberSystemThumbnailPlaceholder(cell.uri)
                     } else {
                         null
                     },
@@ -2008,13 +2008,13 @@ private fun DayCell(
     corner: RoundedCornerShape,
     /** 这一格在"这一天"里的序号（点击时回传）。 */
     index: Int,
-    /** true = 上滑删除；false = 上滑收藏。 */
+    /** true = 上滑删除；false = 上滑收藏。**现在恒为 true**。 */
     swipeUpDeletes: Boolean,
     actions: DayCellActions,
     /**
      * 高清图到位之前先垫着的那张（系统缩略图）。null = 不垫。
      *
-     * 除长图外每一格都会拿到它 —— 见 [rememberFocusPlaceholder] 的说明。
+     * 除长图外每一格都会拿到它 —— 见 [rememberSystemThumbnailPlaceholder] 的说明。
      */
     placeholder: Painter? = null,
     /**
@@ -2130,7 +2130,8 @@ private fun DayCell(
                         )
                     }
                 }
-                // 见上面 fadeIn：只有垫了缩略图的焦点格需要这一段淡入
+                // fadeIn 恒为 false（原因见上面那段注释），保留这个参数只是为了
+                // 让"为什么不淡入"留在调用点上，而不是消失在一个字面量里。
                 .crossfade(fadeIn)
                 .build()
         }
@@ -2398,8 +2399,8 @@ private fun DayCell(
             AsyncImage(
                 model = imageRequest,
                 contentDescription = null,
-                // 焦点格的垫底图（系统缩略图，见 rememberFocusPlaceholder）。
-                // 请求本身没关 crossfade ⇒ 高清到了会淡入，交接是平滑的。
+                // 系统缩略图垫底（见 [rememberSystemThumbnailPlaceholder]）。
+                // 高清到位后硬切：只换清晰度，内容位置完全一致。
                 placeholder = placeholder,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
@@ -2899,7 +2900,7 @@ private fun Ticks() {
 }
 
 /**
- * 顶部：返回 / 居中「回到那天」+ 大号日期 + 星期与条数 / 确认。
+ * 顶部：返回 / 居中「回到那天」+ 大号日期 / 确认。
  *
  * 两行标题：日期是这一屏真正的主语，做大字；
  * "回到那天"四个字只解释"这一屏为什么存在"，小一档跟在上面。
@@ -3474,19 +3475,20 @@ private fun DayInfoSheet(item: MediaItem) {
 }
 
 /**
- * 焦点格的垫底图：**系统缩略图**。
+ * 每一格的垫底图：**系统相册已经生成好的缩略图**。
  *
- * 高清图要几十毫秒才解得出来（读原图 → 降采样 → 上屏），而飞入动效第一帧就开始了 ——
- * 这段时间格子里是空的，就是用户看到的"黑屏一下"。
+ * 高清图要几十毫秒才解得出来（读原图 → 降采样 → 上屏）。这段时间格子里是空的，
+ * 拖底部刻度条快速滑过时就是一整片空白格；进场时焦点格那几十毫秒则是"黑屏一下"。
  *
- * 系统缩略图 1~2ms 就能拿到（相册扫描时早就生成好了，见 [SystemThumbnailFetcher]），
- * 用它顶住这几十毫秒；高清到了 Coil 会自己淡入（这个请求没关 crossfade），
- * 交接是平滑的、不会"啪"地换一张。
+ * 系统缩略图 1~2ms 就能拿到（见 [SystemThumbnailFetcher]），用它顶住这段时间。
+ * 高清到了是**硬切**，不做交叉淡入 —— crossfade 是"底层淡出 + 目标淡入"，
+ * 中间几帧两层都半透明、叠起来发暗，看起来像闪（见 `DayCell` 里 `fadeIn` 的说明）。
  *
- * `uri` 为 null（不是焦点格）时直接返回 null —— 一格都不多请求。
+ * `uri` 为 null（长图格子）时返回 null：系统那份对长图是整张按 Fit 的细条，
+ * 而且 [SystemThumbnailFetcher] 会主动拒绝这类请求。
  */
 @Composable
-private fun rememberFocusPlaceholder(uri: Uri?): Painter? {
+private fun rememberSystemThumbnailPlaceholder(uri: Uri?): Painter? {
     if (uri == null) return null
     val context = LocalContext.current
     val request = remember(uri) {

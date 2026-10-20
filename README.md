@@ -1,5 +1,8 @@
 # 取舍 (Qushe)
 
+> **不想自己编译？** [下载最新版 APK](https://github.com/akailaler/qushe-app/releases/latest)
+> —— Android 11 及以上，约 3.7 MB，直接安装即可（debug 签名，可覆盖升级）。
+
 参考了 iOS「去留 linger」的 Android 实现。像刷短视频一样刷自己的相册：随机抽一组内容，
 顺手删掉废片、收藏想留的，过程中不断看到尘封的记忆。
 

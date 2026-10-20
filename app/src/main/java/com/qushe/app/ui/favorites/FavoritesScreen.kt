@@ -91,7 +91,7 @@ import com.qushe.app.ui.common.scaledAboutCenter
 /**
  * 收藏夹。
  *
- * 下滑收藏这个动作本身不带"保存文件"的语义 —— 它只是把这条从"待处理"里捞出来，
+ * 收藏这个动作本身不带"保存文件"的语义 —— 它只是把这条从"待处理"里捞出来，
  * 形成一个可以反复看的集合。所以这里不做任何文件移动，只是视图。
  *
  * 两点实现上的讲究：
@@ -137,10 +137,10 @@ fun FavoritesScreen(
     loadDayItems: suspend (Long) -> List<MediaItem>,
     /** 确认"用这一天开一组整理"。 */
     onOpenDaySession: (Long) -> Unit,
-    /** 某一格被标记删除（在瀑布流里上滑）。这里直接从当前列表里拿掉。 */
     // 「喜欢 / 收藏」不再做成页内切换 —— 它们是两种不同的浏览意图，
     // 塞在一个小开关里既难发现也容易被误解为同一件事。
     // 现在由调用方决定：「喜欢」是独立页面（从首页右滑进入），「收藏」就是本页。
+    /** true = 这一页在显示「喜欢」。 */
     likeMode: Boolean = false,
 ) {
     val scope = rememberCoroutineScope()
@@ -346,7 +346,7 @@ fun FavoritesScreen(
                     viewOnly -> "${shown.size} 项 · 纯观看模式，不会改动任何内容"
                     likeMode -> "${shown.size} 项 · 喜欢只记在本应用里，不会同步到系统相册"
                     // 跟随「同步收藏到系统相册」开关 ——
-                    // 关掉时这句"会同步"就是假话（下面 235 行的卡片还说着"已关闭"）。
+                    // 关掉时这句"会同步"就是假话（同一页里那张同步卡片写着"已关闭"）。
                     else -> "${shown.size} 项 · " +
                         if (autoSyncEnabled) {
                             "取舍的收藏是你的清单，同时写进系统相册"
@@ -796,6 +796,3 @@ private fun rememberMarkState(
     container.sessions.isLiked(item) to container.sessions.isFavorite(item)
 }
 
-/** 在 [box] 里按 [ratio] 居中放一张图之后那张图占的矩形（= `ContentScale.Fit`）。 */
-
-/** 以中心为基准把矩形缩放到 [factor] 倍（捏合时照片是缩着被触发的）。 */

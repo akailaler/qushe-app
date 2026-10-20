@@ -170,7 +170,7 @@ fun SettingsScreen(
             // `DraggablePhoto` 的 FAVORITE 分支从来不调用 `onDecision`，
             // 于是关掉这个开关时上滑只会弹一句提示、什么都不做 —— 一条会骗人的设置。
             // 与其留一个选错就失效的开关，不如直接删掉。
-            // 偏好 `swipeUpDeletes` 本身保留（老配置读得出来），只是不再有 UI 改它。
+            // 偏好 `swipeUpDeletes` 已钉死为 true：存量的旧值**不再被读取**（见 Prefs）。
 
             // ---- 时间格式 ----
             //
@@ -383,14 +383,14 @@ fun SettingsScreen(
 
             val probe = locationProbe
             val locationSubtitle = when {
-                !showLocation -> "已关闭，左下角不再显示地点"
+                !showLocation -> "已关闭，不再显示拍摄地点"
                 probe == null -> "已开启，正在检查这台设备能不能读到位置信息…"
                 !probe.hasPermission ->
                     "还没有拿到「照片和视频的位置信息」权限 —— 点这一行去授权"
                 probe.scanned == 0 -> "已授权，但相册里暂时没有可检查的内容"
                 probe.withPoint > 0 ->
                     "已授权。抽查 ${probe.scanned} 张，其中 ${probe.withPoint} 张有位置信息，" +
-                        "会显示在左下角"
+                        "会显示在照片底部的信息胶囊里"
                 probe.readFailed ->
                     "已授权，但读取位置时系统报错，这台设备的媒体库可能不支持"
                 probe.columnMissing ->

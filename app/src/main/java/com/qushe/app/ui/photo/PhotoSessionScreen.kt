@@ -779,8 +779,8 @@ fun PhotoSessionScreen(
                                 // 进度 0 → 1 对应"刚认领" → "正好走完一屏"
                                 val t = (kotlin.math.abs(dx) / pageW).coerceIn(0f, 1f)
                                 val gap = pageGapPx * (1f - t)
-                                // 缩放只作用在照片上（PhotoLayer 里），所以收到的是一张"内缩"的图，
-                                // 黑缝宽度 = 两侧各内缩 gap
+                                // 整个盒子（连底色）一起缩，缩出来的一圈就是接缝：
+                                // 两侧各内缩 gap，合起来正好一道 pageGapPx 宽的缝
                                 val s = 1f - 2f * gap / pageW
                                 scaleX = s
                                 scaleY = s
@@ -876,19 +876,12 @@ fun PhotoSessionScreen(
                             photoRequestSize = size
                         }
                     },
-                    // ---- 刻意**不传** `contentRatio`，长图也一样 ----
+                    // 传真实比例：缩放上限、拖动边界、放大时的解码尺寸
+                    // 全部按"图片实际绘制尺寸"算。
                     //
-                    // 传了它，"吸边界"会按"图铺满容器"算上限：长图 Fit 之后
-                    // 宽高都贴着容器，cover 取到 1~1.25 ⇒ **上限只有一两倍**。
-                    // 而上限正好等于"宽度铺满"时，横向 `panLimit` 恰好是 0、
-                    // 纵向余量也只有几百像素 ⇒ 看起来就是"放大后被锁死、拖不动"
-                    // （用户反馈"连左右拖动都不行了"）。
-                    //
-                    // 不传就走 `maxScale` + 保守的边界估计，和收藏页预览完全一致
-                    // （那里也没传，用户实测长图可以自由查看）。代价是可能拖出
-                    // 一丁点黑边 —— 那比"看不了细节"好得多。
-                    // 同瀑布流：传真实比例，边界才按图片实际绘制尺寸算
-                    // （`drawnSizePx` 的宽高 bug 修掉之后，这里是正解）。
+                    // 这里曾经**刻意不传**，理由是"传了边界会算错、长图被锁死"——
+                    // 那个结论建立在 `drawnSizePx` 宽高写反的 bug 上，bug 修掉后
+                    // 不传反而会算成保守值。现在三个调用点都传。
                     contentRatio = if (current.width > 0 && current.height > 0) {
                         current.width.toFloat() / current.height.toFloat()
                     } else {
@@ -1289,7 +1282,7 @@ fun PhotoSessionScreen(
             resolveLocation = resolveLocation,
             // 这一组里已经标记删除的，在瀑布流里就不再出现。
             markedKeys = marked.map { it.storeKey() }.toSet(),
-            // 上滑做什么跟着设置走，和这一页的单张手势同一条规则。
+            // 上滑固定为删除，和这一页的单张手势同一条规则。
             swipeUpDeletes = swipeUpDeletes,
             isFavorite = isFavorite,
             // 放大页那两颗按钮要读 / 写同一个「喜欢」状态，跟整理页共用一套。
@@ -1310,8 +1303,9 @@ fun PhotoSessionScreen(
                     marked = marked + target
                 }
             },
-            // 在日期视图里上滑收藏 → 和单张手势走同一个 applyFavorite，
-            // 保证两边记的账一致。
+            // 在日期视图里上滑收藏 → 和单张手势走同一个 applyFavorite。
+            // **当前不会触发**：上滑已固定为删除（`upDecision` 恒为 DELETE），
+            // 这条留着是为了不改回调结构。
             onMarkFavorite = { target -> applyFavorite(target) },
             // ↩ 撤销：把最后标记的那一项从删除名单里摘掉。
             // 用 lastOrNull 而不是弹栈 —— 名单本身是"集合"，顺序不重要，
@@ -1327,26 +1321,17 @@ fun PhotoSessionScreen(
 }
 
 /**
- * 一层照片。
+ * 一层照片：**满屏 + 不透明底**。
  *
- * 关键：**必须是不透明背景，且不缩放**。
- *
- * 照片用 ContentScale.Fit 完整显示（不裁切用户自己的内容），这意味着非本机比例的图
+ * 照片用 `ContentScale.Fit` 完整显示（不裁切用户自己的内容），非本机比例的图
  * 会出现留边——横图上下留黑，竖图左右留黑。如果这一层背景是透明的，
  * 下层那张更细长的图就会从留边处透出来，看起来像"还没轮到就先显示了"。
  *
- * 同理也不能给下层做缩放：一旦下层比上层小，上层的边缘就会露出再下一层的内容。
- * 所以每一层都是全屏 + 不透明 + 完全重叠，任何时刻只会看到一张。
+ * 缩放**不**在这一层做：翻页的接缝是外层整个盒子缩出来的（见上面 `pageGapPx` 的说明），
+ * 这里只管铺满。
  */
 @Composable
-/**
- * 垫在下面那张。
- *
- * [photoScale] 只作用在**照片本身**上，黑色底始终满屏 ——
- * 这样翻页时两张图之间露出来的是一道黑缝（而不是两块缩小的黑底），
- * 而且底满屏意味着翻页过程中任何时刻都不会透出更下面的东西。
- */
-private fun PhotoLayer(item: MediaItem, photoScale: Float = 1f) {
+private fun PhotoLayer(item: MediaItem) {
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -1356,12 +1341,7 @@ private fun PhotoLayer(item: MediaItem, photoScale: Float = 1f) {
             model = item.uri,
             contentDescription = null,
             contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    scaleX = photoScale
-                    scaleY = photoScale
-                },
+            modifier = Modifier.fillMaxSize(),
         )
     }
 }
@@ -1904,8 +1884,8 @@ private val DecisionChipShape = RoundedCornerShape(16.dp)
 /**
  * 实况探测的窗口半径：只探"当前张 ± 这个数"。
  *
- * 25 ≈ 胶片条一屏能看到的张数（缩略图 ~46dp，一屏约 8 张 + 缓冲），
- * 够覆盖用户眼睛能看到的范围。探过的走 `motionProbe` 缓存。
+ * 25 张约等于**前后各三屏**（胶片条一屏约 8 张），覆盖手指能滑到的范围。
+ * 探过的走 `motionProbe` 缓存，不会重复读文件。
  */
 private const val FILMSTRIP_PROBE_RADIUS = 25
 
@@ -1929,20 +1909,6 @@ private const val SWIPE_FLING_VELOCITY = 1100f
  * 1.2 意味着要划过整个判定行程才完全显形，中途是一条平缓的渐亮。
  */
 private const val BEHIND_FADE_FRACTION = 1.2f
-
-/**
- * 在 [box] 里按 [ratio] 居中放一张图之后，那张图占的矩形。
- *
- * 等价于 `ContentScale.Fit` 的算法 —— 和 `ZoomableImage` 的 `contentScale`
- * 是同一套规则。飞入动效的起点必须和它一致，否则第一帧就会看到图片"跳一下"。
- */
-
-/**
- * 以中心为基准把矩形缩放到 [factor] 倍。
- *
- * 用于"捏合进「回到那天」"的飞行起点：照片页的 ZoomableImage 缩放时
- * `offset` 是归零的（缩放围绕中心），所以起点矩形也要围绕中心缩。
- */
 
 /**
  * 顶栏左右两格的固定宽度。

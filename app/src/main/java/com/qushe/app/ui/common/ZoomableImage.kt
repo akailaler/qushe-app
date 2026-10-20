@@ -57,7 +57,8 @@ import kotlinx.coroutines.flow.conflate
 import androidx.compose.runtime.snapshotFlow
 
 /**
- * 可缩放的照片。双指捏合放大、放大后单指平移、双击在 1x 与 2.5x 之间切换。
+ * 可缩放的照片。双指捏合放大、放大后单指平移、双击在 1x 与「刚铺满屏幕」之间切换
+ * （长图的目标是「源像素 × 1.3」，见 [maxUsefulScale]）。
  *
  * **手势归属是这个组件唯一需要小心的地方。**
  * 它总是被放在一个负责"左右滑切换、上下滑删除/收藏"的容器里面，
@@ -209,8 +210,8 @@ fun ZoomableImage(
      *
      * ---- 为什么必须是单独一个参数 ----
      * [contentRatio] 还管着缩放上限（吸合）、拖动边界、放大时的解码尺寸。
-     * 它现在只给长图传 —— 把它推广到所有照片，那三件事会一起变。
-     * 这里只要一个纯几何信息。
+     * **现在三个调用点都传它**（整理页 / 瀑布流大图 / 收藏预览），
+     * 所以那三件事都按图片实际绘制尺寸算。这里只要一个纯几何信息。
      *
      * ---- 为什么是"盖遮罩"而不是 clip ----
      * 试过把变换层 `aspectRatio` 缩到图片 Fit 之后的真实矩形再 clip：
@@ -259,9 +260,8 @@ fun ZoomableImage(
     /**
      * 当前缩放下的**实际绘制尺寸**。
      *
-     * 长条图在 1x 时是"按宽度铺满"，纵向溢出 ⇒ 绘制高度 > 容器高度；
-     * 缩放后按比例放大。普通照片在 1x 时 Fit 铺满，最长边等于容器。
-     * 两者都由 [drawnSizePx] 统一算出来，边界才有唯一依据。
+     * **1x 一律 Fit（contain）**：长条图也一样，整张缩进容器，最长边等于容器。
+     * 放大后按倍数乘。所有尺寸都由 [drawnSizePx] 统一算出来，边界才有唯一依据。
      */
     fun drawn(s: IntSize, currentScale: Float): Pair<Float, Float> =
         drawnSizePx(s, currentScale, ratioState.value)
@@ -333,26 +333,6 @@ fun ZoomableImage(
     fun effectiveMax(size: IntSize): Float =
         maxOf(maxScaleState.value, snapScale(size))
 
-    /**
-     * 放大后要用的**解码尺寸**。
-     *
-     * ---- 为什么不能让 Coil 按"显示尺寸"解码 ----
-     *
-     * `AsyncImage(model = uri)` 会自动挂 `ConstraintsSizeResolver`，请求尺寸就是容器尺寸。
-     * 可**放大是 `graphicsLayer` 做的缩放，解码器完全不知道**：
-     * 长图 1x 只显示成两百多 px 宽，Coil 按这个算采样率、解出来就是两三百 px 的小图；
-     * 放大到铺满屏幕等于把这个小 Bitmap 硬拉四五倍 —— 一放大全糊
-     * （用户报"整理照片页长图放大之后看不清"）。
-     *
-     * 所以按 **容器尺寸 × 放大上限** 请求：放大到顶时正好 1:1，一个像素不多要。
-     * 不会因此爆内存 —— Coil 的解码输出只会**不低于**请求尺寸、
-     * 但绝不会超过原图（它不做 upscale）；所以"请求得大、原图没那么大"的
-     * 结果就落在原图上。真正需要大图的长图，本来就得解原尺寸才看得清。
-     *
-     * 拿不到宽高比时**不猜**，返回 null 让 Coil 走自己的默认路径：
-     * 那种情况根本推不出真正的放大上限（`snapScale` 会退回 `maxScale` = 8），
-     * 照着算就是"容器 ×8"的白解一张巨图。
-     */
     /** 垫底那层要用到 Uri；`model` 是别的东西（极少见）时它为空，垫底层自动跳过。 */
     val uri = model as? Uri
 
@@ -376,6 +356,26 @@ fun ZoomableImage(
             longRatio < 0.5f)
 
     val knownRatio = ratioState.value
+    /**
+     * 放大后要用的**解码尺寸**。
+     *
+     * ---- 为什么不能让 Coil 按"显示尺寸"解码 ----
+     *
+     * `AsyncImage(model = uri)` 会自动挂 `ConstraintsSizeResolver`，请求尺寸就是容器尺寸。
+     * 可**放大是 `graphicsLayer` 做的缩放，解码器完全不知道**：
+     * 长图 1x 只显示成两百多 px 宽，Coil 按这个算采样率、解出来就是两三百 px 的小图；
+     * 放大到铺满屏幕等于把这个小 Bitmap 硬拉四五倍 —— 一放大全糊
+     * （用户报"整理照片页长图放大之后看不清"）。
+     *
+     * 所以按 **容器尺寸 × 放大上限** 请求：放大到顶时正好 1:1，一个像素不多要。
+     * 不会因此爆内存 —— Coil 的解码输出只会**不低于**请求尺寸、
+     * 但绝不会超过原图（它不做 upscale）；所以"请求得大、原图没那么大"的
+     * 结果就落在原图上。真正需要大图的长图，本来就得解原尺寸才看得清。
+     *
+     * 拿不到宽高比时**不猜**，返回 null 让 Coil 走自己的默认路径：
+     * 那种情况根本推不出真正的放大上限（`snapScale` 会退回 `maxScale` = 8），
+     * 照着算就是"容器 ×8"的白解一张巨图。
+     */
     val decodeSize = remember(container, knownRatio, sourceSize, isLongImage) {
         if (container.width <= 0 || container.height <= 0) return@remember null
         if (isLongImage) {
@@ -506,7 +506,7 @@ fun ZoomableImage(
     /**
      * 把缩放动画到 [target]，同时把位移收到 [offsetTarget]。
      *
-     * 双击缩回 1x 用它（录屏实测 0.66s），而不是瞬移。
+     * 双击缩回 1x 用它，而不是瞬移。时长按缩放跨度算（260~520ms）。
      * 用**同一个进度**同时插值 scale 与 offset，两者是同步的 ——
      * 分开跑两条曲线会看到"图一边缩一边飘"。
      */
@@ -1001,7 +1001,7 @@ awaitEachGesture {
             modifier = Modifier.fillMaxSize(),
         )
 
-        // ---- 中间层（只有长图这类才有）----
+        // ---- 中间层：非长图、且放大用的解码尺寸明显大于容器时才有 ----
         previewRequest?.let { req ->
             AsyncImage(
                 model = req,
@@ -1167,19 +1167,6 @@ private fun drawnSizePx(
 }
 
 /**
- * 触发「回到那天」需要累计的捏合幅度（按手指间距的缩小比例累加）。
- *
- * 这个量测的是「两指间距比起手时**缩短了百分之几**」。
- *
- * 一开始是 0.12，但那个数是在"逐帧累加、往外张的帧会扣回去"的算法下调出来的
- * —— 那个算法下用户实际要捏得比 12% 深得多才能触发（每次手指调整的抖动都在扣分），
- * 所以表现为"要试好几次才进得去"（用户报）。
- * 换成间距基准之后是**单调**的，10% 就是实打实的 10%：
- * 两指从 500px 收到 450px 就到了。
- *
- * 再小会开始误触（手指落下时的自然张开也算数），10% 是"要真的往里捏"的下限。
- */
-/**
  * 单张图解码的像素上限（约 96 MB ARGB_8888）。
  *
  * 超长图（828×30656 = 25MP ≈ 100MB）如果不限，Coil 的 memory cache 会被
@@ -1198,6 +1185,19 @@ private const val MAX_DECODE_PIXELS = 24_000_000L
  */
 private const val MAX_USEFUL_UPSCALE = 1.3f
 
+/**
+ * 触发「回到那天」需要累计的捏合幅度（按手指间距的缩小比例累加）。
+ *
+ * 这个量测的是「两指间距比起手时**缩短了百分之几**」。
+ *
+ * 一开始是 0.12，但那个数是在"逐帧累加、往外张的帧会扣回去"的算法下调出来的
+ * —— 那个算法下用户实际要捏得比 12% 深得多才能触发（每次手指调整的抖动都在扣分），
+ * 所以表现为"要试好几次才进得去"（用户报）。
+ * 换成间距基准之后是**单调**的，10% 就是实打实的 10%：
+ * 两指从 500px 收到 450px 就到了。
+ *
+ * 再小会开始误触（手指落下时的自然张开也算数），10% 是"要真的往里捏"的下限。
+ */
 private const val PINCH_TO_DATE_AMOUNT = 0.10f
 
 /**

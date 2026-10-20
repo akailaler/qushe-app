@@ -110,7 +110,9 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_RAIL_ON_RIGHT, value).apply()
 
     /**
-     * 照片 / 视频左下角显示拍摄地点。
+     * 显示拍摄地点。
+     *
+     * 照片显示在底部信息胶囊的第三行，视频显示在底部信息区。
      *
      * 需要 `ACCESS_MEDIA_LOCATION` 权限才能拿到经纬度 —— Android 会对媒体里的位置
      * 做隐私脱敏，不授权就永远是空值。下载来的内容通常本来也没有位置信息，
