@@ -183,6 +183,9 @@ fun MediaPreviewOverlay(
     val context = LocalContext.current
     val activity = context.findActivity()
     var fullscreen by remember { mutableStateOf(false) }
+    // 当前处于放大态的是哪一页（只在当前页上生效）。
+    var zoomedPage by remember { mutableStateOf<Int?>(null) }
+    var zoomResetTick by remember { mutableIntStateOf(0) }
 
     // 屏幕尺寸，用来把全屏胶囊贴到视频画面的下边缘
     val configuration = LocalConfiguration.current
@@ -208,12 +211,6 @@ fun MediaPreviewOverlay(
         applyFullscreenOrientation(activity, false)
     }
 
-    // 侧边返回手势：全屏时先退出全屏，否则才关掉预览。
-    // 注意这段必须写在 fullscreen 和 exitFullscreen 的**声明之后** ——
-    // Kotlin 的局部变量和局部函数都要求"先声明后使用"，不像类成员可以随便放。
-    BackHandler(enabled = true) {
-        if (fullscreen) exitFullscreen() else onDismiss()
-    }
 
     // 退出预览时务必还原方向和系统栏，否则整个应用会卡在横屏
     DisposableEffect(Unit) {
@@ -223,6 +220,21 @@ fun MediaPreviewOverlay(
         initialPage = initialIndex.coerceIn(0, items.lastIndex),
         pageCount = { items.size },
     )
+
+    // 侧边返回手势：全屏 → 退出全屏；放大看图中 → 先缩回 1x；否则关掉预览。
+    // 这段必须写在 pagerState / fullscreen 的声明之后（局部变量先声明后使用）。
+    BackHandler(enabled = true) {
+        when {
+            fullscreen -> exitFullscreen()
+            zoomedPage == pagerState.currentPage -> {
+                zoomResetTick++
+                zoomedPage = null
+            }
+            else -> onDismiss()
+        }
+    }
+    // 翻页后上一页的放大态不该继承过来
+    LaunchedEffect(pagerState.currentPage) { zoomedPage = null }
 
     val player = remember {
         ExoPlayer.Builder(context).build().apply {
@@ -676,6 +688,13 @@ fun MediaPreviewOverlay(
                             null
                         },
                         onSingleTap = { chromeVisible = !chromeVisible },
+                        onZoomedChange = { z ->
+                            // 只认当前页 —— 相邻页也在组合里，不能互相覆盖
+                            if (page == pagerState.currentPage) {
+                                zoomedPage = if (z) page else null
+                            }
+                        },
+                        resetZoomSignal = zoomResetTick,
                     )
                 }
             }
@@ -869,35 +888,48 @@ fun MediaPreviewOverlay(
                     //
                     // 这是"纯观看"该有的样子：**画面才是主体，说明文字不是。**
                     // 而且这些信息本来也不需要一直读 —— 想知道的时候停一下就有了。
-                    val infoVisible = current.kind != MediaKind.VIDEO || !isPlaying
+                    val isImage = current.kind != MediaKind.VIDEO
+                    val infoVisible = !isImage || !isPlaying
                     val alpha by animateFloatAsState(
                         targetValue = if (infoVisible) 1f else 0f,
                         animationSpec = tween(durationMillis = 180),
                         label = "previewInfoFade",
                     )
                     Column(modifier = Modifier.graphicsLayer { this.alpha = alpha }) {
-                        Text(
-                            text = current.name,
-                            style = MaterialTheme.typography.titleMedium,
-                            color = TextPrimary,
-                            maxLines = 1,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = buildString {
-                                append(relativeDayLabel(current.dateTakenMillis))
-                                append(" · ")
-                                append(formatSize(current.sizeBytes))
-                                if (current.kind == MediaKind.VIDEO &&
-                                    current.durationMillis > 0L
-                                ) {
+                        // ---- 图片不显示文件名（用户要求）----
+                        // 文件名对照片几乎没用，还会把左下角变成一行"文件管理器"。
+                        // 视频保留：同名的视频片段只能靠文件名区分。
+                        if (!isImage) {
+                            Text(
+                                text = current.name,
+                                style = MaterialTheme.typography.titleMedium,
+                                color = TextPrimary,
+                                maxLines = 1,
+                            )
+                            Spacer(Modifier.height(4.dp))
+                        }
+                        // ---- 日期 / 大小 ----
+                        //
+                        // 编辑模式（photoActions != null）下，日期和大小已经在底部胶囊里，
+                        // 这里再写一遍就是重复（用户要求）。
+                        // 纯观看模式没有胶囊，这一行仍是唯一的信息来源，保留。
+                        if (!isImage || photoActions == null) {
+                            Text(
+                                text = buildString {
+                                    append(relativeDayLabel(current.dateTakenMillis))
                                     append(" · ")
-                                    append(formatDuration(current.durationMillis))
-                                }
-                            },
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextTertiary,
-                        )
+                                    append(formatSize(current.sizeBytes))
+                                    if (current.kind == MediaKind.VIDEO &&
+                                        current.durationMillis > 0L
+                                    ) {
+                                        append(" · ")
+                                        append(formatDuration(current.durationMillis))
+                                    }
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = TextTertiary,
+                            )
+                        }
                     }
 
                     if (current.kind == MediaKind.VIDEO) {

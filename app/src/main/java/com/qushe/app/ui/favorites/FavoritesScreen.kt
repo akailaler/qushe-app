@@ -577,6 +577,9 @@ fun FavoritesScreen(
                         kindLabel = "照片",
                         dayStart = dayTarget,
                         focusItem = dayFocus,
+                        relativeDates = relativeDates,
+                        absoluteDates = absoluteDates,
+                        resolveLocation = resolveLocationLabel,
                         markedKeys = dayMarked,
                         swipeUpDeletes = container.prefs.swipeUpDeletes,
                         isFavorite = { container.sessions.isFavorite(it) },
@@ -687,51 +690,54 @@ fun FavoritesScreen(
             photoActions = if (viewOnly) null else {
                 { item ->
                     val (liked, faved) = rememberMarkState(container, item, markTick)
-                    // 用 Box 而不是 Row：胶囊要的是**相对整屏**居中，
-                    // 而 Row 里的 weight 只能做到"在剩余空间里居中"——
-                    // 左边两颗按钮、右边一颗按钮，剩余空间被三个 weight 平分，
-                    // 整行看过去胶囊必然偏（用户反馈"没有居中"）。
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        // 左边并排两颗：喜欢（心）+ 收藏（星）。
-                        // 就是整理照片页那两颗（左下心、右下星），只是并到了一起 ——
-                        // 那边靠"左 vs 右"区分，这里靠"心 vs 星"区分，
-                        // 形状本来就不同，并排也不会认错。
-                        //
-                        // ⚠️ 这两颗必须自己套一层 Row：Box 的子节点**默认堆叠**
-                        // 在左上角，不套 Row 的话心形和星会叠在一起（用户反馈）。
-                        Row(
-                            modifier = Modifier.align(Alignment.CenterStart),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            FavoriteButton(selected = liked) { mark(item, like = true) }
-                            Spacer(Modifier.width(10.dp))
-                            StarButton(selected = faved) { mark(item, like = false) }
-                        }
+                    // 地点异步读（仓库有缓存，翻回来不会重复查）
+                    var location by remember(item.storeKey()) { mutableStateOf<String?>(null) }
+                    LaunchedEffect(item.storeKey()) {
+                        location = resolveLocationLabel(item)
                     }
-                    // ---- 正中的「ⓘ 胶囊」 ----
+                    // ---- 胶囊**单独占一行**，按钮在下面一行 ----
                     //
-                    // 单独一层铺满 + `align(Center)`，和整理照片页完全一样。
-                    // 之前它夹在一行 `Row` 里、靠 `weight` 凑中间 ——
-                    // 而左边有两颗按钮占位，右边有一颗，剩余空间被三个 weight 平分，
-                    // 结果整行看过去胶囊并不在屏幕正中（用户反馈"没有居中"）。
-                    InfoPill(
-                        // 文案来自唯一来源（与另外两处同一套）
-                        primary = infoPillPrimary(item, relativeDates, absoluteDates),
-                        secondary = infoPillSecondary(item, relativeDates, absoluteDates),
-                        modifier = Modifier.align(Alignment.Center),
-                        onClick = { detailItem = item },
-                    )
-                    val doomed = item.storeKey() in pendingDelete
-                    RoundActionButton(
-                        icon = Icons.Filled.Delete,
-                        label = "删除",
-                        tint = if (doomed) AccentDelete else TextPrimary,
-                        modifier = Modifier.align(Alignment.CenterEnd),
+                    // 之前胶囊夹在按钮中间：左边心 + 星共 98dp、右边删除 44dp，
+                    // 而胶囊最宽 230dp —— 窄一点的机器上会**压住星形按钮**，
+                    // 点收藏时先点到胶囊（用户反馈"点收藏刚开始没反应"）。
+                    // 挪到上面一行后，胶囊能用满宽度，按钮和它互不重叠。
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        // 同视频那排：只改颜色，退出时才统一结算
-                        val key = item.storeKey()
-                        pendingDelete = if (doomed) pendingDelete - key
-                        else pendingDelete + key
+                        InfoPill(
+                            primary = infoPillPrimary(item, relativeDates, absoluteDates),
+                            secondary = infoPillSecondary(item, relativeDates, absoluteDates),
+                            location = location,
+                            // 独占一行，可以比"夹在两颗按钮之间"更宽
+                            contentMaxWidth = 260.dp,
+                            onClick = { detailItem = item },
+                        )
+                        Spacer(Modifier.height(10.dp))
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            // 左边并排两颗：喜欢（心）+ 收藏（星）。
+                            // 必须自己套一层 Row：Box 的子节点默认堆在左上角。
+                            Row(
+                                modifier = Modifier.align(Alignment.CenterStart),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                FavoriteButton(selected = liked) { mark(item, like = true) }
+                                Spacer(Modifier.width(10.dp))
+                                StarButton(selected = faved) { mark(item, like = false) }
+                            }
+                            val doomed = item.storeKey() in pendingDelete
+                            RoundActionButton(
+                                icon = Icons.Filled.Delete,
+                                label = "删除",
+                                tint = if (doomed) AccentDelete else TextPrimary,
+                                modifier = Modifier.align(Alignment.CenterEnd),
+                            ) {
+                                // 同视频那排：只改颜色，退出时才统一结算
+                                val key = item.storeKey()
+                                pendingDelete = if (doomed) pendingDelete - key
+                                else pendingDelete + key
+                            }
+                        }
                     }
                 }
             },

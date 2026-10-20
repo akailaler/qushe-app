@@ -149,6 +149,15 @@ fun InfoPill(
     secondary: String,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    /** 拍摄地点（有就显示第三行）。null / 空白 = 不占这一行。 */
+    location: String? = null,
+    /**
+     * 文字区的最大宽度。
+     *
+     * 两颗按钮夹在左右时只能给 230dp（再多就压到按钮上了）；
+     * 胶囊单独占一行时可以放宽到 300dp，地名才不会被截得太狠。
+     */
+    contentMaxWidth: androidx.compose.ui.unit.Dp = 230.dp,
 ) {
     // 顶层单例：这个胶囊在详情面板里常驻，且会被反复重组 ——
     // 组合期现算 `RoundedCornerShape` 每次都要 new 一个（值相同，
@@ -164,7 +173,7 @@ fun InfoPill(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.widthIn(max = 230.dp),
+            modifier = Modifier.widthIn(max = contentMaxWidth),
         ) {
             if (!primary.isNullOrBlank()) {
                 Text(
@@ -180,6 +189,19 @@ fun InfoPill(
                     text = secondary,
                     style = MaterialTheme.typography.labelSmall,
                     color = TextTertiary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            // ---- 拍摄地点（只有真的有才占这一行）----
+            // 放在最后一行、用比文件夹略亮的颜色：它是"这张照片在哪拍的"，
+            // 比文件夹/大小更像内容本身。收在详情面板里用户很少会去点开看。
+            if (!location.isNullOrBlank()) {
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = location,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )

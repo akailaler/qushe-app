@@ -107,6 +107,14 @@ fun ZoomableImage(
     onLongPressEnd: (() -> Unit)? = null,
     onZoomedChange: (Boolean) -> Unit = {},
     /**
+     * 「把照片缩回 1x」的信号（自增计数）。
+     *
+     * 系统返回键的语义：**放大看图时，第一次返回先回到初始大小**，
+     * 第二次才退出这一页。缩放状态住在这个组件里，父层只需要递一个信号进来。
+     * 0 / 不变 = 不复位；每次 +1 触发一次动画缩回。
+     */
+    resetZoomSignal: Int = 0,
+    /**
      * 手势阶梯的第三级：已经回到初始大小、还在继续往里捏 —— 触发「回到那天」。
      *
      * 只有"**从初始大小开始**的捏合"才有资格触发：从放大状态缩回 1x 的那一次不算，
@@ -520,6 +528,18 @@ fun ZoomableImage(
                 y = fromOffset.y + (offsetTarget.y - fromOffset.y) * e,
             )
             if (p >= 1f) break
+        }
+    }
+
+    // ---- 返回键要求"先回到初始大小" ----
+    //
+    // 放在 animateScaleTo 之后：它要用那个按帧插值的动画，缩回和双击缩回
+    // 是同一套手感（不是瞬移）。只在真的放大着的时候动。
+    LaunchedEffect(resetZoomSignal) {
+        if (resetZoomSignal <= 0) return@LaunchedEffect
+        if (scale > 1.01f) {
+            animateScaleTo(1f, Offset.Zero)
+            onZoomedChange(false)
         }
     }
 

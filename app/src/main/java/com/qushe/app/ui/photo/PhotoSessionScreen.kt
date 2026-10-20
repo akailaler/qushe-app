@@ -698,7 +698,21 @@ fun PhotoSessionScreen(
         }
     }
 
-    BackHandler(enabled = true) { finish() }
+    // ---- 放大态：返回键先回到初始大小，再按一次才退出 ----
+    //
+    // 这个 state 原来声明在 BoxWithConstraints 里面，返回键读不到；
+    // 提到这里之后，BackHandler 才能判断"现在是放大着"。
+    var zoomed by remember { mutableStateOf(false) }
+    var zoomResetTick by remember { mutableIntStateOf(0) }
+
+    BackHandler(enabled = true) {
+        if (zoomed) {
+            zoomResetTick++
+            zoomed = false
+        } else {
+            finish()
+        }
+    }
 
     // 最后一张滑走之后自动收尾。
     // 以前走到这里会停在一屏纯黑上，用户会以为卡死了 —— 一组看完就该退出去。
@@ -710,6 +724,11 @@ fun PhotoSessionScreen(
         }
     }
 
+    // 翻到下一张时上一张的放大态不该留下来（新图从 1x 开始）。
+    LaunchedEffect(index) {
+        zoomed = false
+    }
+
     // 用 BoxWithConstraints 是为了算「图片本身」在屏幕上的位置 ——
     // 实况 / 动图 / 截屏的角标要贴在**图片的左上角**，而不是屏幕的左上角。
     BoxWithConstraints(
@@ -717,12 +736,6 @@ fun PhotoSessionScreen(
             .fillMaxSize()
             .background(Ink),
     ) {
-        // ---- 是否处于放大态 ----
-        // 它驱动两处 UI：顶部的"上滑删除"提示要隐藏、底部的"已放大"提示要显示 2 秒。
-        // 这两处都在 `if (current != null)` **之外**（chrome 层），
-        // 所以 state 必须提到这里 —— 放在里面外层读不到（用户报"放大后还有上滑删除标志"）。
-        var zoomed by remember { mutableStateOf(false) }
-
         if (current != null) {
             val offsetX = remember(current.id) { Animatable(0f) }
             val offsetY = remember(current.id) { Animatable(0f) }
@@ -820,6 +833,7 @@ fun PhotoSessionScreen(
             ) {
                 ZoomableImage(
                     model = current.uri,
+                    resetZoomSignal = zoomResetTick,
                     modifier = Modifier
                         .fillMaxSize()
                         // 记下容器的真实位置，供"飞入动效"算起点用。
@@ -1133,6 +1147,21 @@ fun PhotoSessionScreen(
                 // 一个方向的手势应该留给不可逆或高频的动作 —— 上滑删除、左右翻页都值，
                 // 而收藏一秒就能撤销，占掉"下滑"的代价太大，还会跟翻页抢手感。
                 // 日期和地点收进中间那个带 ⓘ 的胶囊，点开才展开完整信息，不打扰看照片。
+                // ---- 胶囊**单独占一行** ----
+                //
+                // 之前它夹在左右两颗按钮中间：胶囊的总宽是"文字区 230 + 图标/内边距 50
+                // = 280dp"，而两颗按钮之间只剩 230dp 左右 ⇒ 胶囊会压住按钮的内侧，
+                // 点收藏/喜欢时先点到胶囊（用户反馈"刚开始几下没反应"）。
+                // 独占一行后按钮和胶囊互不重叠，地名也能用更宽的位置。
+                InfoPill(
+                    primary = infoPillPrimary(currentForInfo, relativeDates, absoluteDates),
+                    secondary = infoPillSecondary(currentForInfo, relativeDates, absoluteDates),
+                    location = currentLocation,
+                    contentMaxWidth = 260.dp,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                    onClick = { detailVisible = true },
+                )
+                Spacer(Modifier.height(12.dp))
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1155,15 +1184,6 @@ fun PhotoSessionScreen(
                         onToggleFavorite(currentForInfo)
                         favoriteTick++
                     }
-
-                    // 文案来自唯一来源（见 `infoPillPrimary/Secondary`），
-                    // 三处胶囊共用一套，绝不各拼各的。
-                    InfoPill(
-                        primary = infoPillPrimary(currentForInfo, relativeDates, absoluteDates),
-                        secondary = infoPillSecondary(currentForInfo, relativeDates, absoluteDates),
-                        modifier = Modifier.align(Alignment.Center),
-                        onClick = { detailVisible = true },
-                    )
                 }
 
                 // 「已标记 N 项 · xx MB / 结束并处理」那一条底部横幅已经去掉。
@@ -1260,6 +1280,7 @@ fun PhotoSessionScreen(
             // 结果放大页的胶囊一直用默认值（永远显示相对时间），不跟随设置。
             relativeDates = relativeDates,
             absoluteDates = absoluteDates,
+            resolveLocation = resolveLocation,
             // 这一组里已经标记删除的，在瀑布流里就不再出现。
             markedKeys = marked.map { it.storeKey() }.toSet(),
             // 上滑做什么跟着设置走，和这一页的单张手势同一条规则。

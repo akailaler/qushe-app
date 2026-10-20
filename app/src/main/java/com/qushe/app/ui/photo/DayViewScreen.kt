@@ -282,6 +282,8 @@ fun DayViewScreen(
     /** 「i」胶囊是否显示相对时间 / 具体日期（透传设置）。 */
     relativeDates: Boolean = true,
     absoluteDates: Boolean = false,
+    /** 拍摄地点（有就显示在胶囊第三行）。由上层提供，拿不到返回 null。 */
+    resolveLocation: suspend (MediaItem) -> String? = { null },
     /** 已经被标记删除的项（[MediaItem.storeKey] 集合）—— 这些不再出现在瀑布流里。 */
     markedKeys: Set<Long>,
     /** true = 上滑删除；false = 上滑收藏。和整理页共用同一条设置。 */
@@ -530,6 +532,7 @@ fun DayViewScreen(
             DayZoomView(
                 relativeDates = relativeDates,
                 absoluteDates = absoluteDates,
+                resolveLocation = resolveLocation,
                 item = zoomedItem,
                 isFavorite = remember(zoomedItem.storeKey(), zoomActionTick) {
                     isFavorite(zoomedItem)
@@ -2759,12 +2762,21 @@ private fun DayZoomView(
     /** 胶囊第一行是否显示相对时间 / 具体日期（透传设置）。 */
     relativeDates: Boolean = true,
     absoluteDates: Boolean = false,
+    /** 拍摄地点（胶囊第三行）。 */
+    resolveLocation: suspend (MediaItem) -> String? = { null },
     onClose: () -> Unit,
 ) {
     var chromeVisible by remember { mutableStateOf(true) }
     var infoExpanded by remember { mutableStateOf(false) }
+    // 拍摄地点：异步读，读到之前胶囊不占第三行
+    var locationName by remember(item.storeKey()) { mutableStateOf<String?>(null) }
+    LaunchedEffect(item.storeKey()) {
+        locationName = resolveLocation(item)
+    }
     /** 照片是不是正被捏大 —— 放大态不认领下滑（见下面手势的说明）。 */
     var zoomed by remember { mutableStateOf(false) }
+    /** 返回键的"先回到 1x"信号。 */
+    var zoomResetTick by remember { mutableIntStateOf(0) }
 
     // ---- 双击 = 喜欢 ----
     //
@@ -2810,7 +2822,16 @@ private fun DayZoomView(
     val zoomedState = rememberUpdatedState(zoomed)
 
     BackHandler(enabled = true) {
-        if (infoExpanded) infoExpanded = false else onClose()
+        // 返回键的优先级：先收信息面板 → 再缩回 1x → 最后才退出这一屏
+        when {
+            infoExpanded -> infoExpanded = false
+            zoomed -> {
+                zoomResetTick++
+                zoomed = false
+                chromeVisible = true
+            }
+            else -> onClose()
+        }
     }
 
     Box(
@@ -2975,6 +2996,7 @@ private fun DayZoomView(
             // 两者都是"该有的时候有、不该有的时候没有"，不需要额外判断。
             ZoomableImage(
                 model = item.uri,
+                resetZoomSignal = zoomResetTick,
                 contentDescription = item.name,
                 isAnimated = item.isAnimated,
                 // ---- 长图**也要传**比例 ----
@@ -3047,6 +3069,7 @@ private fun DayZoomView(
                     isLiked = isLiked,
                     relativeDates = relativeDates,
                     absoluteDates = absoluteDates,
+                    location = locationName,
                 )
             }
         }
@@ -3077,6 +3100,7 @@ private fun BoxScope.DayZoomChrome(
     isLiked: Boolean,
     relativeDates: Boolean,
     absoluteDates: Boolean,
+    location: String?,
 ) {
     // 顶栏：日期居中
     Row(
@@ -3125,6 +3149,17 @@ private fun BoxScope.DayZoomChrome(
         // 直接复用整理照片页那一对组件，不另造一套外观。
         // 收藏会写进系统相册的收藏夹，所以给的是星星；
         // 喜欢只记在本应用里，给的是心形 —— 两者的分量一眼能分清。
+        // 胶囊单独一行：夹在左右两颗按钮之间会压住按钮内侧，
+        // 点收藏时先点到胶囊（用户反馈"刚开始几下没反应"）。
+        InfoPill(
+            // 文案来自唯一来源（与整理照片页、收藏页预览同一套）
+            primary = infoPillPrimary(item, relativeDates, absoluteDates),
+            secondary = infoPillSecondary(item, relativeDates, absoluteDates),
+            location = location,
+            contentMaxWidth = 260.dp,
+            onClick = onToggleExpanded,
+        )
+        Spacer(Modifier.height(10.dp))
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -3144,13 +3179,6 @@ private fun BoxScope.DayZoomChrome(
                     onClick = onToggleFavorite,
                 )
             }
-            InfoPill(
-                // 文案来自唯一来源（与整理照片页、收藏页预览同一套）
-                primary = infoPillPrimary(item, relativeDates, absoluteDates),
-                secondary = infoPillSecondary(item, relativeDates, absoluteDates),
-                modifier = Modifier.align(Alignment.Center),
-                onClick = onToggleExpanded,
-            )
         }
     }
 }
