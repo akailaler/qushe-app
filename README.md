@@ -315,12 +315,31 @@ verify.bat --install    # 先装最新 APK 再检查
 下次对话就等于失忆，会重踩已经用实测结论钉死的坑。所以每次提交前自动镜像进 `docs/agent-memory/`。
 
 ```bash
-git clone <仓库地址> qushe-android
+git clone https://github.com/akailaler/qushe-app.git qushe-android
 cd qushe-android
 python setup.py      # 恢复记忆 → 找 JDK 17 → 找 SDK 并写 local.properties → 报告缺什么
 ```
 
 **两台机器来回切换的纪律：离开前 `commit` + `push`，回来先 `pull`。**
+
+### 这条仓库的 fetch / push 被拆开了（换机器要重做）
+
+这台机器上 `github.com` 直连被拦，只有 `ghfast.top` 镜像能读。所以 origin 存了两条地址：
+
+| 方向 | 地址 | 为什么 |
+|---|---|---|
+| fetch | `https://ghfast.top/https://github.com/akailaler/qushe-app.git` | 镜像只读加速，下载正常 |
+| push | `https://github.com:443/akailaler/qushe-app.git` | **带端口**不会被全局 `insteadOf` 改写；GCM 认 `github.com`，能直接用 GitHub Desktop 的凭据 |
+
+换机器后重做一次：
+
+```bash
+git branch -m master main          # 远端分支叫 main
+git config remote.origin.pushurl "https://github.com:443/akailaler/qushe-app.git"
+git branch -u origin/main main
+```
+
+推送时如果开了系统代理而失败，临时去掉代理环境变量再推。
 
 ---
 

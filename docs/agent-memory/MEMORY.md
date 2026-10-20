@@ -29,6 +29,7 @@ export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
 - 稳定 tag **`v1.3.54`**（用户评价"比较完美"）。构建后 `app-debug.apk` 复制为 `qushe-vX.Y-debug.apk`；改版本号别漏 `SettingsScreen.kt` 硬编码字符串。
 - **包体积先看构成**：debug 32.6MB 里 dex 占 99% ⇒ 删 ABI / 压资源全是无效功，**只有 R8 有效**（`isMinifyEnabled + isShrinkResources` + debug 签名 ⇒ 3.7MB）。release 不可 `run-as`，收藏核对用 debug 包。
 - **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。大范围编辑前 `git status` 确认干净；改坏 `git checkout -- <file>`。
+- **README 只写当前状态** + 最近 ~30 个版本的一句话（表格）；原理和踩坑留在代码注释与 `docs/agent-memory/`。1.3.87 把 3254 行 / 115 个版本的更新日志压成表格（3706 → 390 行），**别再往 README 堆历史**。
 
 ## 收藏同步到系统相册（已定论）
 
