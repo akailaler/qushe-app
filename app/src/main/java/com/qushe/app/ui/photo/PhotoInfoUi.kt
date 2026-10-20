@@ -34,6 +34,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.qushe.app.core.MediaItem
 import com.qushe.app.core.PhotoExif
@@ -152,12 +153,18 @@ fun InfoPill(
     /** 拍摄地点（有就显示第三行）。null / 空白 = 不占这一行。 */
     location: String? = null,
     /**
-     * 文字区的最大宽度。
+     * 文字区的最大宽度。null = 交给父容器约束。
      *
-     * 两颗按钮夹在左右时只能给 230dp（再多就压到按钮上了）；
-     * 胶囊单独占一行时可以放宽到 300dp，地名才不会被截得太狠。
+     * **不要在这里写一个固定上限**：胶囊两侧永远有按钮（心 / 星 / 删除），
+     * 而这个组件本身不知道屏幕多宽、两边各占多少 —— 一旦写死，
+     * 窄屏上就会**盖住按钮**（用户报"点收藏刚开始几下没反应"，
+     * 根因就是胶囊压住了星形的内侧，点击被它的 `clickable` 先吃掉）。
+     *
+     * 正确做法：调用方把胶囊放进"两颗按钮之外"的那块空间里
+     * （整理页用 `padding(horizontal = 52.dp)`、收藏页用 `weight(1f)`），
+     * 这里就自动拿到那块空间的宽度上限，结构上不可能重叠。
      */
-    contentMaxWidth: androidx.compose.ui.unit.Dp = 230.dp,
+    contentMaxWidth: Dp? = null,
 ) {
     // 顶层单例：这个胶囊在详情面板里常驻，且会被反复重组 ——
     // 组合期现算 `RoundedCornerShape` 每次都要 new 一个（值相同，
@@ -173,7 +180,11 @@ fun InfoPill(
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.widthIn(max = contentMaxWidth),
+            modifier = if (contentMaxWidth != null) {
+                Modifier.widthIn(max = contentMaxWidth)
+            } else {
+                Modifier
+            },
         ) {
             if (!primary.isNullOrBlank()) {
                 Text(

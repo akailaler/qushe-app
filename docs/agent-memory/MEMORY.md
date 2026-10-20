@@ -129,7 +129,10 @@ export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
 - **间距属于容器**：`spacedBy` 的 gap 不随子项消失；要"子项连间距一起消"改成子项尾 padding。**但 `width(w).padding(g)` 总宽仍是 w** —— 要让步进含间距必须外层 `width(w+g)`，否则模型与布局差 `k×g`。
 - **模型必须与布局同取整**：累计偏移一律 `roundToPx`（`toPx` 留小数会累积几十像素漂移）。
 - **`clip` 形状共享实例**（每格现算会重建所有裁剪节点）。**多排共用 `ScrollState`**：靠短排尾部垫片让 `maxValue` 恒等；`scroll.maxValue` 不能当刻度分母，用各排上报总长取 max；拖动定位别用 `animateScrollTo`。
+- **★ 为排版插的 `Spacer` 必须算进"内容总宽"**：半格错位的 `rowOffsetPx` 漏算 ⇒ 两排 `maxValue` 差半格 ⇒ 共用一个 `ScrollState` 到尽头一边夹一边放，手指继续划就**原地抖/像闪**。全工程"内容宽"只有一个数，漏一处三处全歪。
+- **★ 尽头橡皮筋**：`dispatchRawDelta` 的**返回值**才是真实消费量，差值 = 拉出量（1px 死区，因为 `ScrollState` 内部 `roundToInt`）；阻尼 `limit*raw/(limit+|raw|)`；位移画在 `graphicsLayer{translationX}` 且必须在 **`horizontalScroll` 之前**（之后被滚动容器 clip 掉，看不见）；反向拖先收皮筋再滚内容。
 - **`ScrollState` 外部只能 `scrollTo()` 且被 `maxValue` 夹** ⇒ 每帧检查、没对上再推（带上限）。
+- **★ 组件里写死 `widthIn(max = 固定值)` = 定时炸弹**（它不知道旁边有按钮）⇒ 压住按钮、点击被吃。宽度上限交给父容器约束：`padding(horizontal=52.dp)` 收缩的是**约束**（真居中且不重叠），`weight(1f)` 在剩余空间居中（天然偏右）。
 - **「居中」要对齐格子中心**（`cumPx[k] + w/2`）。**属性互斥时改分派别硬凑**（焦点图必在上排）。补偿性 padding 治不了观感。
 
 ## 图片加载（Coil / MediaStore）

@@ -4,6 +4,7 @@ import android.net.Uri
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -57,6 +58,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.derivedStateOf
@@ -556,6 +558,48 @@ fun DayViewScreen(
 }
 
 /**
+ * 拖到尽头时的橡皮筋状态（两排**共用一份**）。
+ *
+ * 为什么不做成每排各一份：手指只落在其中一排，但画面上的"一整面照片墙"
+ * 必须一起被拉出去。各存一份的话就会出现一条带子动了、另一条没动的脱节。
+ *
+ * 字段全是可变状态/普通函数，实例本身在 `remember` 里创建一次 ——
+ * 传进 [FilmstripRow] 不会因为它变化而把整排格子拖去重组。
+ */
+@Stable
+private class OverDrag(
+    /** 手指累计的拉出量（未阻尼，px）。正 = 内容被往左拉出（右端到头）。 */
+    val raw: MutableFloatState,
+    /** 真正画到屏幕上的位移（已阻尼，px）。 */
+    val draw: MutableFloatState,
+    /** 阻尼的渐近上限（px）：拉得再狠也不会超过它。 */
+    val limitPx: Float,
+    /** 往"拉出"方向累加一段位移。 */
+    val push: (Float) -> Unit,
+    /** 松手弹回 0。 */
+    val release: () -> Unit,
+    /** 按下时停住回弹，从当前位置接着拉。 */
+    val cancel: () -> Unit,
+)
+
+/**
+ * 橡皮筋的渐进阻尼：`limit * raw / (limit + |raw|)`。
+ *
+ * 拉得少时几乎 1:1 跟手（raw ≪ limit 时 ≈ raw），越拉越硬，
+ * 渐近线是 [limit] —— 永远拉不出这个上限。
+ * 不用线性 `coerceIn` 是因为它会在到达上限那一帧突然"变硬"，很假。
+ */
+private fun dampOver(raw: Float, limit: Float): Float =
+    if (limit <= 0f) 0f else limit * raw / (limit + kotlin.math.abs(raw))
+
+/**
+ * 橡皮筋最多拉出多远。
+ *
+ * 约一屏的 1/10：够让手指收到"到头了"的反馈，又不至于把整面墙扯离屏幕。
+ */
+private val OVER_DRAG_LIMIT = 96.dp
+
+/**
  * 上下两条横带 + 底部刻度条。
  *
  * 核心约束：**两条带子必须一起动**。
@@ -695,6 +739,60 @@ private fun DayFilmstrip(
     // 两排想不同步都做不到，不需要任何额外同步机制。
     val scroll = rememberScrollState(0)
 
+    // ---- 拖到尽头时的橡皮筋 ----
+    //
+    // 用户的描述："滑到尽头了，再滑上下两排里更长的那一排，还是会继续滑，
+    // 原地滑，形成一种接近闪烁的感觉"。
+    //
+    // 尽头本身由"两排内容宽必须恒等"修掉（见 `FilmstripRow` 里 `ownSpan` 的说明）。
+    // 但"手指还在划、画面一点回应都没有"依然难受 —— 这里补一段 iOS 那种
+    // 阻尼位移：拉出去越远越难拉，松手弹回原位。
+    //
+    // 状态放在**这一层**、两排共用：它们必须一起被拉出去，
+    // 各存一份就会出现"一条带子出去、另一条没动"的脱节。
+    val overRaw = remember { mutableFloatStateOf(0f) }   // 手指累计的"拉出量"（未阻尼）
+    val overDraw = remember { mutableFloatStateOf(0f) }  // 真正画到屏幕上的位移（已阻尼）
+    val overJob = remember { mutableStateOf<Job?>(null) }
+    val overScope = rememberCoroutineScope()
+    val overLimitPx = with(LocalDensity.current) {
+        OVER_DRAG_LIMIT.roundToPx().toFloat().coerceAtLeast(1f)
+    }
+    val overDrag = remember(overLimitPx) {
+        OverDrag(
+            raw = overRaw,
+            draw = overDraw,
+            limitPx = overLimitPx,
+            push = { d ->
+                if (d != 0f) {
+                    overRaw.floatValue += d
+                    overDraw.floatValue = dampOver(overRaw.floatValue, overLimitPx)
+                }
+            },
+            // 松手：按 Spring 弹回 0。DampingRatioMediumBouncy 会稍微过冲一下，
+            // 就是 iOS 橡皮筋收回去时那点余震；不要用 tween —— 线性收回很假。
+            release = {
+                overJob.value?.cancel()
+                overJob.value = overScope.launch {
+                    animate(
+                        initialValue = overRaw.floatValue,
+                        targetValue = 0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessMediumLow,
+                        ),
+                    ) { v, _ ->
+                        overRaw.floatValue = v
+                        overDraw.floatValue = dampOver(v, overLimitPx)
+                    }
+                    overRaw.floatValue = 0f
+                    overDraw.floatValue = 0f
+                }
+            },
+            // 新手势按下：停住回弹，从当前位置接着拉（不跳回 0）
+            cancel = { overJob.value?.cancel() },
+        )
+    }
+
     // ---- 间距与圆角：整屏只算一次，两排共用 ----
     //
     // 上一次是每排各算一遍自己的，于是"上下间距"和"左右间距"是两个独立的数 ——
@@ -825,6 +923,7 @@ private fun DayFilmstrip(
             corner = metrics.corner,
             onSpan = { spanTop.floatValue = it },
             padToPx = contentSpan,
+            over = overDrag,
             intro = introAnim,
             onFocusCellPositioned = onFocusRect,
             onCenterDay = onCenterDay,
@@ -854,6 +953,7 @@ private fun DayFilmstrip(
             offsetHalfRow = true,
             onSpan = { spanBottom.floatValue = it },
             padToPx = contentSpan,
+            over = overDrag,
             // 下排不认焦点格，但同样要在飞入动画后半段淡入。
             intro = introAnim,
             modifier = Modifier.fillMaxWidth().weight(1f),
@@ -988,6 +1088,8 @@ private fun FilmstripRow(
      * 屏幕上就是照片墙收尾处的自然留白。
      */
     padToPx: Float,
+    /** 拖到尽头的橡皮筋状态（两排共用一份，见 [DayFilmstrip]）。 */
+    over: OverDrag,
     /**
      * true = 这一排整体右移半格（砖墙错落，只有下排为true）。
      *
@@ -1080,8 +1182,18 @@ private fun FilmstripRow(
             cum
         }
 
-        // 本排的**内容**总长 —— 上报给外层当刻度条的分母。
-        val ownSpan = cumPx.getOrElse(cumPx.size - 1) { 0f } + halfViewportPx * 2f
+        // 本排的**内容**总长 —— 上报给外层当刻度条的分母，
+        // 也是两排"补齐到同一长度"的依据。
+        //
+        // ---- 必须算上 `rowOffsetPx` ----
+        // 下排整体右移了半格（见下面的 `rowOffsetPx`），那半格是**真实的宽度**：
+        // 它在 Row 里是一个额外的 Spacer。之前这里漏了它，于是下排的
+        // `horizontalScroll` 算出的 maxValue 比上排大出半格（约 100~200px）。
+        // 两排共用一个 ScrollState ⇒ 滚到尽头后，一边夹一边放，
+        // 手指继续划就变成"原地一抖一抖"（用户描述"滑到尽头还在原地滑、
+        // 接近闪烁"）。算进来之后两排 maxValue 恒等，尽头就真的是尽头。
+        val ownSpan = cumPx.getOrElse(cumPx.size - 1) { 0f } + halfViewportPx * 2f +
+            rowOffsetPx
         // 只在真的变了才写 state：无脑每帧写等于自己制造卡顿。
         SideEffect {
             if (kotlin.math.abs(ownSpan - lastReportedSpan) > 0.5f) {
@@ -1319,10 +1431,35 @@ private fun FilmstripRow(
                 // 所以任何时刻按下都能立刻跟手，不受上一次惯性/动画影响。
                 .pointerInput(scroll) {
                     val slop = viewConfiguration.touchSlop
+
+                    // ---- 把一次位移交给滚动，滚不动的部分变成橡皮筋 ----
+                    //
+                    // `dispatchRawDelta` 会返回**真正消费掉的位移**。
+                    // 之前这里忽略返回值，于是滑到尽头后：手指继续划、
+                    // 内容一动不动 —— 用户看到的"原地滑 / 像在闪"。
+                    //
+                    // 现在把差值收进 `over`：只有"已经在头/尾、且这一笔确实
+                    // 没被消费掉"才算拉出。加 1px 死区是因为
+                    // `ScrollState` 内部按 `roundToInt` 落值，正常滚动时
+                    // 每帧都会差零点几像素，不加死区会被误判成"到尽头了"。
+                    val dispatchScroll: (Float) -> Unit = { delta ->
+                        if (delta != 0f) {
+                            val consumed = scroll.dispatchRawDelta(delta)
+                            val leftover = delta - consumed
+                            val atEdge = scroll.value <= 0 || scroll.value >= scroll.maxValue
+                            if (scroll.maxValue > 0 && atEdge &&
+                                kotlin.math.abs(leftover) >= 1f
+                            ) {
+                                over.push(leftover)
+                            }
+                        }
+                    }
+
                     awaitEachGesture {
                         val down = awaitFirstDown(requireUnconsumed = false)
-                        // 新手势一律打断上一次惯性
+                        // 新手势一律打断上一次惯性与回弹
                         flingJob?.cancel()
+                        over.cancel()
                         var mine = false
                         var lastX = down.position.x
                         var lastT = 0L
@@ -1343,7 +1480,9 @@ private fun FilmstripRow(
                                         // 前面积累的那一小段不补滚，避免起手一跳
                                         lastX = change.position.x
                                     } else {
-                                        // 竖直 → 整串事件让给格子的上滑手势
+                                        // 竖直 → 整串事件让给格子的上滑手势。
+                                        // 被中断的回弹要放回去（否则会停在半拉状态）。
+                                        if (over.raw.floatValue != 0f) over.release()
                                         return@awaitEachGesture
                                     }
                                 } else {
@@ -1358,8 +1497,34 @@ private fun FilmstripRow(
                             lastT = now
                             lastX = change.position.x
                             change.consume()
-                            scroll.dispatchRawDelta(-dx)
+
+                            // ---- 先收橡皮筋，再滚内容 ----
+                            //
+                            // 已经拉出去的状态下手指往回带，第一段位移应该
+                            // 先把那块"橡皮筋"收回来（内容才开始跟手），
+                            // 否则手指已经反向了、画面却要等皮筋归零才动，
+                            // 手感会像卡了一下。
+                            val delta = -dx
+                            val raw = over.raw.floatValue
+                            if (raw != 0f && (delta > 0f) == (raw < 0f)) {
+                                val next = raw + delta
+                                if ((next > 0f) != (raw > 0f)) {
+                                    // 越过 0：皮筋收完，剩下的继续滚内容
+                                    over.raw.floatValue = 0f
+                                    over.draw.floatValue = 0f
+                                    dispatchScroll(next)
+                                } else {
+                                    over.raw.floatValue = next
+                                    over.draw.floatValue =
+                                        dampOver(next, over.limitPx)
+                                }
+                            } else {
+                                dispatchScroll(delta)
+                            }
                         }
+                        // 松手：橡皮筋弹回去（不论这一下有没有拖动成功，
+                        // 只要还拉着就得收 —— 上一次回弹被 cancel 过）
+                        if (over.raw.floatValue != 0f) over.release()
                         if (mine && kotlin.math.abs(velocity) > 200f) {
                             // ---- 松手后的惯性：指数衰减滑行 ----
                             //
@@ -1384,12 +1549,25 @@ private fun FilmstripRow(
                                         .coerceIn(1f, 40f)
                                     last = now
                                     v *= Math.pow(0.998, dtMs.toDouble()).toFloat()
+                                    val before = scroll.value
                                     scroll.dispatchRawDelta(-v * dtMs / 1000f)
+                                    // 已经到尽头：惯性到此为止。
+                                    // 继续空转不会动，只是白跑帧（也是"原地滑"的观感来源）。
+                                    if (scroll.value == before &&
+                                        (scroll.value <= 0 || scroll.value >= scroll.maxValue)
+                                    ) {
+                                        break
+                                    }
                                 }
                             }
                         }
                     }
                 }
+                // 橡皮筋只动"画"、不动布局：translationX 由绘制层读，
+                // 所以每帧拉拽不会触发任何重组（这是它敢每帧写的唯一原因）。
+                // 位置必须在 `horizontalScroll` **之前** —— 之后会被滚动容器
+                // 自己的 clip 裁掉，拉出去的那截根本看不见。
+                .graphicsLayer { translationX = -over.draw.floatValue }
                 .horizontalScroll(scroll, enabled = true),
             // 刻意**不给 spacedBy** —— 间距由每个格子自己带（见 [CellSlot]），
             // 否则某项被删除后，它那段间距会留在原地。
@@ -3149,21 +3327,17 @@ private fun BoxScope.DayZoomChrome(
         // 直接复用整理照片页那一对组件，不另造一套外观。
         // 收藏会写进系统相册的收藏夹，所以给的是星星；
         // 喜欢只记在本应用里，给的是心形 —— 两者的分量一眼能分清。
-        // 胶囊单独一行：夹在左右两颗按钮之间会压住按钮内侧，
-        // 点收藏时先点到胶囊（用户反馈"刚开始几下没反应"）。
-        InfoPill(
-            // 文案来自唯一来源（与整理照片页、收藏页预览同一套）
-            primary = infoPillPrimary(item, relativeDates, absoluteDates),
-            secondary = infoPillSecondary(item, relativeDates, absoluteDates),
-            location = location,
-            contentMaxWidth = 260.dp,
-            onClick = onToggleExpanded,
-        )
-        Spacer(Modifier.height(10.dp))
+        //
+        // 胶囊和按钮**同一行**（和整理照片页 / 收藏页统一）。
+        // 它自己不设宽度上限，可用宽度由这层 `padding(horizontal = 52.dp)`
+        // 限定在"两颗按钮之外" —— 52 = 按钮 44 + 8 间隙。
+        // 之前这里夹着却写死 230dp 文字区（总宽 280dp），压住了按钮内侧，
+        // 才出现"点收藏刚开始几下没反应"。
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp),
+            contentAlignment = Alignment.Center,
         ) {
             if (onToggleLike != null) {
                 FavoriteButton(
@@ -3179,6 +3353,16 @@ private fun BoxScope.DayZoomChrome(
                     onClick = onToggleFavorite,
                 )
             }
+            InfoPill(
+                // 文案来自唯一来源（与整理照片页、收藏页预览同一套）
+                primary = infoPillPrimary(item, relativeDates, absoluteDates),
+                secondary = infoPillSecondary(item, relativeDates, absoluteDates),
+                location = location,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .padding(horizontal = 52.dp),
+                onClick = onToggleExpanded,
+            )
         }
     }
 }

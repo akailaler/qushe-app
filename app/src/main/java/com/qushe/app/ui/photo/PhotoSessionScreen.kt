@@ -1147,25 +1147,20 @@ fun PhotoSessionScreen(
                 // 一个方向的手势应该留给不可逆或高频的动作 —— 上滑删除、左右翻页都值，
                 // 而收藏一秒就能撤销，占掉"下滑"的代价太大，还会跟翻页抢手感。
                 // 日期和地点收进中间那个带 ⓘ 的胶囊，点开才展开完整信息，不打扰看照片。
-                // ---- 胶囊**单独占一行** ----
+                // ---- 按钮与胶囊**同一行**（用户要求放回去）----
                 //
-                // 之前它夹在左右两颗按钮中间：胶囊的总宽是"文字区 230 + 图标/内边距 50
-                // = 280dp"，而两颗按钮之间只剩 230dp 左右 ⇒ 胶囊会压住按钮的内侧，
-                // 点收藏/喜欢时先点到胶囊（用户反馈"刚开始几下没反应"）。
-                // 独占一行后按钮和胶囊互不重叠，地名也能用更宽的位置。
-                InfoPill(
-                    primary = infoPillPrimary(currentForInfo, relativeDates, absoluteDates),
-                    secondary = infoPillSecondary(currentForInfo, relativeDates, absoluteDates),
-                    location = currentLocation,
-                    contentMaxWidth = 260.dp,
-                    modifier = Modifier.align(Alignment.CenterHorizontally),
-                    onClick = { detailVisible = true },
-                )
-                Spacer(Modifier.height(12.dp))
+                // 上一版为了修"点收藏没反应"把胶囊挪到了单独一行，那是对的诊断
+                // 但过重的解法：真正的问题是**胶囊不知道自己有多宽**（写死了 230dp
+                // 文字区 + 50dp 图标内边距 = 280dp，比两颗按钮之间剩下的还宽）。
+                //
+                // 现在胶囊自己不设上限，由这里给它一块**确定不会被按钮占用**的空间：
+                // 外层再套一层 `padding(horizontal = 52.dp)`（按钮 44 + 8 间隙），
+                // 它拿到的最大宽度就是屏幕宽减去两侧 —— 结构上不可能压住按钮。
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 20.dp),
+                    contentAlignment = Alignment.Center,
                 ) {
                     // 左下角：喜欢（心形）。只记在本应用里，绝不写进系统相册。
                     FavoriteButton(
@@ -1184,6 +1179,17 @@ fun PhotoSessionScreen(
                         onToggleFavorite(currentForInfo)
                         favoriteTick++
                     }
+
+                    // 中间的日期 / 地点胶囊：可用宽度 = 两侧按钮之外的那块。
+                    InfoPill(
+                        primary = infoPillPrimary(currentForInfo, relativeDates, absoluteDates),
+                        secondary = infoPillSecondary(currentForInfo, relativeDates, absoluteDates),
+                        location = currentLocation,
+                        modifier = Modifier
+                            .align(Alignment.Center)
+                            .padding(horizontal = 52.dp),
+                        onClick = { detailVisible = true },
+                    )
                 }
 
                 // 「已标记 N 项 · xx MB / 结束并处理」那一条底部横幅已经去掉。

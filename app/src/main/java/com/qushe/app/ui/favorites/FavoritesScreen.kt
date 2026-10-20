@@ -695,48 +695,49 @@ fun FavoritesScreen(
                     LaunchedEffect(item.storeKey()) {
                         location = resolveLocationLabel(item)
                     }
-                    // ---- 胶囊**单独占一行**，按钮在下面一行 ----
+                    // ---- 胶囊回到按钮那一行（用户要求）----
                     //
-                    // 之前胶囊夹在按钮中间：左边心 + 星共 98dp、右边删除 44dp，
-                    // 而胶囊最宽 230dp —— 窄一点的机器上会**压住星形按钮**，
-                    // 点收藏时先点到胶囊（用户反馈"点收藏刚开始没反应"）。
-                    // 挪到上面一行后，胶囊能用满宽度，按钮和它互不重叠。
-                    Column(
+                    // 左：心 + 星（98dp）；右：删除（44dp）；中间剩下的那段
+                    // 交给胶囊 —— 用 `weight(1f)` 而不是"整屏居中"，
+                    // 于是它在**剩余空间里**居中，天然避开了左侧两颗按钮。
+                    // 用户原话："如果左侧和收藏按钮重叠了可以把胶囊适当往右移一点，
+                    // 不必严格居中" —— 这正是 weight 的行为。
+                    //
+                    // 胶囊自己不设宽度上限（见 `InfoPill` 的 contentMaxWidth），
+                    // 宽度完全由这段剩余空间决定，结构上不可能压住任何一颗按钮。
+                    val doomed = item.storeKey() in pendingDelete
+                    Row(
                         modifier = Modifier.fillMaxWidth(),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        InfoPill(
-                            primary = infoPillPrimary(item, relativeDates, absoluteDates),
-                            secondary = infoPillSecondary(item, relativeDates, absoluteDates),
-                            location = location,
-                            // 独占一行，可以比"夹在两颗按钮之间"更宽
-                            contentMaxWidth = 260.dp,
-                            onClick = { detailItem = item },
-                        )
-                        Spacer(Modifier.height(10.dp))
-                        Box(modifier = Modifier.fillMaxWidth()) {
-                            // 左边并排两颗：喜欢（心）+ 收藏（星）。
-                            // 必须自己套一层 Row：Box 的子节点默认堆在左上角。
-                            Row(
-                                modifier = Modifier.align(Alignment.CenterStart),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                FavoriteButton(selected = liked) { mark(item, like = true) }
-                                Spacer(Modifier.width(10.dp))
-                                StarButton(selected = faved) { mark(item, like = false) }
-                            }
-                            val doomed = item.storeKey() in pendingDelete
-                            RoundActionButton(
-                                icon = Icons.Filled.Delete,
-                                label = "删除",
-                                tint = if (doomed) AccentDelete else TextPrimary,
-                                modifier = Modifier.align(Alignment.CenterEnd),
-                            ) {
-                                // 同视频那排：只改颜色，退出时才统一结算
-                                val key = item.storeKey()
-                                pendingDelete = if (doomed) pendingDelete - key
-                                else pendingDelete + key
-                            }
+                        // 左边并排两颗：喜欢（心）+ 收藏（星）。
+                        FavoriteButton(selected = liked) { mark(item, like = true) }
+                        Spacer(Modifier.width(10.dp))
+                        StarButton(selected = faved) { mark(item, like = false) }
+
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .padding(horizontal = 6.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            InfoPill(
+                                primary = infoPillPrimary(item, relativeDates, absoluteDates),
+                                secondary = infoPillSecondary(item, relativeDates, absoluteDates),
+                                location = location,
+                                onClick = { detailItem = item },
+                            )
+                        }
+
+                        RoundActionButton(
+                            icon = Icons.Filled.Delete,
+                            label = "删除",
+                            tint = if (doomed) AccentDelete else TextPrimary,
+                        ) {
+                            // 同视频那排：只改颜色，退出时才统一结算
+                            val key = item.storeKey()
+                            pendingDelete = if (doomed) pendingDelete - key
+                            else pendingDelete + key
                         }
                     }
                 }
