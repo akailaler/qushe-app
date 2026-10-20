@@ -2046,9 +2046,19 @@ private fun DayCell(
     // 内存和解码耗时都会掉一个量级。
     val imgContext = LocalContext.current
     val imgDensity = LocalDensity.current
-    // 有垫底图（= 焦点格）时要开淡入：那一下是"缩略图 → 高清"的交接，
-    // 硬切会像闪了一下；其余格子关掉（见下面的说明）。
-    val fadeIn = placeholder != null
+    // ---- 不做交叉淡入（用户反馈"轻微闪烁、像从暗变亮"）----
+    //
+    // Coil 的 crossfade 不是"上层淡入"，而是 **底层淡出 + 目标淡入** 两条
+    // alpha 同时跑。中间那几帧两层都只有半透明，叠在一起的总不透明度
+    // 只有约 75% —— 观感就是**先暗一下再亮回来**，比硬切更像"闪"。
+    //
+    // 之前只有焦点格开淡入（它一进来就在屏幕正中，硬切容易被看见），
+    // 1.3.86 给每格都垫了系统缩略图后，`placeholder != null` 恒成立，
+    // 于是所有格子都开了 —— 用户立刻看到整片轻微闪烁。
+    //
+    // 现在全部关掉：底下已经有系统缩略图兜着，硬切只是"糊 → 清"，
+    // 内容位置完全一致，不存在空白，反而比淡入干净。
+    val fadeIn = false
     val imageRequest = remember(
         cell.uri, cellH, cellW, cell.isAnimated, cell.isLongImage,
         imgDensity, fadeIn, focusDecodeSize,
