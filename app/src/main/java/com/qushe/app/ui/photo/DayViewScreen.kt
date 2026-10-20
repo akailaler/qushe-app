@@ -600,6 +600,14 @@ private fun dampOver(raw: Float, limit: Float): Float =
 private val OVER_DRAG_LIMIT = 96.dp
 
 /**
+ * 瀑布流两端各留的垫片。
+ *
+ * 8dp 只为了让第一张 / 最后一张不贴着屏幕边缘被切得难看；
+ * 再大就是"滑到尽头还剩半屏空白"（用户明确不要）。
+ */
+private val EDGE_PAD = 8.dp
+
+/**
  * 上下两条横带 + 底部刻度条。
  *
  * 核心约束：**两条带子必须一起动**。
@@ -1127,10 +1135,20 @@ private fun FilmstripRow(
         val cellHeight = (maxHeight - VERTICAL_PAD * 2).coerceAtLeast(48.dp)
         // 先取出来 —— BoxWithConstraints 的作用域在 Row 的 lambda 里会被屏蔽，
         // 直接写 maxWidth 会命中 RowScope 的同名成员而报错。
-        val halfViewport = (maxWidth / 2).coerceAtLeast(0.dp)
+        // ---- 两端垫片：**不再留半屏** ----
+        //
+        // 之前两端各垫半个视口，为的是"第一张 / 最后一张也能滑到屏幕正中"。
+        // 代价是滑到尽头时，最后一张停在正中、右边空出半个屏幕（用户反馈
+        // "滑到最左或最右还有半屏空白"）。
+        //
+        // 现在改成 8dp：尽头就是内容的边。代价写在明处 ——
+        // 最前面 / 最后面那几张**不能居中**了（进场定位会把目标 clamp 到
+        // [0, maxValue]，靠边的那张就贴边停）。日常进场看的焦点图前后都有照片，
+        // 基本碰不到这种情况；真碰上了也只是"停在边上"，不会错位。
+        val edgePad = EDGE_PAD
         val density = LocalDensity.current
         val viewportPx = with(density) { maxWidth.roundToPx().toFloat() }
-        val halfViewportPx = with(density) { halfViewport.roundToPx().toFloat() }
+        val edgePadPx = with(density) { edgePad.roundToPx().toFloat() }
 
         // 每个格子的宽度先算出来（纯函数，和真实布局用的是同一套算法）。
         val cellWidths = remember(items, indices, cellHeight) {
@@ -1192,7 +1210,7 @@ private fun FilmstripRow(
         // 两排共用一个 ScrollState ⇒ 滚到尽头后，一边夹一边放，
         // 手指继续划就变成"原地一抖一抖"（用户描述"滑到尽头还在原地滑、
         // 接近闪烁"）。算进来之后两排 maxValue 恒等，尽头就真的是尽头。
-        val ownSpan = cumPx.getOrElse(cumPx.size - 1) { 0f } + halfViewportPx * 2f +
+        val ownSpan = cumPx.getOrElse(cumPx.size - 1) { 0f } + edgePadPx * 2f +
             rowOffsetPx
         // 只在真的变了才写 state：无脑每帧写等于自己制造卡顿。
         SideEffect {
@@ -1249,13 +1267,13 @@ private fun FilmstripRow(
         } else {
             0f
         }
-        val focusTargetPx = remember(cumPx, focusIndex, viewportPx, halfViewportPx, rowOffsetPx, focusCellW) {
+        val focusTargetPx = remember(cumPx, focusIndex, viewportPx, edgePadPx, rowOffsetPx, focusCellW) {
             if (focusItem == null || focusIndex < 0 || !focusRowValid ||
                 cumPx.size <= 1 || viewportPx <= 0f
             ) {
                 -1f
             } else {
-                halfViewportPx + rowOffsetPx +
+                edgePadPx + rowOffsetPx +
                     (cumPx.getOrElse(focusRowItem) { 0f } + focusCellW / 2f) -
                     viewportPx / 2f
             }
@@ -1287,8 +1305,11 @@ private fun FilmstripRow(
         }
         snapshotFlow { scroll.value }
             .map { offset ->
-                // 屏幕中心落在本排内容坐标里的位置（扣掉这一排自己的起点偏移）
-                val centerPx = offset.toFloat() + viewportPx / 2f - rowOffsetPx
+                // 屏幕中心落在本排内容坐标里的位置。
+                // 要扣掉"这一排的起点"：两端垫片 + 下排的半格错位。
+                // （之前漏了垫片这一项 —— 垫片是半屏时，标题日期会偏半屏；
+                //  现在垫片只有 8dp，影响很小，但既然看到了就一起修对。）
+                val centerPx = offset.toFloat() + viewportPx / 2f - rowOffsetPx - edgePadPx
                 val slot = cumPx.slotAt(centerPx)
                 val global = indices.getOrNull(slot) ?: return@map null
                 items.getOrNull(global)?.dateTakenMillis?.let { dayStartOf(it) }
@@ -1307,9 +1328,9 @@ private fun FilmstripRow(
         //  maxValue 更大时 clamp 不生效，但下排又会用自己的值把偏移夹回去。）
         //
         // 本排上界 = 本排内容总长 - 视口。用它 clamp 才是"本排能滚到哪"。
-        val ownMaxScroll = remember(cumPx, viewportPx, halfViewportPx, rowOffsetPx, tailPadPx) {
+        val ownMaxScroll = remember(cumPx, viewportPx, edgePadPx, rowOffsetPx, tailPadPx) {
             val total = cumPx.getOrElse(cumPx.size - 1) { 0f } +
-                halfViewportPx * 2f + rowOffsetPx + tailPadPx
+                edgePadPx * 2f + rowOffsetPx + tailPadPx
             (total - viewportPx).toInt().coerceAtLeast(0)
         }
 
@@ -1378,7 +1399,7 @@ private fun FilmstripRow(
         // `seededTarget` 就是那个"本排的目标偏移"：焦点图在本排时是它的正中，
         // 否则由焦点序号折算出的对应格。两排各算各的，不需要外部广播。
         val visibleRange by remember(
-            scroll, viewportPx, cumPx, halfViewportPx, positioned, rowOffsetPx, seededTarget,
+            scroll, viewportPx, cumPx, edgePadPx, positioned, rowOffsetPx, seededTarget,
         ) {
             derivedStateOf {
                 val n = cumPx.size - 1
@@ -1390,7 +1411,7 @@ private fun FilmstripRow(
                 }
                 // 窗口换算到"相对第一格"的坐标系：
                 // cumPx 不含两端垫片，也不含错位半格那一段前置偏移。
-                val shift = rowOffsetPx + halfViewportPx
+                val shift = rowOffsetPx + edgePadPx
                 // ---- 前伸 / 后延各 0.5 屏，不再是整屏 ----
                 //
                 // ±1 屏时窗口宽 3 个视口，两排同时组合 ~74 个格子；
@@ -1574,7 +1595,7 @@ private fun FilmstripRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // 两端各垫半个视口，让首尾两张也能滑到屏幕正中。
-            Spacer(Modifier.width(halfViewport))
+            Spacer(Modifier.width(edgePad))
 
             // 错位半格：紧跟端部垫片的一段额外前置偏移。
             // 放在这里而不是塞进 cumPx，是为了让 cumPx 保持"纯格子宽度"的语义
@@ -1641,7 +1662,7 @@ private fun FilmstripRow(
                 WideSpacer(tailPadPx)
             }
 
-            Spacer(Modifier.width(halfViewport))
+            Spacer(Modifier.width(edgePad))
         }
     }
 }
@@ -1850,11 +1871,23 @@ private fun CellSlot(
                     index = index,
                     swipeUpDeletes = swipeUpDeletes,
                     actions = actions,
-                    // 只有飞入动效的焦点格需要垫底图 —— 它一进来就在屏幕正中、
-                    // 用户盯着看，空白的几十毫秒就是"黑屏一下"。
-                    // 长图**不垫**：系统缩略图是整张长图按 Fit 生成的细条，
-                    // 铺进 2:1 的格子里只会看到一条糊线，交接时反而像闪了一下。
-                    placeholder = if (isFocusCell && !cell.isLongImage) {
+                    // ---- 每一格都先用系统缩略图垫着（用户要的方案一）----
+                    //
+                    // 拖底部滑块时，跳过的位置不发起请求（否则请求雪崩），
+                    // 松手后要现解当前屏那几格 —— 每格几十毫秒，
+                    // 这段时间屏幕上就是一片空白格。
+                    //
+                    // 系统相册早就为每个 Uri 生成过缩略图，`loadThumbnail` 命中那份
+                    // 只要 1~2ms。所以先把它铺上（最长边 512，放大后糊，但**有内容**），
+                    // 高清那份到了再由请求上的 crossfade 淡入 —— 观感从
+                    // "空白 → 突然出现" 变成 "模糊 → 渐渐变清"，中间不再有空洞。
+                    //
+                    // 长图**不垫**：
+                    //  · 系统那份是整张长图按 Fit 生成的细条，铺进 2:1 格子里只剩一条糊线；
+                    //  · 更关键的是 `SystemThumbnailFetcher` 对长图会主动返回 null
+                    //    （见它的 min-side 检查），请求随后落到默认解码器 ——
+                    //    那等于为一张 828×30656 解 101MB，绝对不能发生。
+                    placeholder = if (!cell.isLongImage) {
                         rememberFocusPlaceholder(cell.uri)
                     } else {
                         null
@@ -1981,7 +2014,7 @@ private fun DayCell(
     /**
      * 高清图到位之前先垫着的那张（系统缩略图）。null = 不垫。
      *
-     * 只有**焦点格**会拿到它 —— 见 [rememberFocusPlaceholder] 的说明。
+     * 除长图外每一格都会拿到它 —— 见 [rememberFocusPlaceholder] 的说明。
      */
     placeholder: Painter? = null,
     /**

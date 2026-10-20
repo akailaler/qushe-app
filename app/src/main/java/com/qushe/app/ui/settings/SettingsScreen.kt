@@ -550,7 +550,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.85",
+                text = "取舍 1.3.86",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )
@@ -663,6 +663,14 @@ private fun SectionTitle(text: String) {
     Spacer(Modifier.height(10.dp))
 }
 
+/**
+ * 设置块右侧控件统一占的高度。
+ *
+ * 取 36dp 是因为胶囊（`Chip`）本身就是这个高度（上下各 8dp 内边距 +
+ * labelLarge 一行）。让 `Switch` 也按这个高度排，所有设置块的节奏才一致。
+ */
+private val SETTING_TRAILING_HEIGHT = 36.dp
+
 @Composable
 private fun SettingBlock(
     title: String,
@@ -695,7 +703,24 @@ private fun SettingBlock(
                 color = TextPrimary,
                 modifier = Modifier.weight(1f),
             )
-            trailing()
+            // ---- 右侧控件统一占 36dp 高 ----
+            //
+            // 不包这一层时，这一行的高度由 `trailing()` 自己决定：
+            //  · 胶囊（每组数量 / 操作栏 / 双击画面做什么）是 8+8+20 = 36dp；
+            //  · Material3 的 `Switch` 带 `minimumInteractiveComponentSize`，
+            //    占位 48dp。
+            // 两种块因此差 12dp —— 用户看到的"上面几行上下间距更大"就是这个，
+            // 不是 padding 的问题，是**行高**不一样。
+            //
+            // 用 Box 给一个固定 36dp：Switch 会被父约束压到这个高度（图形本身
+            // 只有 32dp，不会变扁），于是所有设置块的节奏一致。
+            // 代价：开关的触摸目标从 48dp 变成 36dp（仍大于 32dp 的图形本体）。
+            Box(
+                modifier = Modifier.height(SETTING_TRAILING_HEIGHT),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                trailing()
+            }
         }
         Spacer(Modifier.height(4.dp))
         Text(
