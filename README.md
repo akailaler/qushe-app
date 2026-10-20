@@ -50,6 +50,22 @@ gradle assembleDebug assembleRelease lintDebug
 release 包混淆过，崩溃堆栈要用 `app/build/outputs/mapping/release/mapping.txt` 反解
 （39 MB，不进仓库，每次构建重新生成）。
 
+### 发一个可下载的版本
+
+```bash
+gradle assembleRelease   # 约 40 秒
+python release.py        # tag + Release + APK，一次传完
+```
+
+`release.py` 从 `versionName` 读版本号、自动打 tag、创建 Release、上传 APK。
+重复执行只补缺失的部分，不会重复创建。访客在
+[Releases](https://github.com/akailaler/qushe-app/releases) 页面下载 ——
+README 顶部那个链接指向 `releases/latest`，永远是最新版。
+
+**为什么不用 GitHub Actions**：这个工程一直在本地真机上验证，发出去的应该是
+"验过的这个包"，而不是云上重新编出来的另一个包；本机构建也只要 40 秒。
+脚本取凭据走 `git credential fill`（GitHub Desktop / GCM 存的那份），不读明文文件。
+
 ### 首次启动
 
 按需申请媒体权限。Android 13+ 图片 / 视频权限分开，只给照片权限也能用，
