@@ -5,13 +5,13 @@
 ## 本机环境
 
 - Win11/AMD64。GitHub release 下载被代理拦（502）→ 前缀 `https://ghfast.top/`，镜像必须用官方 sha256 校验。
-- **系统原先没装 Git**（只有工具链里的 PortableGit，用户终端用不了）。已把 PortableGit 2.55 复制到 `C:\Users\22120\Git`（含 GCM + bash）并加进**用户 PATH** —— 免管理员，`winget install Git.Git` 会卡在 github 下载。
+- **系统原先没装 Git**（只有工具链里的 PortableGit，用户终端用不了）。已把 PortableGit 2.55 复制到 `C:\Users\<用户名>\Git`（含 GCM + bash）并加进**用户 PATH** —— 免管理员，`winget install Git.Git` 会卡在 github 下载。
 - **网络实测**：`github.com` 直连被代理拒（CONNECT 502），`api.github.com` 200，`ghfast.top` 只做只读加速。
 - **★ 推送方案**（跑通）：用户装了 **GitHub Desktop**，凭据在 Windows Credential Manager，GCM 直接能用。`remote.origin` 拆两条：
   - fetch `https://ghfast.top/https://github.com/akailaler/qushe-app.git`（镜像只读）
   - push `https://github.com:443/akailaler/qushe-app.git`（**带端口**不匹配全局 `insteadOf` 前缀 `https://github.com/`，所以不会被改写；GCM 按 hostname 认 github.com）
   Bash 工具环境自带 `https_proxy=127.0.0.1:64311`（会拒 github.com），push 要 `env -u https_proxy -u HTTPS_PROXY -u http_proxy -u HTTP_PROXY git push`。本地分支已改名 `main`，upstream = `origin/main`。
-- Bash 工具 PATH 缺 coreutils：先 `export PATH="/c/Users/22120/.workbuddy/binaries/PortableGit/versions/1.3.0/usr/bin:$PATH"`。
+- Bash 工具 PATH 缺 coreutils：先 `export PATH="/c/Users/<用户名>/.workbuddy/binaries/PortableGit/versions/1.3.0/usr/bin:$PATH"`。
 - **Git 身份** = `40493403+akailaler@users.noreply.github.com`（GitHub 新式 noreply，带 id 才关联账号）。2026-10-22 用 `filter-branch` 重写过全部历史清掉旧 QQ 邮箱（89 提交约 12 分钟，元数据 + 文件内容各一遍，之后 `push --force` main/tags/backup）。**`git add -A` 会把仓库根的 `.git-rewrite/` 吞进提交**（已 gitignore）。
 - Git Bash 会把 python 正则 `\d` 转成 `/d`（静默失配）→ 写 `[0-9]`；`/tmp` 映射 Windows Temp → 用 `cygpath -w`；脚本用 `python - << 'PYEOF'`。
 - PowerShell 捕获 Python 子进程 stdout 会丢内容 → 重定向到文件再读。
@@ -24,8 +24,8 @@
 工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.3.90**（versionCode 138）。
 
 ```bash
-export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
-"C:/Users/22120/.workbuddy/binaries/gradle-8.9/bin/gradle" assembleDebug lintDebug
+export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
+"C:/Users/<用户名>/.workbuddy/binaries/gradle-8.9/bin/gradle" assembleDebug lintDebug
 ```
 
 - **改完先跑 `python verify.py`**（退出码 0/1）：编码自证 / 版本号四处一致 / 收藏同步逐条比对 / 回收站记账 / **顶层函数重名** / 历史残留 / 构建产物。
