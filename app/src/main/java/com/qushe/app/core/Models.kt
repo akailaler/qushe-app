@@ -122,6 +122,8 @@ data class BucketInfo(
     val name: String,
     val kind: MediaKind,
     val count: Int,
+    /** 这个文件夹里**最新**的一张，给文件夹选择页当封面。取不到就是 null。 */
+    val coverUri: Uri? = null,
 )
 
 /** 一次滑动的判定结果。 */

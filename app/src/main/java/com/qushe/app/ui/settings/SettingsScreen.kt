@@ -2,8 +2,6 @@ package com.qushe.app.ui.settings
 
 import android.content.Intent
 import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,11 +38,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import com.qushe.app.QusheApp
-import com.qushe.app.core.Backup
 import com.qushe.app.core.CrashLog
 import com.qushe.app.core.MediaRepository
 import com.qushe.app.core.UpdateResult
@@ -129,46 +123,6 @@ fun SettingsScreen(
             context.packageManager.getPackageInfo(context.packageName, 0).versionName
         }.getOrNull() ?: "?"
     }
-    // ---- 数据导出 / 导入 ----
-    val container = remember(context) {
-        (context.applicationContext as? QusheApp)?.container
-    }
-    var backupNote by remember { mutableStateOf<String?>(null) }
-
-    val exportLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json")
-    ) { uri ->
-        val c = container
-        if (uri == null || c == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            backupNote = withContext(Dispatchers.IO) {
-                runCatching {
-                    val text = Backup.export(c)
-                    context.contentResolver.openOutputStream(uri)?.use {
-                        it.write(text.toByteArray(Charsets.UTF_8))
-                    }
-                    "已导出 ${text.length / 1024} KB"
-                }.getOrElse { "导出失败：${it.message ?: "写入被拒绝"}" }
-            }
-        }
-    }
-
-    val importLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        val c = container
-        if (uri == null || c == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            backupNote = withContext(Dispatchers.IO) {
-                runCatching {
-                    val text = context.contentResolver.openInputStream(uri)
-                        ?.bufferedReader()?.use { it.readText() }
-                    if (text == null) "读不到这个文件" else Backup.import(c, text)
-                }.getOrElse { "导入失败：${it.message ?: "读取被拒绝"}" }
-            }
-        }
-    }
-
     var checkingUpdate by remember { mutableStateOf(false) }
     var updateNote by remember { mutableStateOf<String?>(null) }
     // 非空 = 已经查到新版本，再点一下直接去下载页
@@ -609,40 +563,6 @@ fun SettingsScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingBlock(
-                title = "导出数据",
-                subtitle = backupNote
-                    ?: "收藏、喜欢、已看记录、设置与统计，存成一个 JSON 文件",
-                onClick = if (container == null) null else {
-                    {
-                        val stamp = java.text.SimpleDateFormat("yyyy-MM-dd", java.util.Locale.US)
-                            .format(java.util.Date())
-                        exportLauncher.launch("qushe-backup-$stamp.json")
-                    }
-                },
-            ) {
-                Text(
-                    text = "导出",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                )
-            }
-
-            SettingBlock(
-                title = "导入数据",
-                // 说清两件事：只加不删；换机会失效（ID 是那台设备的）
-                subtitle = "只做加法，不会删掉现有记录。换设备后 ID 对不上，只适合重装恢复",
-                onClick = if (container == null) null else {
-                    { importLauncher.launch(arrayOf("application/json")) }
-                },
-            ) {
-                Text(
-                    text = "导入",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                )
-            }
-
-            SettingBlock(
                 title = "检查更新",
                 subtitle = updateNote ?: "当前版本 $currentVersion",
                 onClick = when {
@@ -692,7 +612,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.89",
+                text = "取舍 1.3.90",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

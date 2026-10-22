@@ -52,6 +52,22 @@ import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Surface
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
+import com.qushe.app.ui.common.rememberThumbnailRequest
 
 /**
  * 首页。
@@ -184,8 +200,11 @@ fun HomeScreen(
         ) {
             // 「已回顾」拆成照片 / 视频两格：这两个是完全不同的习惯
             // （照片随手刷、视频专门看），混成一个总数看不出任何东西。
-            StatCell(stats.reviewedPhotos.toString(), "照片", TextPrimary)
-            StatCell(stats.reviewedVideos.toString(), "视频", TextPrimary)
+            // 标签写"看过照片"而不是"照片"：这一格是**累计已回顾**的数量，
+            // 删掉照片之后它不会减少（那是"看过多少"，不是"相册里还有多少"）。
+            // 只写"照片"会被读成相册总数 —— 用户报过"删了截屏总数没变"。
+            StatCell(stats.reviewedPhotos.toString(), "看过照片", TextPrimary)
+            StatCell(stats.reviewedVideos.toString(), "看过视频", TextPrimary)
             StatCell(stats.deleted.toString(), "已删除", AccentDelete)
             StatCell(favoriteCount.toString(), "已收藏", AccentKeep)
             StatCell(formatSize(stats.freedBytes), "瘦身", AccentInfo)
@@ -302,11 +321,18 @@ private fun StatCell(value: String, label: String, accent: Color) {
 }
 
 /**
- * 文件夹选择面板。
+ * 文件夹选择页（**全屏**）。
  *
- * 用 `ModalBottomSheet` 而不是新开一页：这个选择是**一次性**的，
- * 选完就进整理，不需要保留页面栈；而文件夹可能有几十个，
- * 用底部面板能直接滚动，不必再设计一套页面导航。
+ * 之前是 `ModalBottomSheet` 里的纯文字列表：文件夹一多就要在半个屏幕里滚，
+ * 而且全是文字，看不出哪个是"相册"哪个是"下载目录"。
+ *
+ * 现在改成全屏网格：每个文件夹一张封面（该文件夹里**最新**的那张），
+ * 下面一行名字、一行数量 —— 和系统相册的"相簿"页是同一个读法。
+ *
+ * ---- 为什么是两列网格而不是列表 ----
+ * 封面要占地方才有意义。列表里缩略图只能给 44~56dp，等于没有；
+ * 两列网格每格约 160dp，封面能看清内容，扫一眼就知道是哪个文件夹。
+ * 代价是长名字会被截断 —— 但数量那一行能补足辨识度。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -315,89 +341,144 @@ private fun FolderSheet(
     onPick: (BucketInfo) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(
+    Dialog(
         onDismissRequest = onDismiss,
-        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
-        containerColor = Surface2,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            // 自己处理 insets：Dialog 默认的窗口不铺满状态栏/导航栏
+            decorFitsSystemWindows = false,
+        ),
     ) {
-        Column(modifier = Modifier.padding(horizontal = 22.dp)) {
-            Text(
-                text = "按文件夹挑一批",
-                style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                // 明确说明这个模式和默认模式的区别 —— 否则用户会以为"只抽没看过的"失效了
-                text = "只从这个文件夹抽；不套用「只看没看过的」",
-                style = MaterialTheme.typography.bodySmall,
-                color = TextTertiary,
-            )
-            Spacer(Modifier.height(14.dp))
-
-            if (buckets == null) {
+        Surface(modifier = Modifier.fillMaxSize(), color = Ink) {
+            Column(modifier = Modifier.fillMaxSize()) {
+                // ---- 顶栏：返回 + 标题 + 文件夹数 ----
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(min = 120.dp),
-                    horizontalArrangement = Arrangement.Center,
+                        .statusBarsPadding()
+                        .padding(start = 4.dp, end = 18.dp, top = 4.dp, bottom = 10.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.width(22.dp).height(22.dp),
-                        color = TextSecondary,
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(Modifier.width(10.dp))
-                    Text("正在统计文件夹…", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                    IconButton(onClick = onDismiss) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "返回",
+                            tint = TextPrimary,
+                        )
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "按文件夹挑一批",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = TextPrimary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            // 说清和默认模式的区别，否则用户会以为「只抽没看过的」失效了
+                            text = if (buckets == null) {
+                                "正在统计文件夹…"
+                            } else {
+                                "共 ${buckets.size} 个 · 只从这个文件夹抽，不套用「只看没看过的」"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = TextTertiary,
+                        )
+                    }
                 }
-            } else if (buckets.isEmpty()) {
-                Text(
-                    text = "没有找到文件夹",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextSecondary,
-                    modifier = Modifier.padding(vertical = 24.dp),
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.heightIn(max = 460.dp),
-                    contentPadding = PaddingValues(bottom = 24.dp),
-                ) {
-                    items(buckets, key = { "${it.kind}-${it.name}" }) { b ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(10.dp))
-                                .clickable { onPick(b) }
-                                .padding(horizontal = 4.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = b.name,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    color = TextPrimary,
-                                    maxLines = 1,
-                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-                                )
-                                Spacer(Modifier.height(2.dp))
-                                Text(
-                                    text = "${b.count} 条 · " +
-                                        if (b.kind == MediaKind.VIDEO) "视频" else "照片",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = TextTertiary,
-                                )
-                            }
-                            Text(
-                                text = "›",
-                                style = MaterialTheme.typography.titleMedium,
-                                color = TextTertiary,
-                            )
+
+                if (buckets == null) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(26.dp),
+                            color = TextSecondary,
+                            strokeWidth = 2.dp,
+                        )
+                    }
+                } else if (buckets.isEmpty()) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "没有找到文件夹",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = TextSecondary,
+                        )
+                    }
+                } else {
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(2),
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(
+                            start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp,
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
+                        items(buckets, key = { "${it.kind}-${it.name}" }) { b ->
+                            FolderCell(bucket = b, onClick = { onPick(b) })
                         }
                     }
                 }
             }
         }
+    }
+}
+
+/** 文件夹网格里的一格：正方形封面 + 名字 + 数量。 */
+@Composable
+private fun FolderCell(bucket: BucketInfo, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .aspectRatio(1f)
+                .clip(RoundedCornerShape(14.dp))
+                .background(Surface2),
+        ) {
+            val cover = bucket.coverUri
+            if (cover != null) {
+                AsyncImage(
+                    // 系统相册已经生成好的缩略图，1~2ms 出图
+                    model = rememberThumbnailRequest(cover),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+            if (bucket.kind == MediaKind.VIDEO) {
+                Text(
+                    text = "视频",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier
+                        .align(Alignment.BottomStart)
+                        .padding(6.dp)
+                        .clip(RoundedCornerShape(4.dp))
+                        .background(Color(0x99000000))
+                        .padding(horizontal = 5.dp, vertical = 1.dp),
+                )
+            }
+        }
+        Spacer(Modifier.height(7.dp))
+        Text(
+            text = bucket.name,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+        )
+        Spacer(Modifier.height(1.dp))
+        Text(
+            text = if (bucket.kind == MediaKind.VIDEO) {
+                "${bucket.count} 个视频"
+            } else {
+                "${bucket.count} 张照片"
+            },
+            style = MaterialTheme.typography.labelSmall,
+            color = TextTertiary,
+        )
     }
 }

@@ -418,18 +418,42 @@ class MediaRepository(private val context: Context) {
     private fun bucketsIn(collection: Uri, kind: MediaKind): List<BucketInfo> {
         val col = bucketColumn(kind)
         val counts = HashMap<String, Int>()
+        // 每个文件夹"最新那张"的 id 与它的 DATE_ADDED —— 同一次全表查询里顺带取，
+        // 不要为封面再扫一遍库（几十个文件夹 = 几十次查询）。
+        val latestAt = HashMap<String, Long>()
+        val coverId = HashMap<String, Long>()
         runCatching {
-            resolver.query(collection, arrayOf(col), null, null, null)?.use { c ->
+            resolver.query(
+                collection,
+                arrayOf(col, MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DATE_ADDED),
+                null, null, null,
+            )?.use { c ->
                 val i = c.getColumnIndex(col)
                 if (i < 0) return emptyList()
+                val idIdx = c.getColumnIndex(MediaStore.MediaColumns._ID)
+                val dateIdx = c.getColumnIndex(MediaStore.MediaColumns.DATE_ADDED)
                 while (c.moveToNext()) {
                     val name = c.getString(i)?.trim().orEmpty()
                     if (name.isEmpty()) continue
                     counts[name] = (counts[name] ?: 0) + 1
+                    if (idIdx >= 0 && dateIdx >= 0) {
+                        val added = c.getLong(dateIdx)
+                        if (added > (latestAt[name] ?: Long.MIN_VALUE)) {
+                            latestAt[name] = added
+                            coverId[name] = c.getLong(idIdx)
+                        }
+                    }
                 }
             }
         }.onFailure { Log.w(TAG, "读取文件夹失败", it) }
-        return counts.map { (name, n) -> BucketInfo(name, kind, n) }
+        return counts.map { (name, n) ->
+            BucketInfo(
+                name = name,
+                kind = kind,
+                count = n,
+                coverUri = coverId[name]?.let { ContentUris.withAppendedId(collection, it) },
+            )
+        }
     }
 
     /**
