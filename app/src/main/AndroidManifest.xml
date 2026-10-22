@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- 只用于「设置 → 检查更新」那一次请求（GitHub releases API）。
+         应用平时不联网，也不上报任何数据。 -->
+    <uses-permission android:name="android.permission.INTERNET" />
+
     <!-- Android 13+ 细分媒体权限 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />

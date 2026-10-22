@@ -45,6 +45,7 @@ export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
 - 小米相册**双向读写** `is_favorite`（手动收藏视频 → 系统 +1）⇒ 「同步系统收藏到这里」是有效功能。
 - **唯一缺口**：在取舍里取消收藏，系统不跟着取消（同步只做加法）。用户要求"完全对齐"但先搁置，等他确认。
 - 这台小米上 `createFavoriteRequest` **静默授权、不弹框**；`FAVORITE_BATCH = 20` 保留（别的 ROM 会弹）。
+- **★ 不是所有 ROM 都支持**：红米 K20 Pro / MIUI 12.5.6（Android 11）的相册**不写** MediaStore 的 `is_favorite` —— 反向读到 0 条、正向写进去相册也不显示（但读回校验能过，UI 会显示"已同步"）。HyperOS 3.0 那台正常。验证方法：相册里手动收藏一张 → 点「同步系统收藏到这里」，提示"没有读到任何收藏"即证实。
 - 教训：① **核对脚本先自证**（storeKey 解码写反 ⇒ 假结论"0 条对上"，白折腾五轮）；② **不同写入路径不等价**（`content update` ≠ `createFavoriteRequest`），平台能力先 `content query` 实测；③ **★★★ 别用"平台应该怎样"推断"用户看到了什么"**（犯过两次）；④ **结论没坐实不给方案**。
 
 ## Compose：绘制 / 层级

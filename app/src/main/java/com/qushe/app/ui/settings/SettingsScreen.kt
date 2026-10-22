@@ -1,5 +1,7 @@
 package com.qushe.app.ui.settings
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -32,14 +34,15 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import android.content.Intent
 import kotlinx.coroutines.launch
 import com.qushe.app.core.CrashLog
 import com.qushe.app.core.MediaRepository
+import com.qushe.app.core.UpdateResult
+import com.qushe.app.core.checkForUpdate
 import com.qushe.app.core.Prefs
 import com.qushe.app.core.Stats
 import com.qushe.app.core.formatSize
@@ -111,7 +114,19 @@ fun SettingsScreen(
     var importingFavorites by remember { mutableStateOf(false) }
     var importNote by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // ---- 手动检查更新 ----
+    // 只在这一下联网（见 AndroidManifest 里 INTERNET 的说明）。
     val context = LocalContext.current
+    val currentVersion = remember(context) {
+        runCatching {
+            context.packageManager.getPackageInfo(context.packageName, 0).versionName
+        }.getOrNull() ?: "?"
+    }
+    var checkingUpdate by remember { mutableStateOf(false) }
+    var updateNote by remember { mutableStateOf<String?>(null) }
+    // 非空 = 已经查到新版本，再点一下直接去下载页
+    var updatePage by remember { mutableStateOf<String?>(null) }
     // 只有真的崩过才有内容；被系统 LMK 杀掉不会留下堆栈
     val crashText = remember { CrashLog.read(context) }
 
@@ -473,7 +488,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "同步系统收藏到这里",
-                subtitle = importNote ?: "把系统收藏也收进本应用的「收藏」。只加不删 —— 系统里没有的不会被移除",
+                subtitle = importNote ?: "把系统收藏也收进本应用的「收藏」。只加不删；部分机型的相册不写这个标记，会读到 0 条",
                 onClick = if (importingFavorites) {
                     null
                 } else {
@@ -545,12 +560,59 @@ fun SettingsScreen(
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
+
+            SettingBlock(
+                title = "检查更新",
+                subtitle = updateNote ?: "当前版本 $currentVersion",
+                onClick = when {
+                    checkingUpdate -> null
+                    // 已经查到新版本：这一下是"去下载"
+                    updatePage != null -> {
+                        {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(updatePage))
+                                )
+                            }
+                        }
+                    }
+                    else -> {
+                        {
+                            scope.launch {
+                                checkingUpdate = true
+                                updateNote = when (val r = checkForUpdate(currentVersion)) {
+                                    is UpdateResult.Newer -> {
+                                        updatePage = r.pageUrl
+                                        "发现新版本 ${r.version}，点这里去下载"
+                                    }
+                                    UpdateResult.UpToDate ->
+                                        "已是最新版本（$currentVersion）"
+                                    is UpdateResult.Failed -> r.reason
+                                }
+                                checkingUpdate = false
+                            }
+                        }
+                    }
+                },
+            ) {
+                Text(
+                    text = when {
+                        checkingUpdate -> "检查中…"
+                        updatePage != null -> "去下载"
+                        else -> "检查"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (updatePage != null) AccentInfo else TextSecondary,
+                )
+            }
+
             Spacer(Modifier.height(26.dp))
             HorizontalDivider(color = Surface3)
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.87",
+                text = "取舍 1.3.88",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )
