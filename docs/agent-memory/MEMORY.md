@@ -6,12 +6,13 @@
 
 - Win11/AMD64。GitHub release 下载被代理拦（502）→ 前缀 `https://ghfast.top/`，镜像必须用官方 sha256 校验。
 - **系统原先没装 Git**（只有工具链里的 PortableGit，用户终端用不了）。已把 PortableGit 2.55 复制到 `C:\Users\22120\Git`（含 GCM + bash）并加进**用户 PATH** —— 免管理员，`winget install Git.Git` 会卡在 github 下载。
-- **网络实测**：`github.com` 直连被代理拒（CONNECT 502），`api.github.com` 200；`ghfast.top` 能转发 `git push`（会返回 GitHub 的认证错误）但 **GCM 不认这个域名**，弹不出 GitHub 登录 ⇒ 要推代码得用 PAT，或用户自己在能直连的终端跑。
-- **★ 实际跑通的推送方案**（1.3.87 后）：用户装了 **GitHub Desktop**，凭据存在 Windows Credential Manager（`GitHub - https://api.github.com/<user>`），GCM 能直接用。本仓库 `remote.origin` 拆成两条：
+- **网络实测**：`github.com` 直连被代理拒（CONNECT 502），`api.github.com` 200，`ghfast.top` 只做只读加速。
+- **★ 推送方案**（跑通）：用户装了 **GitHub Desktop**，凭据在 Windows Credential Manager，GCM 直接能用。`remote.origin` 拆两条：
   - fetch `https://ghfast.top/https://github.com/akailaler/qushe-app.git`（镜像只读）
   - push `https://github.com:443/akailaler/qushe-app.git`（**带端口**不匹配全局 `insteadOf` 前缀 `https://github.com/`，所以不会被改写；GCM 按 hostname 认 github.com）
   Bash 工具环境自带 `https_proxy=127.0.0.1:64311`（会拒 github.com），push 要 `env -u https_proxy -u HTTPS_PROXY -u http_proxy -u HTTP_PROXY git push`。本地分支已改名 `main`，upstream = `origin/main`。
 - Bash 工具 PATH 缺 coreutils：先 `export PATH="/c/Users/22120/.workbuddy/binaries/PortableGit/versions/1.3.0/usr/bin:$PATH"`。
+- **Git 身份** = `40493403+akailaler@users.noreply.github.com`（GitHub 新式 noreply，带 id 才关联账号）。2026-10-22 用 `filter-branch` 重写过全部历史清掉旧 QQ 邮箱（89 提交约 12 分钟，元数据 + 文件内容各一遍，之后 `push --force` main/tags/backup）。**`git add -A` 会把仓库根的 `.git-rewrite/` 吞进提交**（已 gitignore）。
 - Git Bash 会把 python 正则 `\d` 转成 `/d`（静默失配）→ 写 `[0-9]`；`/tmp` 映射 Windows Temp → 用 `cygpath -w`；脚本用 `python - << 'PYEOF'`。
 - PowerShell 捕获 Python 子进程 stdout 会丢内容 → 重定向到文件再读。
 - managed Python 3.13 无 tkinter（GUI 用系统 3.12）；隔离环境 `binaries/python/envs/default`。
@@ -20,7 +21,7 @@
 
 ## 「取舍」Android（主线）
 
-工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.3.81**（versionCode 129）。
+工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.3.90**（versionCode 138）。
 
 ```bash
 export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
@@ -34,7 +35,7 @@ export JAVA_HOME="C:\Users\22120\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
 - **包体积先看构成**：debug 32.6MB 里 dex 占 99% ⇒ 删 ABI / 压资源全是无效功，**只有 R8 有效**（`isMinifyEnabled + isShrinkResources` + debug 签名 ⇒ 3.7MB）。release 不可 `run-as`，收藏核对用 debug 包。
 - **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。大范围编辑前 `git status` 确认干净；改坏 `git checkout -- <file>`。
 - **README 只写当前状态** + 最近 ~30 个版本的一句话（表格）；原理和踩坑留在代码注释与 `docs/agent-memory/`。1.3.87 把 3254 行 / 115 个版本的更新日志压成表格（3706 → 390 行），**别再往 README 堆历史**。
-- **发版**：`gradle assembleRelease && python release.py` —— 自动打 tag、建 GitHub Release、传 APK（幂等）。仓库 `github.com/akailaler/qushe-app`，下载页 `/releases/latest`；凭据用 `git credential fill` 取 GitHub Desktop 那份。**不用 Actions**：要发真机验过的包，本机构建 40 秒。
+- **发版**：`gradle assembleRelease && python release.py` —— 自动打 tag、建 GitHub Release、传 APK（幂等）。仓库 `github.com/akailaler/qushe-app`，下载页 `/releases/latest`；凭据用 `git credential fill` 取 GitHub Desktop 那份。**1.3.89 起是正式签名**：`keystore/` + `keystore.properties` 不进仓库，备份在 `D:\backup\qushe-signing\`，丢了就再也发不了覆盖升级；没有它构建会退回 debug 签名（能出包、装不到老用户）。**不用 Actions**：要发真机验过的包，本机构建 40 秒。
 
 ## 收藏同步到系统相册（已定论）
 
