@@ -23,3 +23,6 @@ keystore.properties
 
 # ---- 发布签名目录 ----
 keystore/
+
+# filter-branch 的临时目录（重写历史时会出现在仓库根）
+.git-rewrite/
