@@ -36,12 +36,15 @@ export JAVA_HOME=/path/to/jdk17
 gradle assembleDebug assembleRelease lintDebug
 ```
 
-产物（都是 debug 签名，可直接安装、可互相覆盖）：
+产物：
 
-| 包 | 体积 | 用途 |
-|---|---|---|
-| `qushe-v1.3.89-release.apk` | **3.7 MB** | 日常用这个——R8 裁剪过，启动和体积都更好 |
-| `qushe-v1.3.89-debug.apk` | 33 MB | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
+| 包 | 体积 | 签名 | 用途 |
+|---|---|---|---|
+| `qushe-v1.3.89-release.apk` | **3.7 MB** | **正式签名** | 日常用这个——R8 裁剪过，启动和体积都更好 |
+| `qushe-v1.3.89-debug.apk` | 33 MB | debug 签名 | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作）|
+
+⚠️ **两种包的签名不同，不能互相覆盖安装**（1.3.89 起 release 换成了正式签名）。
+从旧版升级到 1.3.89 需要**卸载重装一次**，之后每个版本都能正常覆盖。
 
 **为什么 debug 有 33 MB**：其中 99% 是 dex（native 库 44 KB、资源 761 KB）。
 删 ABI、压资源都是无效功，**唯一有效的是 R8**：`isMinifyEnabled + isShrinkResources`
@@ -328,7 +331,12 @@ verify.bat --install    # 先装最新 APK 再检查
 | 代码 + 历史 + tag | `qushe-android/` | git：D 盘裸仓库 `backup` + GitHub `origin` |
 | **项目记忆**（`MEMORY.md` + 每日日志） | `<工作区>/.workbuddy/memory/` | `pre-commit` 自动镜像到 `docs/agent-memory/` |
 | 构建环境 | 各自机器 | `python setup.py` 重新指向本机 JDK / SDK |
-| 签名材料 / `local.properties` / APK | 各自机器 | 刻意不进仓库 |
+| **发布签名**（`keystore/` + `keystore.properties`） | `qushe-android/` | **不进仓库**，另有 `D://backup//qushe-signing//` 备份 |
+| `local.properties` / APK | 各自机器 | 刻意不进仓库 |
+
+**签名文件丢了就再也发不了覆盖升级**——Android 靠签名判断"是不是同一个应用"。
+`keystore.properties` 里是密码，和 `.jks` 一起备份到仓库外（当前在 `D://backup//qushe-signing//`）。
+没有这两个文件时构建会自动退回 debug 签名，包能出，但装不到老用户手上。
 
 记忆目录在仓库**外面**，git 管不到。换台机器 clone 下来如果只有代码、没有记忆，
 下次对话就等于失忆，会重踩已经用实测结论钉死的坑。所以每次提交前自动镜像进 `docs/agent-memory/`。
