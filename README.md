@@ -2,7 +2,7 @@
 
 > **不想自己编译？** [下载最新版 APK](https://github.com/akailaler/qushe-app/releases/latest)
 >   
-> —— Android 11 及以上，约 3.7 MB，直接安装即可（debug 签名，可覆盖升级）。
+> —— Android 11 及以上，约 3.7 MB，直接安装即可（正式签名，可直接覆盖升级）。
 
 参考了 iOS「去留 linger」的 Android 实现。像刷短视频一样刷自己的相册：随机抽一组内容，
   
@@ -37,8 +37,11 @@
 
 ```bash
 export JAVA_HOME=/path/to/jdk17
-gradle assembleDebug assembleRelease lintDebug
+./gradlew assembleDebug assembleRelease lintDebug    # Windows: gradlew.bat ...
 ```
+
+仓库自带 Gradle Wrapper（`gradle/wrapper/gradle-wrapper.jar`），**不需要预装 Gradle**；
+第一次跑会自己下载 8.9 的发行包。想用本机已装的 `gradle` 也等价。
 
 产物：
 
@@ -49,7 +52,10 @@ gradle assembleDebug assembleRelease lintDebug
 
 ⚠️ **两种包的签名不同，不能互相覆盖安装**（1.3.89 起 release 换成了正式签名）。
   
-从旧版升级到 1.3.89 需要**卸载重装一次**，之后每个版本都能正常覆盖。
+从 1.3.88 或更早升级需要**卸载重装一次**，之后每个版本都能正常覆盖。
+
+**签名只说明一次**：APK 一直用作者本人的密钥签（`keystore/` 不进仓库）。
+这一条只需记住「同一条签名线可以互相覆盖」，不必每个版本重复确认。
 
 **为什么 debug 有 33 MB**：其中 99% 是 dex（native 库 44 KB、资源 761 KB）。
   
@@ -64,7 +70,7 @@ release 包混淆过，崩溃堆栈要用 `app/build/outputs/mapping/release/map
 ### 发一个可下载的版本
 
 ```bash
-gradle assembleRelease   # 约 40 秒
+./gradlew assembleRelease   # 约 40 秒
 python release.py        # tag + Release + APK，一次传完
 ```
 
@@ -94,7 +100,7 @@ README 顶部那个链接指向 `releases/latest`，永远是最新版。
 
 Android 构建链在 Windows 上拒绝非 ASCII 路径。本工程当前在
   
-`C:\Users\22120\WorkBuddy\小工具\qushe-android`，`gradle.properties` 里靠
+`C:\Users\<用户名>\...\qushe-android` 这种含中文的路径，`gradle.properties` 里靠
   
 `android.overridePathCheck=true` 绕过。若遇到 `aapt2` / 资源路径的诡异报错，
   
