@@ -130,11 +130,15 @@ def main() -> None:
 
     rel = find_release(tag, tok)
     if rel is None:
+        # 这段会印在**所有**新 Release 上，所以只写"当前这一版适用"的事实。
+        # 1.3.89 起换成正式签名 —— 之前那句"debug 签名"是 1.3.87 时代的文案，
+        # 一直没跟着改，结果 v1.3.90 的页面还在说自己是 debug 签名。
         notes = (
             f"## 安装\n\n"
             f"- Android 11（API 30）及以上\n"
-            f"- 约 {apk.stat().st_size / 1024 / 1024:.1f} MB，debug 签名，"
-            f"**可直接覆盖升级**，不用卸载旧版\n\n"
+            f"- 约 {apk.stat().st_size / 1024 / 1024:.1f} MB，**正式签名**，"
+            f"可直接覆盖升级\n"
+            f"- 从 1.3.88 或更早升级：签名换过，需先卸载一次（会清掉应用内数据）\n\n"
             f"更新记录见 [README](https://github.com/{OWNER_REPO}#八更新日志)。"
         )
         rel = api(
