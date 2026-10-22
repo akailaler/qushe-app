@@ -8,7 +8,7 @@
 
 照片用**卡片堆叠 + 上滑删除**，视频用**抖音式上下滑 + 长按倍速 / 双击收藏**。
 
-当前版本 **1.3.88**（versionCode 136），已在小米 HyperOS 3.0 真机长期使用。
+当前版本 **1.3.89**（versionCode 137），已在小米 HyperOS 3.0 真机长期使用。
 
 ---
 
@@ -40,8 +40,8 @@ gradle assembleDebug assembleRelease lintDebug
 
 | 包 | 体积 | 用途 |
 |---|---|---|
-| `qushe-v1.3.88-release.apk` | **3.7 MB** | 日常用这个——R8 裁剪过，启动和体积都更好 |
-| `qushe-v1.3.88-debug.apk` | 33 MB | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
+| `qushe-v1.3.89-release.apk` | **3.7 MB** | 日常用这个——R8 裁剪过，启动和体积都更好 |
+| `qushe-v1.3.89-debug.apk` | 33 MB | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
 
 **为什么 debug 有 33 MB**：其中 99% 是 dex（native 库 44 KB、资源 761 KB）。
 删 ABI、压资源都是无效功，**唯一有效的是 R8**：`isMinifyEnabled + isShrinkResources`

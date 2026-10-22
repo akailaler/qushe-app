@@ -20,3 +20,6 @@ keystore.properties
 
 # ---- Kotlin 编译器的错误日志 ----
 .kotlin/
+
+# ---- 发布签名目录 ----
+keystore/

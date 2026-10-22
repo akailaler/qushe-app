@@ -2472,8 +2472,18 @@ private fun DayCell(
     }
 }
 
-/** 普通缩略图的解码比例（相对格子显示尺寸）：0.75 倍 = 内存约减半。 */
-private const val THUMB_DECODE_SCALE = 0.75f
+/**
+ * 普通缩略图的解码比例（相对格子显示尺寸）。
+ *
+ * 0.6 倍：每格像素降到显示的 36%，拖刻度条时一屏几格的总解码量明显下降
+ * （用户报"老机型瀑布流滑动时空白"）。
+ *
+ * **只影响格子里的那张图**，不影响放大：
+ *  · 点开大图走 `ZoomableImage` 的独立请求，按容器 × 放大上限解码，与这里无关；
+ *  · 长图走 `LongThumbnailFetcher` / 区域解码，也不看这个值。
+ * 代价是格子显示时放大 1.67 倍，静止看会觉得略软 —— 滑动时的流畅优先。
+ */
+private const val THUMB_DECODE_SCALE = 0.6f
 
 /** 往上滑多少像素算"确定触发"。和整理页单张手势的量级对齐。 */
 private const val SWIPE_UP_DELETE_PX = 96

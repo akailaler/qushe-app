@@ -1,8 +1,23 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
+
+// ---- 发布签名 ----
+//
+// `keystore.properties` 放在仓库根、已被 .gitignore 排除（连同 keystore/ 目录）。
+// 没有这个文件时（比如换台机器刚 clone 下来）自动退回 debug 签名，
+// 保证 `assembleRelease` 永远能出包 —— 只是那个包不能覆盖已发布的正式版。
+val signingPropsFile = rootProject.file("keystore.properties")
+val signingProps = Properties().apply {
+    if (signingPropsFile.exists()) {
+        signingPropsFile.inputStream().use { load(it) }
+    }
+}
+val hasReleaseSigning = signingPropsFile.exists()
 
 android {
     namespace = "com.qushe.app"
@@ -15,9 +30,22 @@ android {
         // 直接操作文件，完全另一套代码路径。回留同样只支持 Android 11+。
         minSdk = 30
         targetSdk = 35
-        versionCode = 136
-        versionName = "1.3.88"
+        versionCode = 137
+        versionName = "1.3.89"
         resourceConfigurations += listOf("zh", "en")
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                // **相对 app 模块**解析（properties 里写的是 ../keystore/…），
+                // 用 rootProject.file 会少一层目录。
+                storeFile = file(signingProps.getProperty("storeFile"))
+                storePassword = signingProps.getProperty("storePassword")
+                keyAlias = signingProps.getProperty("keyAlias")
+                keyPassword = signingProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
@@ -33,9 +61,15 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            // 用 debug 签名：这样产出的 release 包能**直接 adb install**，
-            // 也能覆盖安装现有的 debug 包（签名相同）。正式分发再换成自己的 keystore。
-            signingConfig = signingConfigs.getByName("debug")
+            // 有 keystore.properties 就用正式签名；没有就退回 debug 签名。
+            //
+            // ⚠️ 两者**互不兼容**：换了签名之后，已经装着的旧包不能覆盖升级，
+            //    必须卸载重装一次（之后每个版本都能正常覆盖）。
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug")
+            }
         }
     }
 
