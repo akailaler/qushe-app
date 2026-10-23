@@ -60,6 +60,29 @@ def version() -> str:
     return m.group(1)
 
 
+def assert_releasable(ver: str) -> None:
+    """发布前确认"tag 指向的代码就是这一版"。
+
+    踩过一次：先把版本号改成 1.3.91、构建、跑 release.py，**最后才 commit**。
+    tag 于是打在上一个提交上 —— 下载页写着 1.3.91，clone 下来 checkout 却是 1.3.90。
+    这类错在网页上完全看不出来，只有翻 tag 才能发现，所以直接拦在这里。
+    """
+    dirty = run(["git", "status", "--porcelain"]).stdout.strip()
+    if dirty:
+        sys.exit(
+            "工作区有未提交的改动，先 commit 再发版。\n"
+            "否则 tag 指向的提交不包含这些改动（下载页的版本号和源码会对不上）。\n\n"
+            + dirty[:400]
+        )
+    head = run(["git", "show", "HEAD:app/build.gradle.kts"]).stdout
+    m = re.search(r'versionName\s*=\s*"([^"]+)"', head)
+    if not m or m.group(1) != ver:
+        got = m.group(1) if m else "?"
+        sys.exit(
+            f"HEAD 里的 versionName 是 {got}，当前工程是 {ver} —— 先把版本号改动提交。"
+        )
+
+
 def token() -> str:
     """走 GCM 取 GitHub 凭据。拿不到时给出可执行的下一步，而不是一句 'failed'。"""
     p = run(["git", "credential", "fill"],
@@ -125,6 +148,8 @@ def main() -> None:
                 f"  先跑：gradle assembleRelease"
             )
     print(f"  APK: {apk.name}（{apk.stat().st_size / 1024 / 1024:.1f} MB）")
+
+    assert_releasable(ver)
 
     tok = token()
     ensure_tag(tag)
