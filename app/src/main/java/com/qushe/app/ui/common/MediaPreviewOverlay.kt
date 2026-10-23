@@ -101,6 +101,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import com.qushe.app.ui.common.flingTo
+import com.qushe.app.ui.theme.DarkPalette
+import com.qushe.app.ui.theme.QusheColors
 
 /**
  * 全屏媒体预览。
@@ -222,6 +224,18 @@ fun MediaPreviewOverlay(
         initialPage = initialIndex.coerceIn(0, items.lastIndex),
         pageCount = { items.size },
     )
+
+    // ---- 视频页永远深色，图片页跟随主题 ----
+    //
+    // 用 DisposableEffect 而不是把内容包进 `if (isVideo) ForceDarkPalette { ... }`：
+    // 后者会改变组合结构，翻页时整棵子树重建（Pager 的位置、缩放状态全丢）。
+    // 这里只切全局调色板，离开当前页时还原。
+    val pageIsVideo = items.getOrNull(pagerState.currentPage)?.kind == MediaKind.VIDEO
+    DisposableEffect(pageIsVideo) {
+        val before = QusheColors.palette
+        if (pageIsVideo) QusheColors.palette = DarkPalette
+        onDispose { if (pageIsVideo) QusheColors.palette = before }
+    }
 
     // 侧边返回手势：全屏 → 退出全屏；放大看图中 → 先缩回 1x；否则关掉预览。
     // 这段必须写在 pagerState / fullscreen 的声明之后（局部变量先声明后使用）。

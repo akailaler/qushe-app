@@ -162,6 +162,18 @@ val TextPrimary: Color get() = QusheColors.palette.textPrimary
 val TextSecondary: Color get() = QusheColors.palette.textSecondary
 val TextTertiary: Color get() = QusheColors.palette.textTertiary
 
+/**
+ * 贴在照片上的角标（视频时长 / 截屏 / 长图 / 回收站天数）。
+ *
+ * **刻意不跟主题翻**：底永远是压暗的黑，字永远是浅色 —— 底图是用户的照片，
+ * 颜色不可控，深底浅字在任何照片上都读得出来。
+ * 之前字用的是 `TextPrimary`，浅色模式下变成近黑，压在黑底上就看不见了
+ * （用户报"回收站缩略图右下角角标颜色有点深看不清"）。
+ */
+val BadgeScrim = Color(0xB3000000)
+val BadgeText = Color(0xFFF2F2F5)
+val BadgeAccent = Color(0xFF8FC3FF)
+
 val OverlaySoft: Color get() = QusheColors.palette.overlaySoft
 val OverlayStrong: Color get() = QusheColors.palette.overlayStrong
 val OverlayFade: Color get() = QusheColors.palette.overlayFade

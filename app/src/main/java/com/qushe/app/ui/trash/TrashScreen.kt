@@ -67,7 +67,9 @@ import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.qushe.app.ui.theme.ForceDarkPalette
+import com.qushe.app.ui.theme.BadgeAccent
+import com.qushe.app.ui.theme.BadgeScrim
+import com.qushe.app.ui.theme.BadgeText
 
 /**
  * 回收站。
@@ -285,46 +287,44 @@ fun TrashScreen(container: AppContainer) {
 
     val index = previewIndex
     if (index != null && items.isNotEmpty()) {
-        ForceDarkPalette {
-            MediaPreviewOverlay(
-                items = items,
-                initialIndex = index,
-                onDismiss = { previewIndex = null },
-                // 默认静音是全 App 级设置：预览里播的视频同样不外放。
-                videoMutedByDefault = container.prefs.videoMuted,
-                bottomContent = { item ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        MediaPreviewOverlay(
+            items = items,
+            initialIndex = index,
+            onDismiss = { previewIndex = null },
+            // 默认静音是全 App 级设置：预览里播的视频同样不外放。
+            videoMutedByDefault = container.prefs.videoMuted,
+            bottomContent = { item ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    PreviewActionButton(
+                        label = "恢复",
+                        accent = AccentKeep,
+                        modifier = Modifier.weight(1f),
                     ) {
-                        PreviewActionButton(
-                            label = "恢复",
-                            accent = AccentKeep,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            previewIndex = null
-                            fire(
-                                runCatching { container.repo.requestRestore(listOf(item)) }.getOrNull(),
-                                restore = true,
-                            )
-                        }
-                        PreviewActionButton(
-                            label = "彻底删除",
-                            accent = AccentDelete,
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            previewIndex = null
-                            fire(
-                                runCatching {
-                                    container.repo.requestDeleteForever(listOf(item))
-                                }.getOrNull(),
-                                dropped = listOf(item),
-                            )
-                        }
+                        previewIndex = null
+                        fire(
+                            runCatching { container.repo.requestRestore(listOf(item)) }.getOrNull(),
+                            restore = true,
+                        )
                     }
-                },
-            )
-        }
+                    PreviewActionButton(
+                        label = "彻底删除",
+                        accent = AccentDelete,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        previewIndex = null
+                        fire(
+                            runCatching {
+                                container.repo.requestDeleteForever(listOf(item))
+                            }.getOrNull(),
+                            dropped = listOf(item),
+                        )
+                    }
+                }
+            },
+        )
     }
 }
 
@@ -396,13 +396,13 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
                     .align(Alignment.BottomEnd)
                     .padding(3.dp)
                     .clip(RoundedCornerShape(4.dp))
-                    .background(Color(0xB3000000))
+                    .background(BadgeScrim)
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             ) {
                 Text(
                     text = tag,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (item.kind == MediaKind.VIDEO) AccentInfo else TextPrimary,
+                    color = if (item.kind == MediaKind.VIDEO) BadgeAccent else BadgeText,
                 )
             }
         }

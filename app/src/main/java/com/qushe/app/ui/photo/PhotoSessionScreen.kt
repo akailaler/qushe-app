@@ -134,6 +134,7 @@ import java.io.File
 import kotlin.math.abs
 import com.qushe.app.ui.common.fitInside
 import com.qushe.app.ui.common.scaledAboutCenter
+import com.qushe.app.ui.common.rememberFrostedBackdrop
 
 /**
  * 照片 / 截屏整理：卡片堆叠 + 滑动决策 + 缩放查看 + 缩略胶片条。
@@ -1151,6 +1152,9 @@ fun PhotoSessionScreen(
                 // 现在胶囊自己不设上限，由这里给它一块**确定不会被按钮占用**的空间：
                 // 外层再套一层 `padding(horizontal = 52.dp)`（按钮 44 + 8 间隙），
                 // 它拿到的最大宽度就是屏幕宽减去两侧 —— 结构上不可能压住按钮。
+                // 毛玻璃底：三个控件共用同一张 256px 小图（只在浅色主题下生效）
+                val frosted = rememberFrostedBackdrop(currentForInfo.uri)
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1161,6 +1165,8 @@ fun PhotoSessionScreen(
                     FavoriteButton(
                         selected = currentIsLiked,
                         modifier = Modifier.align(Alignment.CenterStart),
+                        backdrop = frosted,
+                        backdropAlignment = Alignment.CenterStart,
                     ) {
                         onToggleLike(currentForInfo)
                         favoriteTick++
@@ -1170,6 +1176,8 @@ fun PhotoSessionScreen(
                     StarButton(
                         selected = currentIsFavorite,
                         modifier = Modifier.align(Alignment.CenterEnd),
+                        backdrop = frosted,
+                        backdropAlignment = Alignment.CenterEnd,
                     ) {
                         onToggleFavorite(currentForInfo)
                         favoriteTick++
@@ -1180,6 +1188,7 @@ fun PhotoSessionScreen(
                         primary = infoPillPrimary(currentForInfo, relativeDates, absoluteDates),
                         secondary = infoPillSecondary(currentForInfo, relativeDates, absoluteDates),
                         location = currentLocation,
+                        backdrop = frosted,
                         modifier = Modifier
                             .align(Alignment.Center)
                             .padding(horizontal = 52.dp),

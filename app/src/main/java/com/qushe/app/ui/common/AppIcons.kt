@@ -37,7 +37,15 @@ val StarFilledIcon: ImageVector by lazy {
         viewportWidth = 24f,
         viewportHeight = 24f,
     ).apply {
-        path(fill = SolidColor(Color.Black)) {
+        // 同色描边：空心那颗的轮廓是"顶点 + 半个描边"，填充这颗如果只到顶点，
+        // 视觉直径会小 1.8f（用户："实心的还是小一圈"）。加同样宽度、同样颜色的
+        // 描边，两者的外沿就完全重合了。
+        path(
+            fill = SolidColor(Color.Black),
+            stroke = SolidColor(Color.Black),
+            strokeLineWidth = 1.8f,
+            strokeLineJoin = StrokeJoin.Round,
+        ) {
             moveTo(12f, 2f)
             lineTo(14.35f, 8.76f)
             lineTo(21.51f, 8.91f)

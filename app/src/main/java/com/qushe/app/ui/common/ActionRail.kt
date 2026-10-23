@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.OverlayBorder
 import com.qushe.app.ui.theme.OverlaySoft
+import com.qushe.app.ui.theme.QusheColors
 
 /**
  * 侧边栏上的一枚动作：图标 + 文字，选中时轻微放大。
@@ -112,7 +113,11 @@ fun RoundActionButton(
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        if (backdrop != null) {
+        // ---- 毛玻璃只在浅色主题下开 ----
+        //
+        // 深色主题下本来就是"深色半透明压一层"，再糊一层看不出差别，
+        // 反而多一次绘制。用户要求：深色回归原样。
+        if (backdrop != null && !QusheColors.palette.isDark) {
             FrostedBackground(
                 painter = backdrop,
                 tint = OverlaySoft,

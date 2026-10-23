@@ -112,6 +112,7 @@ import com.qushe.app.ui.theme.OverlaySoft
 import kotlinx.coroutines.delay
 import com.qushe.app.ui.common.RailAction
 import com.qushe.app.ui.common.VideoProgressBar
+import com.qushe.app.ui.common.StarFilledIcon
 
 /**
  * 视频整理：抖音式上下滑。
@@ -642,7 +643,7 @@ fun VideoSessionScreen(
                     // 收藏：星形，会同步进系统相册的收藏夹（放在喜欢下面）
                     val isLikedNow = currentIsFavorite
                     RailAction(
-                        icon = if (isLikedNow) Icons.Filled.Star else StarBorderIcon,
+                        icon = if (isLikedNow) StarFilledIcon else StarBorderIcon,
                         label = "收藏",
                         tint = if (isLikedNow) AccentKeep else TextPrimary,
                         emphasized = isLikedNow,

@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.TextPrimary
+import com.qushe.app.ui.common.StarFilledIcon
 
 /** 双击之后要显示的那一下：[liked] 是"喜欢"还是"收藏"，[on] 是操作后的状态。 */
 @Immutable
@@ -61,7 +62,7 @@ fun DoubleTapFlashOverlay(flash: DoubleTapFlash, modifier: Modifier = Modifier) 
             imageVector = if (flash.liked) {
                 if (flash.on) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder
             } else {
-                if (flash.on) Icons.Filled.Star else StarBorderIcon
+                if (flash.on) StarFilledIcon else StarBorderIcon
             },
             contentDescription = null,
             tint = if (flash.on) AccentKeep else TextPrimary,

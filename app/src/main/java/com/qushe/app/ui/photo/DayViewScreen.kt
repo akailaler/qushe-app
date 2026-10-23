@@ -147,6 +147,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
+import com.qushe.app.ui.theme.BadgeAccent
+import com.qushe.app.ui.theme.BadgeScrim
+import com.qushe.app.ui.theme.BadgeText
 
 /** 上下两排 —— 「去留」就是这个数。多了会变成网格墙，横拨的手感就没了。 */
 private const val ROWS = 2
@@ -2459,13 +2462,13 @@ private fun DayCell(
                             alpha = if (showTag.value) 1f - p else 0f
                         }
                         .clip(RoundedCornerShape(4.dp))
-                        .background(Color(0xB3000000))
+                        .background(BadgeScrim)
                         .padding(horizontal = 4.dp, vertical = 1.dp),
                 ) {
                     Text(
                         text = tag,
                         style = MaterialTheme.typography.labelSmall,
-                        color = if (cell.kind == MediaKind.VIDEO) AccentInfo else TextPrimary,
+                        color = if (cell.kind == MediaKind.VIDEO) BadgeAccent else BadgeText,
                     )
                 }
             }

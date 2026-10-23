@@ -54,6 +54,7 @@ import java.util.Calendar
 import androidx.compose.ui.graphics.painter.Painter
 import com.qushe.app.ui.common.StarFilledIcon
 import com.qushe.app.ui.common.FrostedBackground
+import com.qushe.app.ui.theme.QusheColors
 
 /**
  * 喜欢按钮（心形）。
@@ -193,7 +194,7 @@ fun InfoPill(
             .clip(InfoPillShape)
             .clickable(onClick = onClick),
     ) {
-        if (backdrop != null) {
+        if (backdrop != null && !QusheColors.palette.isDark) {
             FrostedBackground(painter = backdrop, tint = OverlayStrong)
         } else {
             Box(Modifier.matchParentSize().background(OverlayStrong))
