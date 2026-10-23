@@ -24,7 +24,8 @@
          很容易被 LMK 杀掉；翻倍到 512MB 能显著降低"滑一下就闪退"。 -->
     <application
         android:name=".QusheApp"
-        android:allowBackup="true"
+        android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:largeHeap="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"

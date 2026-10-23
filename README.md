@@ -10,7 +10,21 @@
 
 照片用**卡片堆叠 + 上滑删除**，视频用**抖音式上下滑 + 长按倍速 / 双击收藏**。
 
-当前版本 **1.3.91**（versionCode 139），已在小米 HyperOS 3.0 真机长期使用。
+<p align="center">
+  <img src="docs/screenshots/01-home.png" width="23%" alt="首页">
+  &nbsp;
+  <img src="docs/screenshots/02-review.png" width="23%" alt="整理照片">
+  &nbsp;
+  <img src="docs/screenshots/03-timeline.png" width="23%" alt="回到那天">
+  &nbsp;
+  <img src="docs/screenshots/04-folders.png" width="23%" alt="整理文件夹">
+</p>
+
+<p align="center">
+  <sub>首页 · 整理照片 · 回到那天 · 整理文件夹</sub>
+</p>
+
+当前版本 **1.3.92**（versionCode 140），已在小米 HyperOS 3.0 真机长期使用。
 
 ---
 
@@ -47,8 +61,8 @@ export JAVA_HOME=/path/to/jdk17
 
 | 包                           | 体积         | 签名       | 用途                                           |
 | --------------------------- | ---------- | -------- | -------------------------------------------- |
-| `qushe-v1.3.91-release.apk` | **3.7 MB** | **正式签名** | 日常用这个——R8 裁剪过，启动和体积都更好                       |
-| `qushe-v1.3.91-debug.apk`   | 33 MB      | debug 签名 | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
+| `qushe-v1.3.92-release.apk` | **3.7 MB** | **正式签名** | 日常用这个——R8 裁剪过，启动和体积都更好                       |
+| `qushe-v1.3.92-debug.apk`   | 33 MB      | debug 签名 | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
 
 ⚠️ **两种包的签名不同，不能互相覆盖安装**（1.3.89 起 release 换成了正式签名）。
   
@@ -436,6 +450,7 @@ git branch -u origin/main main
 
 | 版本     | 变化                                                     |
 | ------ | ------------------------------------------------------ |
+| 1.3.92 | 修三键导航机型底部的白边（系统栏固定深色 + 关掉系统对比度蒙层）；关闭云备份与换机直传 |
 | 1.3.91 | 「整理文件夹」默认三列，设置页可选 2 / 3 列；Release 说明附 APK 的 SHA-256      |
 | 1.3.90 | 整理文件夹改成全屏网格（每个文件夹一张封面）；统计标签改「看过照片」；移除导入导出            |
 | 1.3.89 | 换成正式签名（之后可覆盖升级）；瀑布流缩略图解码降到 0.6 倍                      |

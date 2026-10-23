@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份/换机传输规则（Android 12 起生效）。
+
+  `android:allowBackup="false"` 只关掉**云备份**；Android 12+ 的
+  「换机直传」（device-transfer，两台手机贴在一起搬数据）**不受它控制**，
+  必须在这里显式排除。
+
+  这个 App 存的是「这台设备上哪几张照片被收藏/看过」—— 记录里是 MediaStore 的 ID，
+  换一台设备 ID 就不一样了，搬过去只是几十 KB 的垃圾；而它同时暴露了
+  你收藏了哪些照片。所以两个通道都排掉。
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="root" path="." />
+    </cloud-backup>
+
+    <device-transfer>
+        <exclude domain="sharedpref" path="." />
+        <exclude domain="file" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="root" path="." />
+    </device-transfer>
+</data-extraction-rules>
