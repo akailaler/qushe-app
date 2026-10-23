@@ -67,6 +67,7 @@ import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.qushe.app.ui.theme.ForceDarkPalette
 
 /**
  * 回收站。
@@ -284,44 +285,46 @@ fun TrashScreen(container: AppContainer) {
 
     val index = previewIndex
     if (index != null && items.isNotEmpty()) {
-        MediaPreviewOverlay(
-            items = items,
-            initialIndex = index,
-            onDismiss = { previewIndex = null },
-            // 默认静音是全 App 级设置：预览里播的视频同样不外放。
-            videoMutedByDefault = container.prefs.videoMuted,
-            bottomContent = { item ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    PreviewActionButton(
-                        label = "恢复",
-                        accent = AccentKeep,
-                        modifier = Modifier.weight(1f),
+        ForceDarkPalette {
+            MediaPreviewOverlay(
+                items = items,
+                initialIndex = index,
+                onDismiss = { previewIndex = null },
+                // 默认静音是全 App 级设置：预览里播的视频同样不外放。
+                videoMutedByDefault = container.prefs.videoMuted,
+                bottomContent = { item ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        previewIndex = null
-                        fire(
-                            runCatching { container.repo.requestRestore(listOf(item)) }.getOrNull(),
-                            restore = true,
-                        )
+                        PreviewActionButton(
+                            label = "恢复",
+                            accent = AccentKeep,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            previewIndex = null
+                            fire(
+                                runCatching { container.repo.requestRestore(listOf(item)) }.getOrNull(),
+                                restore = true,
+                            )
+                        }
+                        PreviewActionButton(
+                            label = "彻底删除",
+                            accent = AccentDelete,
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            previewIndex = null
+                            fire(
+                                runCatching {
+                                    container.repo.requestDeleteForever(listOf(item))
+                                }.getOrNull(),
+                                dropped = listOf(item),
+                            )
+                        }
                     }
-                    PreviewActionButton(
-                        label = "彻底删除",
-                        accent = AccentDelete,
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        previewIndex = null
-                        fire(
-                            runCatching {
-                                container.repo.requestDeleteForever(listOf(item))
-                            }.getOrNull(),
-                            dropped = listOf(item),
-                        )
-                    }
-                }
-            },
-        )
+                },
+            )
+        }
     }
 }
 

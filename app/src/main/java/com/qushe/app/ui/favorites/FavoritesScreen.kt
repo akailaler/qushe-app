@@ -87,6 +87,8 @@ import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
 import com.qushe.app.ui.common.fitInside
 import com.qushe.app.ui.common.scaledAboutCenter
+import com.qushe.app.ui.common.rememberFrostedBackdrop
+import com.qushe.app.ui.theme.ForceDarkPalette
 
 /**
  * 收藏夹。
@@ -473,233 +475,242 @@ fun FavoritesScreen(
 
     val index = previewIndex
     if (index != null && shown.isNotEmpty()) {
-        MediaPreviewOverlay(
-            items = shown,
-            initialIndex = index,
-            onDismiss = {
-                previewIndex = null
-                // ---- 待删除的在这里**统一结算** ----
-                //
-                // 浏览期间只改了图标颜色（见 pendingDelete 的说明），
-                // 到这一步才真的去弹系统窗。一次提交、一次确认。
-                val doomed = shown.filter { it.storeKey() in pendingDelete }
-                if (doomed.isNotEmpty()) {
-                    pendingDelete = emptySet()
-                    delete(doomed)
-                }
-                // 退出浏览 = 刷新一次列表。取消掉的收藏在这一刻才从格子里消失，
-                // 浏览过程中列表保持不动（见 mark 的注释）。
-                // 删除走的是系统弹窗，它的回调里还会再刷一次 —— 这一句管的是
-                // 喜欢/收藏；两件事可能同时发生，所以不做 else。
-                if (listDirty) {
-                    listDirty = false
-                    reload()
-                }
-            },
-            // 捏合 = 回到那天（和整理照片页同一个手势、同一个日期视图）
-            onPinchToDate = { cur, scale, from, size ->
-                if (cur.dateTakenMillis > 0L) {
-                    val ratio = if (cur.width > 0 && cur.height > 0) {
-                        cur.width.toFloat() / cur.height
-                    } else {
-                        0f
+        ForceDarkPalette {
+            MediaPreviewOverlay(
+                items = shown,
+                initialIndex = index,
+                onDismiss = {
+                    previewIndex = null
+                    // ---- 待删除的在这里**统一结算** ----
+                    //
+                    // 浏览期间只改了图标颜色（见 pendingDelete 的说明），
+                    // 到这一步才真的去弹系统窗。一次提交、一次确认。
+                    val doomed = shown.filter { it.storeKey() in pendingDelete }
+                    if (doomed.isNotEmpty()) {
+                        pendingDelete = emptySet()
+                        delete(doomed)
                     }
-                    val start = if (from != null && ratio > 0f) {
-                        val at1x = fitInside(from, ratio)
-                        scaledAboutCenter(at1x, scale)
-                    } else {
-                        null
+                    // 退出浏览 = 刷新一次列表。取消掉的收藏在这一刻才从格子里消失，
+                    // 浏览过程中列表保持不动（见 mark 的注释）。
+                    // 删除走的是系统弹窗，它的回调里还会再刷一次 —— 这一句管的是
+                    // 喜欢/收藏；两件事可能同时发生，所以不做 else。
+                    if (listDirty) {
+                        listDirty = false
+                        reload()
                     }
-                    openDay(dayStartOf(cur.dateTakenMillis), cur, start, size)
-                }
-            },
-            // 「回到那天」盖在预览**之上**。必须走 overlayContent ——
-            // 预览跑在一个独立 Dialog 窗口里，在这里之外画的东西会被它整个压住。
-            overlayContent = {
-                if (dayShown != null || dayLoading) {
-                    DayViewScreen(
-                        items = dayShown,
-                        loading = dayLoading,
-                        notice = dayNotice,
-                        kindLabel = "照片",
-                        dayStart = dayTarget,
-                        focusItem = dayFocus,
-                        relativeDates = relativeDates,
-                        absoluteDates = absoluteDates,
-                        resolveLocation = resolveLocationLabel,
-                        markedKeys = dayMarked,
-                        swipeUpDeletes = container.prefs.swipeUpDeletes,
-                        isFavorite = { container.sessions.isFavorite(it) },
-                        isLiked = { container.sessions.isLiked(it) },
-                        onToggleLike = { container.sessions.toggleLike(it); markTick++ },
-                        // 退出时统一提交：和整理照片页"退出这一组才结算"是同一条规矩，
-                        // 也复用了本页预览已有的系统弹窗通道（delete()）。
-                        onBack = {
-                            commitDayDeletes()
-                            dayItems = null
-                            dayLoading = false
-                        },
-                        onConfirm = {
-                            val t = dayTarget
-                            commitDayDeletes()
-                            dayItems = null
-                            dayLoading = false
-                            onOpenDaySession(t)
-                        },
-                        // 上滑 = 删除（swipeUpDeletes 已钉死为 true）。
-                        // 这里**只标记**、让格子飞出去消失；真正动文件在退出时提交。
-                        onMarkDelete = { target ->
-                            dayMarked = dayMarked + target.storeKey()
-                        },
-                        onMarkFavorite = { target ->
-                            if (likeMode) container.sessions.toggleLike(target)
-                            else container.sessions.toggleFavorite(target)
-                            container.persistAsync()
-                            markTick++
-                        },
-                        onUndoDelete = { dayMarked = dayMarked.drop(1).toSet() },
-                        canUndo = dayMarked.isNotEmpty(),
-                        introFrom = dayIntroFrom,
-                        introImageSize = dayIntroSize,
-                    )
-                }
-
-                // ---- 详细信息面板（和整理照片页那颗 i 同一份内容）----
-                detailItem?.let { detail ->
-                    // 点面板外面关闭；面板本身吃掉点击，否则点里面任何位置都会关掉它。
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(Color(0xB3000000))
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                            ) { detailItem = null },
-                    )
-                    Column(
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(18.dp))
-                            .background(Surface2)
-                            .clickable(
-                                indication = null,
-                                interactionSource = remember { MutableInteractionSource() },
-                            ) {}
-                            .padding(20.dp)
-                            .verticalScroll(rememberScrollState()),
-                    ) {
-                        PhotoDetailContent(item = detail, exif = detailExif, locationName = detailLocation)
-                    }
-                }
-            },
-            // 默认静音是全 App 级设置：预览里播的视频同样不外放。
-            videoMutedByDefault = container.prefs.videoMuted,
-            // ---- 动作区：视频照整理视频页、图片照整理照片页 ----
-            //
-            // 两个页面**都同时给喜欢和收藏两颗** —— 在喜欢页里也能顺手收藏，
-            // 在收藏页里也能顺手喜欢，不用为了换个标记先退出来再进另一个页面。
-            railOnRight = container.prefs.railOnRight,
-            videoActions = if (viewOnly) null else {
-                { item ->
-                    val (liked, faved) = rememberMarkState(container, item, markTick)
-                    RailAction(
-                        icon = if (liked) {
-                            Icons.Filled.Favorite
+                },
+                // 捏合 = 回到那天（和整理照片页同一个手势、同一个日期视图）
+                onPinchToDate = { cur, scale, from, size ->
+                    if (cur.dateTakenMillis > 0L) {
+                        val ratio = if (cur.width > 0 && cur.height > 0) {
+                            cur.width.toFloat() / cur.height
                         } else {
-                            Icons.Filled.FavoriteBorder
-                        },
-                        label = "喜欢",
-                        tint = if (liked) AccentKeep else TextPrimary,
-                        emphasized = liked,
-                    ) { mark(item, like = true) }
-                    RailAction(
-                        icon = if (faved) Icons.Filled.Star else StarBorderIcon,
-                        label = "收藏",
-                        tint = if (faved) AccentKeep else TextPrimary,
-                        emphasized = faved,
-                    ) { mark(item, like = false) }
-                    val doomed = item.storeKey() in pendingDelete
-                    RailAction(
-                        icon = Icons.Filled.Delete,
-                        // 文字恒定，状态只交给颜色（和整理视频页同一条规矩）。
-                        label = "删除",
-                        tint = if (doomed) AccentDelete else TextPrimary,
-                        emphasized = doomed,
-                    ) {
-                        // 只改颜色、**不结算**，也不退出浏览 —— 见 pendingDelete 的说明
-                        val key = item.storeKey()
-                        pendingDelete = if (doomed) pendingDelete - key
-                        else pendingDelete + key
+                            0f
+                        }
+                        val start = if (from != null && ratio > 0f) {
+                            val at1x = fitInside(from, ratio)
+                            scaledAboutCenter(at1x, scale)
+                        } else {
+                            null
+                        }
+                        openDay(dayStartOf(cur.dateTakenMillis), cur, start, size)
                     }
-                }
-            },
-            photoActions = if (viewOnly) null else {
-                { item ->
-                    val (liked, faved) = rememberMarkState(container, item, markTick)
-                    // 地点异步读（仓库有缓存，翻回来不会重复查）
-                    var location by remember(item.storeKey()) { mutableStateOf<String?>(null) }
-                    LaunchedEffect(item.storeKey()) {
-                        location = resolveLocationLabel(item)
+                },
+                // 「回到那天」盖在预览**之上**。必须走 overlayContent ——
+                // 预览跑在一个独立 Dialog 窗口里，在这里之外画的东西会被它整个压住。
+                overlayContent = {
+                    if (dayShown != null || dayLoading) {
+                        DayViewScreen(
+                            items = dayShown,
+                            loading = dayLoading,
+                            notice = dayNotice,
+                            kindLabel = "照片",
+                            dayStart = dayTarget,
+                            focusItem = dayFocus,
+                            relativeDates = relativeDates,
+                            absoluteDates = absoluteDates,
+                            resolveLocation = resolveLocationLabel,
+                            markedKeys = dayMarked,
+                            swipeUpDeletes = container.prefs.swipeUpDeletes,
+                            isFavorite = { container.sessions.isFavorite(it) },
+                            isLiked = { container.sessions.isLiked(it) },
+                            onToggleLike = { container.sessions.toggleLike(it); markTick++ },
+                            // 退出时统一提交：和整理照片页"退出这一组才结算"是同一条规矩，
+                            // 也复用了本页预览已有的系统弹窗通道（delete()）。
+                            onBack = {
+                                commitDayDeletes()
+                                dayItems = null
+                                dayLoading = false
+                            },
+                            onConfirm = {
+                                val t = dayTarget
+                                commitDayDeletes()
+                                dayItems = null
+                                dayLoading = false
+                                onOpenDaySession(t)
+                            },
+                            // 上滑 = 删除（swipeUpDeletes 已钉死为 true）。
+                            // 这里**只标记**、让格子飞出去消失；真正动文件在退出时提交。
+                            onMarkDelete = { target ->
+                                dayMarked = dayMarked + target.storeKey()
+                            },
+                            onMarkFavorite = { target ->
+                                if (likeMode) container.sessions.toggleLike(target)
+                                else container.sessions.toggleFavorite(target)
+                                container.persistAsync()
+                                markTick++
+                            },
+                            onUndoDelete = { dayMarked = dayMarked.drop(1).toSet() },
+                            canUndo = dayMarked.isNotEmpty(),
+                            introFrom = dayIntroFrom,
+                            introImageSize = dayIntroSize,
+                        )
                     }
-                    // ---- 胶囊回到按钮那一行（用户要求）----
-                    //
-                    // 左：心 + 星（98dp）；右：删除（44dp）；中间剩下的那段
-                    // 交给胶囊 —— 用 `weight(1f)` 而不是"整屏居中"，
-                    // 于是它在**剩余空间里**居中，天然避开了左侧两颗按钮。
-                    // 用户原话："如果左侧和收藏按钮重叠了可以把胶囊适当往右移一点，
-                    // 不必严格居中" —— 这正是 weight 的行为。
-                    //
-                    // 胶囊自己不设宽度上限（见 `InfoPill` 的 contentMaxWidth），
-                    // 宽度完全由这段剩余空间决定，结构上不可能压住任何一颗按钮。
-                    val doomed = item.storeKey() in pendingDelete
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        // 左边并排两颗：喜欢（心）+ 收藏（星）。
-                        FavoriteButton(selected = liked) { mark(item, like = true) }
-                        Spacer(Modifier.width(10.dp))
-                        StarButton(selected = faved) { mark(item, like = false) }
 
+                    // ---- 详细信息面板（和整理照片页那颗 i 同一份内容）----
+                    detailItem?.let { detail ->
+                        // 点面板外面关闭；面板本身吃掉点击，否则点里面任何位置都会关掉它。
                         Box(
                             modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 6.dp),
-                            contentAlignment = Alignment.Center,
+                                .fillMaxSize()
+                                .background(Color(0xB3000000))
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                ) { detailItem = null },
+                        )
+                        Column(
+                            modifier = Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(18.dp))
+                                .background(Surface2)
+                                .clickable(
+                                    indication = null,
+                                    interactionSource = remember { MutableInteractionSource() },
+                                ) {}
+                                .padding(20.dp)
+                                .verticalScroll(rememberScrollState()),
                         ) {
-                            InfoPill(
-                                primary = infoPillPrimary(item, relativeDates, absoluteDates),
-                                secondary = infoPillSecondary(item, relativeDates, absoluteDates),
-                                location = location,
-                                onClick = { detailItem = item },
-                            )
+                            PhotoDetailContent(item = detail, exif = detailExif, locationName = detailLocation)
                         }
-
-                        RoundActionButton(
+                    }
+                },
+                // 默认静音是全 App 级设置：预览里播的视频同样不外放。
+                videoMutedByDefault = container.prefs.videoMuted,
+                // ---- 动作区：视频照整理视频页、图片照整理照片页 ----
+                //
+                // 两个页面**都同时给喜欢和收藏两颗** —— 在喜欢页里也能顺手收藏，
+                // 在收藏页里也能顺手喜欢，不用为了换个标记先退出来再进另一个页面。
+                railOnRight = container.prefs.railOnRight,
+                videoActions = if (viewOnly) null else {
+                    { item ->
+                        val (liked, faved) = rememberMarkState(container, item, markTick)
+                        RailAction(
+                            icon = if (liked) {
+                                Icons.Filled.Favorite
+                            } else {
+                                Icons.Filled.FavoriteBorder
+                            },
+                            label = "喜欢",
+                            tint = if (liked) AccentKeep else TextPrimary,
+                            emphasized = liked,
+                        ) { mark(item, like = true) }
+                        RailAction(
+                            icon = if (faved) Icons.Filled.Star else StarBorderIcon,
+                            label = "收藏",
+                            tint = if (faved) AccentKeep else TextPrimary,
+                            emphasized = faved,
+                        ) { mark(item, like = false) }
+                        val doomed = item.storeKey() in pendingDelete
+                        RailAction(
                             icon = Icons.Filled.Delete,
+                            // 文字恒定，状态只交给颜色（和整理视频页同一条规矩）。
                             label = "删除",
                             tint = if (doomed) AccentDelete else TextPrimary,
+                            emphasized = doomed,
                         ) {
-                            // 同视频那排：只改颜色，退出时才统一结算
+                            // 只改颜色、**不结算**，也不退出浏览 —— 见 pendingDelete 的说明
                             val key = item.storeKey()
                             pendingDelete = if (doomed) pendingDelete - key
                             else pendingDelete + key
                         }
                     }
-                }
-            },
-            bottomContent = { _ ->
-                // 纯观看模式不提供任何改动入口，只让你安静地看
-                if (viewOnly) {
-                    Text(
-                        text = "纯观看模式 · 不会改动任何内容",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary,
-                    )
-                }
-            },
-        )
+                },
+                photoActions = if (viewOnly) null else {
+                    { item ->
+                        val (liked, faved) = rememberMarkState(container, item, markTick)
+                        // 毛玻璃：一排控件共用同一张 256px 小图（只解一份）
+                        val frosted = rememberFrostedBackdrop(item.uri)
+                        // 地点异步读（仓库有缓存，翻回来不会重复查）
+                        var location by remember(item.storeKey()) { mutableStateOf<String?>(null) }
+                        LaunchedEffect(item.storeKey()) {
+                            location = resolveLocationLabel(item)
+                        }
+                        // ---- 胶囊回到按钮那一行（用户要求）----
+                        //
+                        // 左：心 + 星（98dp）；右：删除（44dp）；中间剩下的那段
+                        // 交给胶囊 —— 用 `weight(1f)` 而不是"整屏居中"，
+                        // 于是它在**剩余空间里**居中，天然避开了左侧两颗按钮。
+                        // 用户原话："如果左侧和收藏按钮重叠了可以把胶囊适当往右移一点，
+                        // 不必严格居中" —— 这正是 weight 的行为。
+                        //
+                        // 胶囊自己不设宽度上限（见 `InfoPill` 的 contentMaxWidth），
+                        // 宽度完全由这段剩余空间决定，结构上不可能压住任何一颗按钮。
+                        val doomed = item.storeKey() in pendingDelete
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // 左边并排两颗：喜欢（心）+ 收藏（星）。
+                            FavoriteButton(
+                                selected = liked,
+                                backdrop = frosted,
+                                backdropAlignment = Alignment.CenterStart,
+                            ) { mark(item, like = true) }
+                            Spacer(Modifier.width(10.dp))
+                            StarButton(
+                                selected = faved,
+                                backdrop = frosted,
+                                backdropAlignment = Alignment.CenterEnd,
+                            ) { mark(item, like = false) }
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 6.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                InfoPill(
+                                    primary = infoPillPrimary(item, relativeDates, absoluteDates),
+                                    secondary = infoPillSecondary(item, relativeDates, absoluteDates),
+                                    location = location,
+                                    backdrop = frosted,
+                                    onClick = { detailItem = item },
+                                )
+                            }
+
+                            RoundActionButton(
+                                icon = Icons.Filled.Delete,
+                                label = "删除",
+                                tint = if (doomed) AccentDelete else TextPrimary,
+                                backdrop = frosted,
+                                backdropAlignment = Alignment.CenterEnd,
+                            ) {
+                                // 同视频那排：只改颜色，退出时才统一结算
+                                val key = item.storeKey()
+                                pendingDelete = if (doomed) pendingDelete - key
+                                else pendingDelete + key
+                            }
+                        }
+                    }
+                },
+                // 底部那行「纯观看模式 · 不会改动任何内容」已去掉（1.3.96）：
+                // 纯观看模式下本来就没有任何操作按钮，再用一行字解释一遍是多余的，
+                // 反而把画面往下压。沉浸感优先。
+                bottomContent = { _ -> },
+            )
+        }
     }
 }
 

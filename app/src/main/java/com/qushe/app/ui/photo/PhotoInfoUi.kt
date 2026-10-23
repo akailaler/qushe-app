@@ -51,6 +51,9 @@ import com.qushe.app.ui.theme.OverlayStrong
 import com.qushe.app.ui.common.RoundActionButton
 import com.qushe.app.ui.common.StarBorderIcon
 import java.util.Calendar
+import androidx.compose.ui.graphics.painter.Painter
+import com.qushe.app.ui.common.StarFilledIcon
+import com.qushe.app.ui.common.FrostedBackground
 
 /**
  * 喜欢按钮（心形）。
@@ -64,6 +67,9 @@ import java.util.Calendar
 fun FavoriteButton(
     selected: Boolean,
     modifier: Modifier = Modifier,
+    /** 非空 = 毛玻璃底（预览页用）。 */
+    backdrop: Painter? = null,
+    backdropAlignment: Alignment = Alignment.Center,
     onClick: () -> Unit,
 ) {
     // 规格（44dp 圆、深色半透明底、22dp 图标）统一由 [RoundActionButton] 定义 ——
@@ -73,6 +79,8 @@ fun FavoriteButton(
         label = if (selected) "取消喜欢" else "喜欢",
         modifier = modifier,
         tint = if (selected) AccentKeep else TextPrimary,
+        backdrop = backdrop,
+        backdropAlignment = backdropAlignment,
         onClick = onClick,
     )
 }
@@ -89,13 +97,17 @@ fun FavoriteButton(
 fun StarButton(
     selected: Boolean,
     modifier: Modifier = Modifier,
+    backdrop: Painter? = null,
+    backdropAlignment: Alignment = Alignment.Center,
     onClick: () -> Unit,
 ) {
     RoundActionButton(
-        icon = if (selected) Icons.Filled.Star else StarBorderIcon,
+        icon = if (selected) StarFilledIcon else StarBorderIcon,
         label = if (selected) "取消收藏" else "收藏",
         modifier = modifier,
         tint = if (selected) AccentKeep else TextPrimary,
+        backdrop = backdrop,
+        backdropAlignment = backdropAlignment,
         onClick = onClick,
     )
 }
@@ -167,19 +179,31 @@ fun InfoPill(
      * 这里就自动拿到那块空间的宽度上限，结构上不可能重叠。
      */
     contentMaxWidth: Dp? = null,
+    /**
+     * 非空 = 毛玻璃（见 [rememberFrostedBackdrop]）。收藏/喜欢页的预览用它，
+     * 整理页与瀑布流不传 —— 那两处的"背后"不是单张照片。
+     */
+    backdrop: Painter? = null,
 ) {
     // 顶层单例：这个胶囊在详情面板里常驻，且会被反复重组 ——
     // 组合期现算 `RoundedCornerShape` 每次都要 new 一个（值相同，
     // 所以不会导致裁剪路径重建，但对象分配是白付的 GC 压力）。
-    Row(
+    Box(
         modifier = modifier
             .clip(InfoPillShape)
-            .background(OverlayStrong)
-            .border(1.dp, OverlayBorder, InfoPillShape)
-            .clickable(onClick = onClick)
-            .padding(start = 16.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .clickable(onClick = onClick),
     ) {
+        if (backdrop != null) {
+            FrostedBackground(painter = backdrop, tint = OverlayStrong)
+        } else {
+            Box(Modifier.matchParentSize().background(OverlayStrong))
+        }
+        Box(Modifier.matchParentSize().border(1.dp, OverlayBorder, InfoPillShape))
+
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = if (contentMaxWidth != null) {
@@ -220,13 +244,14 @@ fun InfoPill(
                 )
             }
         }
-        Spacer(Modifier.width(8.dp))
-        Icon(
-            imageVector = Icons.Filled.Info,
-            contentDescription = "详细信息",
-            tint = TextSecondary,
-            modifier = Modifier.size(16.dp),
-        )
+            Spacer(Modifier.width(8.dp))
+            Icon(
+                imageVector = Icons.Filled.Info,
+                contentDescription = "详细信息",
+                tint = TextSecondary,
+                modifier = Modifier.size(16.dp),
+            )
+        }
     }
 }
 

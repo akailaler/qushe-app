@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
@@ -95,17 +96,32 @@ fun RoundActionButton(
     label: String,
     modifier: Modifier = Modifier,
     tint: Color = TextPrimary,
+    /**
+     * 非空 = 走"毛玻璃"：背后垫一层模糊的照片（见 [rememberFrostedBackdrop]）。
+     * 收藏/喜欢页的预览用它；整理页、瀑布流那些不需要（背景不是单张照片）。
+     */
+    backdrop: Painter? = null,
+    /** 取哪一块照片当玻璃底色 —— 左边的心用 Start、右边的星用 End。 */
+    backdropAlignment: Alignment = Alignment.Center,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(OverlaySoft)
-            .border(1.dp, OverlayBorder, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        if (backdrop != null) {
+            FrostedBackground(
+                painter = backdrop,
+                tint = OverlaySoft,
+                alignment = backdropAlignment,
+            )
+        } else {
+            Box(Modifier.matchParentSize().background(OverlaySoft))
+        }
+        Box(Modifier.matchParentSize().border(1.dp, OverlayBorder, CircleShape))
         Icon(
             imageVector = icon,
             contentDescription = label,

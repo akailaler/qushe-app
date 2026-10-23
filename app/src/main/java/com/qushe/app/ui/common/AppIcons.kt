@@ -20,6 +20,39 @@ import androidx.compose.ui.unit.dp
  *
  * 顶点坐标按外径 10、内径 4、中心 (12, 12) 算出来的，五角星的十个顶点。
  */
+/**
+ * 实心星形。
+ *
+ * **顶点和 [StarBorderIcon] 完全一样**，只是描边换成填充。
+ *
+ * 之前用的是 Material 自带的 `Icons.Filled.Star`：它在 24dp 画布里
+ * 只占约 20dp（四周留白更多），换到"已收藏"状态时视觉上**缩了一圈**
+ * （用户："实心的比空心的小一圈"）。自己画同一组顶点，大小就一致了。
+ */
+val StarFilledIcon: ImageVector by lazy {
+    ImageVector.Builder(
+        name = "StarFilled",
+        defaultWidth = 24.dp,
+        defaultHeight = 24.dp,
+        viewportWidth = 24f,
+        viewportHeight = 24f,
+    ).apply {
+        path(fill = SolidColor(Color.Black)) {
+            moveTo(12f, 2f)
+            lineTo(14.35f, 8.76f)
+            lineTo(21.51f, 8.91f)
+            lineTo(15.80f, 13.24f)
+            lineTo(17.88f, 20.09f)
+            lineTo(12f, 16f)
+            lineTo(6.12f, 20.09f)
+            lineTo(8.20f, 13.24f)
+            lineTo(2.49f, 8.91f)
+            lineTo(9.65f, 8.76f)
+            close()
+        }
+    }.build()
+}
+
 val StarBorderIcon: ImageVector by lazy {
     ImageVector.Builder(
         name = "StarBorder",

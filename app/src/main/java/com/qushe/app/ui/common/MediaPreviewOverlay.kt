@@ -898,18 +898,9 @@ fun MediaPreviewOverlay(
                         label = "previewInfoFade",
                     )
                     Column(modifier = Modifier.graphicsLayer { this.alpha = alpha }) {
-                        // ---- 图片不显示文件名（用户要求）----
-                        // 文件名对照片几乎没用，还会把左下角变成一行"文件管理器"。
-                        // 视频保留：同名的视频片段只能靠文件名区分。
-                        if (!isImage) {
-                            Text(
-                                text = current.name,
-                                style = MaterialTheme.typography.titleMedium,
-                                color = TextPrimary,
-                                maxLines = 1,
-                            )
-                            Spacer(Modifier.height(4.dp))
-                        }
+                        // ---- 文件名一律不显示（1.3.96）----
+                        // 照片和视频都不显示：左下角留给"日期 · 大小"这一行就够，
+                        // 文件名对"再看一眼"这件事没有帮助，还占掉一行高度。
                         // ---- 日期 / 大小 ----
                         //
                         // 编辑模式（photoActions != null）下，日期和大小已经在底部胶囊里，

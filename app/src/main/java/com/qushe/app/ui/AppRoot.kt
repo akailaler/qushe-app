@@ -85,6 +85,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.qushe.app.ui.theme.ForceDarkPalette
 
 private enum class Tab(val label: String, val icon: ImageVector) {
     // 标签叫「首页」而不是「整理」：这一页其实是整站的第一屏 ——
@@ -817,23 +818,25 @@ fun AppRoot(
                         onConclude = { result -> conclude(result) },
                     )
                 } else {
-                    VideoSessionScreen(
-                        items = current.items,
-                        deleteToTrash = prefs.deleteToTrash,
-                        videoMutedByDefault = prefs.videoMuted,
-                        autoPlay = prefs.autoPlayVideo,
-                        railOnRight = prefs.railOnRight,
-                        doubleTapLikes = prefs.doubleTapLikes,
-                        isFavorite = { container.sessions.isFavorite(it) },
-                        onToggleFavorite = { container.sessions.toggleFavorite(it) },
-                        isLiked = { container.sessions.isLiked(it) },
-                        onToggleLike = { container.sessions.toggleLike(it) },
-                        onSeen = { container.sessions.markSeen(listOf(it)) },
-                        buildDeleteRequest = buildDeleteRequest,
-                        resolveLocation = { container.repo.resolveLocationLabel(it) },
-                        shareItem = shareItem,
-                        onConclude = { result -> conclude(result) },
-                    )
+                    ForceDarkPalette {
+                        VideoSessionScreen(
+                            items = current.items,
+                            deleteToTrash = prefs.deleteToTrash,
+                            videoMutedByDefault = prefs.videoMuted,
+                            autoPlay = prefs.autoPlayVideo,
+                            railOnRight = prefs.railOnRight,
+                            doubleTapLikes = prefs.doubleTapLikes,
+                            isFavorite = { container.sessions.isFavorite(it) },
+                            onToggleFavorite = { container.sessions.toggleFavorite(it) },
+                            isLiked = { container.sessions.isLiked(it) },
+                            onToggleLike = { container.sessions.toggleLike(it) },
+                            onSeen = { container.sessions.markSeen(listOf(it)) },
+                            buildDeleteRequest = buildDeleteRequest,
+                            resolveLocation = { container.repo.resolveLocationLabel(it) },
+                            shareItem = shareItem,
+                            onConclude = { result -> conclude(result) },
+                        )
+                    }
                 }
             }
 

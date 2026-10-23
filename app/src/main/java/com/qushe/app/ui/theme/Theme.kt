@@ -9,9 +9,11 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalView
@@ -60,9 +62,11 @@ data class QushePalette(
     val scrimTop: Color,
     /** 底部渐变压暗（整理页底栏）。浅色主题下是**透明**。 */
     val scrimBottom: Color,
+    /** 这一套是深色还是浅色 —— 系统栏图标、模糊兜底要用。 */
+    val isDark: Boolean,
 )
 
-private val DarkPalette = QushePalette(
+val DarkPalette = QushePalette(
     ink = Color(0xFF0B0B0D),
     surface1 = Color(0xFF16161A),
     surface2 = Color(0xFF1F1F25),
@@ -82,6 +86,7 @@ private val DarkPalette = QushePalette(
     overlayBorder = Color(0x26FFFFFF),
     scrimTop = Color(0xCC0B0B0D),
     scrimBottom = Color(0xE60B0B0D),
+    isDark = true,
 )
 
 /**
@@ -115,6 +120,7 @@ private val LightPalette = QushePalette(
     overlayBorder = Color(0x26000000),
     scrimTop = Color.Transparent,
     scrimBottom = Color.Transparent,
+    isDark = false,
 )
 
 /**
@@ -211,6 +217,29 @@ private val QusheTypography = Typography(
     labelSmall = TextStyle(fontSize = 11.sp),
 )
 
+/**
+ * 强制这一块内容用深色。
+ *
+ * 视频整理页、图片/视频预览都是"看内容"的场景：周围一圈应该是暗的，
+ * 浅色模式下把底色刷成浅灰反而让画面像贴在海报板上。用户也明确要求
+ * "视频相关的页面都回归深色，浅色只留在收藏页的缩略图列表"。
+ *
+ * ---- 为什么用全局调色板而不是 CompositionLocal ----
+ * 颜色常量（`Ink` / `TextPrimary`…）是**普通 getter**，会被 `Canvas`、
+ * `drawBehind` 这类非 Composable 的地方读到 —— CompositionLocal 在那些地方读不到。
+ * 所以这里直接改全局的那一份，靠 `DisposableEffect` 在离开时还原。
+ * [QusheTheme] 也配合改成"只在模式变化时写"，否则每次重组都会把它顶回去。
+ */
+@Composable
+fun ForceDarkPalette(content: @Composable () -> Unit) {
+    val previous = QusheColors.palette
+    if (QusheColors.palette !== DarkPalette) QusheColors.palette = DarkPalette
+    DisposableEffect(Unit) {
+        onDispose { QusheColors.palette = previous }
+    }
+    content()
+}
+
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
@@ -229,19 +258,26 @@ fun QusheTheme(mode: Int = Prefs.THEME_DARK, content: @Composable () -> Unit) {
     }
     val palette = if (dark) DarkPalette else LightPalette
 
-    // 在组合期就把调色板换掉：子节点随后读到的就是新颜色，
-    // 不会出现"切了主题但这一帧还是旧色"。
-    if (QusheColors.palette !== palette) QusheColors.palette = palette
+    // ---- 只在"模式真的变了"时写一次 ----
+    //
+    // 不能每次重组都写：视频页 / 预览页会临时把调色板设成深色
+    // （见 [ForceDarkPalette]），这里一写就把人家的覆盖顶回去了。
+    // 返回 palette 而不是 Unit：`remember { ... }` 返回 Unit 会被 lint 判为错误
+    remember(mode, dark) {
+        QusheColors.palette = palette
+        palette
+    }
 
-    // 系统栏图标的明暗。颜色本身由 MainActivity 的 enableEdgeToEdge 设成透明，
-    // 这里只决定图标是深还是浅 —— 浅色主题下继续用白色图标会看不见。
+    // 系统栏图标跟着**当前调色板**走，而不是跟着主题模式 ——
+    // 看视频时被强制深色，图标也得是浅的。
+    val current = QusheColors.palette
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = view.context.findActivity()?.window ?: return@SideEffect
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = !dark
-                isAppearanceLightNavigationBars = !dark
+                isAppearanceLightStatusBars = !current.isDark
+                isAppearanceLightNavigationBars = !current.isDark
             }
         }
     }
