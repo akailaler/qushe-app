@@ -34,7 +34,11 @@ export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1
 - 备份 `D:/backup/qushe-android.git`（remote `backup`，`post-commit` 自动 push）；记忆经 `pre-commit` 镜像到 `docs/agent-memory/`。异地远端未配。
 - 稳定 tag **`v1.3.54`**（用户评价"比较完美"）。构建后 `app-debug.apk` 复制为 `qushe-vX.Y-debug.apk`；改版本号别漏 `SettingsScreen.kt` 硬编码字符串。
 - **包体积先看构成**：debug 32.6MB 里 dex 占 99% ⇒ 删 ABI / 压资源全是无效功，**只有 R8 有效**（`isMinifyEnabled + isShrinkResources` + debug 签名 ⇒ 3.7MB）。release 不可 `run-as`，收藏核对用 debug 包。
-- **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。大范围编辑前 `git status` 确认干净；改坏 `git checkout -- <file>`。
+- **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。
+- **颜色一律走 `QusheColors.palette`**：`val Ink: Color get() = QusheColors.palette.ink`，
+  **不要再加 `val X = Color(...)` 这种常量**——浅色主题下它不会变。
+  两套调色板在 `ui/theme/Theme.kt`，默认 `THEME_DARK`，设置在「外观」。
+  颜色会在 `Canvas`/`drawBehind` 里被读，所以不能用 `@Composable get()`。大范围编辑前 `git status` 确认干净；改坏 `git checkout -- <file>`。
 - **README 只写当前状态** + 最近 ~30 个版本的一句话（表格）；原理和踩坑留在代码注释与 `docs/agent-memory/`。1.3.87 把 3254 行 / 115 个版本的更新日志压成表格（3706 → 390 行），**别再往 README 堆历史**。
 - **发版**：改版本号 → `gradle assembleRelease` → **先 commit** → `python release.py` —— 自动打 tag、建 GitHub Release、传 APK、把 SHA-256 写进说明（幂等）。**顺序不能反**：tag 打在 HEAD 上，先发版后提交会让 tag 指向上一版代码（踩过一次）；脚本已加 `assert_releasable` 拦这个。仓库 `github.com/akailaler/qushe-app`，下载页 `/releases/latest`；凭据用 `git credential fill` 取 GitHub Desktop 那份。**1.3.89 起是正式签名**：`keystore/` + `keystore.properties` 不进仓库，备份在 `D:\backup\qushe-signing\`，丢了就再也发不了覆盖升级；没有它构建会退回 debug 签名（能出包、装不到老用户）。**不用 Actions**：要发真机验过的包，本机构建 40 秒。
 
