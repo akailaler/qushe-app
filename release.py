@@ -109,16 +109,51 @@ def api(url: str, tok: str, data: bytes | None = None, ctype: str | None = None)
 
 
 def ensure_tag(tag: str) -> None:
+    """打 tag 并确认**远端那条 tag 真的指向这一版**。
+
+    ---- 为什么必须核对 ----
+    如果 tag 没推上去，接下来创建 Release 时 GitHub 会**按默认分支 HEAD
+    自动补一条 tag**，于是下载页显示 v1.3.92、点进源码却是上一版。
+    这个错误在网页上完全看不出来（踩过一次：推送时 DNS 挂了，
+    脚本只打印了一句警告就继续，Release 照样建成功）。
+
+    所以这里把"推送成功"和"远端指向正确"分开验证，对不上就停下。
+    """
+    local_commit = run(["git", "rev-list", "-n", "1", "HEAD"]).stdout.strip()
+
     if run(["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}"]).returncode != 0:
         p = run(["git", "tag", "-a", tag, "-m", f"取舍 {tag.lstrip('v')}"])
         if p.returncode != 0:
             sys.exit(f"打 tag 失败：{p.stderr.strip()}")
         print(f"  打出 tag {tag}")
+    else:
+        tagged = run(["git", "rev-list", "-n", "1", tag]).stdout.strip()
+        if tagged and tagged != local_commit:
+            sys.exit(
+                f"{tag} 已存在，但指向 {tagged[:7]}，当前 HEAD 是 {local_commit[:7]}。\n"
+                f"  先确认要发的是哪一版；要改指向：\n"
+                f"    git tag -f -a {tag} -m '取舍 {tag.lstrip('v')}' && "
+                f"git push --force origin {tag}"
+            )
+
     p = run(["git", "push", "origin", tag])
     if p.returncode != 0 and "up-to-date" not in (p.stderr + p.stdout):
-        print(f"  ⚠ tag 推送失败（不影响 Release，但 tag 只在本机）：{p.stderr.strip()[:200]}")
-    else:
-        print(f"  tag {tag} 已在远端")
+        print(f"  ⚠ tag 推送失败：{(p.stderr or p.stdout).strip()[:200]}")
+        sys.exit("  远端没有这条 tag，继续发版会让 GitHub 按默认分支自动建一条错误的。")
+
+    # 远端（annotated tag 要取 peeled 的那个提交）
+    remote = run(["git", "ls-remote", "origin", f"refs/tags/{tag}^{{}}"]).stdout.split()
+    if len(remote) < 1:
+        print("  ⚠ 读不到远端 tag（网络？）—— 无法确认指向，请稍后手动核对")
+        return
+    if not remote[0].startswith(local_commit[:12]):
+        sys.exit(
+            f"远端 {tag} 指向 {remote[0][:7]}，本地 HEAD 是 {local_commit[:7]}。\n"
+            f"  多半是这条 tag 之前被 GitHub 自动创建在别的提交上，强制改指向：\n"
+            f"    git push --force origin {tag}"
+        )
+    print(f"  tag {tag} 已在远端（{local_commit[:7]}）")
+
 
 
 def find_release(tag: str, tok: str) -> dict | None:
