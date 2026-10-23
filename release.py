@@ -140,13 +140,17 @@ def ensure_tag(tag: str, ver: str) -> None:
         )
 
     p = run(["git", "push", "origin", tag])
-    if p.returncode != 0 and "up-to-date" not in (p.stderr + p.stdout):
-        print(f"  ⚠ tag 推送失败：{(p.stderr or p.stdout).strip()[:200]}")
-        sys.exit("  远端没有这条 tag，继续发版会让 GitHub 按默认分支自动建一条错误的。")
+    pushed = p.returncode == 0 or "up-to-date" in (p.stderr + p.stdout)
 
-    # annotated tag 在 ls-remote 里显示的是 tag 对象，`^{}` 才是它指向的提交
+    # ---- 不看推送的返回值，直接问远端 ----
+    # 推送会经 github.com:443 直连，而读 refs 走的是 fetch 地址（镜像），
+    # 两者可达性不一样：经常出现"推失败但远端其实早就是对的"。
+    # 所以判据只看远端真正指向哪 —— `^{}` 取的是 annotated tag 指向的提交。
     remote = run(["git", "ls-remote", "origin", f"refs/tags/{tag}^{{}}"]).stdout.split()
     if len(remote) < 1:
+        if not pushed:
+            print(f"  ⚠ tag 推送失败：{(p.stderr or p.stdout).strip()[:200]}")
+            sys.exit("  tag 既没推上去、也读不到远端 —— 网络问题，稍后重试。")
         print("  ⚠ 读不到远端 tag（网络？）—— 无法确认指向，请稍后手动核对")
         return
     if not remote[0].startswith(tagged[:12]):
