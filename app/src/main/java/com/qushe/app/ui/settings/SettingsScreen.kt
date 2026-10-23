@@ -91,6 +91,9 @@ fun SettingsScreen(
     /** 「整理文件夹」每行几列（2 / 3）。同样由外层持有 state。 */
     folderColumns: Int,
     onFolderColumnsChange: (Int) -> Unit,
+    /** 外观：跟随系统 / 浅色 / 深色（`Prefs.THEME_*`）。 */
+    themeMode: Int,
+    onThemeModeChange: (Int) -> Unit,
 ) {
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
@@ -161,6 +164,32 @@ fun SettingsScreen(
 
         // ---- 第 2 块（分块是为了让 LazyColumn 惰性组合；块内顺序与原来一致）----
         item {
+            // ---- 外观 ----
+            SectionTitle("外观")
+
+            SettingBlock(
+                title = "深浅模式",
+                subtitle = "「跟随系统」会随手机的深色模式自动切换",
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Prefs.THEME_CHOICES.forEach { choice ->
+                        Chip(
+                            text = when (choice) {
+                                Prefs.THEME_LIGHT -> "浅色"
+                                Prefs.THEME_DARK -> "深色"
+                                else -> "跟随系统"
+                            },
+                            selected = themeMode == choice,
+                            onClick = {
+                                // 先改外层 state（立刻换色），再落盘
+                                onThemeModeChange(choice)
+                                prefs.themeMode = choice
+                            },
+                        )
+                    }
+                }
+            }
+
             // ---- 整理方式 ----
             SectionTitle("整理方式")
 
@@ -635,7 +664,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.92",
+                text = "取舍 1.3.93",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

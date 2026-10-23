@@ -7,6 +7,10 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import com.qushe.app.ui.AppRoot
 import com.qushe.app.ui.theme.QusheTheme
 
@@ -45,8 +49,19 @@ class MainActivity : ComponentActivity() {
         val container = (application as QusheApp).container
 
         setContent {
-            QusheTheme {
-                AppRoot(container = container)
+            val prefs = container.prefs
+            // 外观由这里持有：设置页改完要立刻换色，而 SharedPreferences 读
+            // 不是 Compose 的可观察状态（直接读会"改了没反应"）。
+            var themeMode by remember { mutableIntStateOf(prefs.themeMode) }
+            QusheTheme(mode = themeMode) {
+                AppRoot(
+                    container = container,
+                    themeMode = themeMode,
+                    onThemeModeChange = {
+                        themeMode = it
+                        prefs.themeMode = it
+                    },
+                )
             }
         }
     }

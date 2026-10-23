@@ -105,14 +105,7 @@ import com.qushe.app.ui.common.scaledAboutCenter
 fun FavoritesScreen(
     container: AppContainer,
     refreshToken: Int,
-    pendingSync: Int,
-    /**
-     * 收藏状态刚刚变过（点过收藏 / 取消收藏）。
-     *
-     * 外层要据此刷新「待同步 N 项」—— 那个数是**问系统问出来的**，
-     * 不刷新的话按钮的 `enabled = pendingSync > 0` 会停在旧值上，
-     * 表现就是"刚收藏完，同步按钮还是灰的"。
-     */
+    /** 收藏状态刚刚变过（点过收藏 / 取消收藏），外层据此刷新计数。 */
     onFavoritesChanged: () -> Unit,
     /**
      * 时间格式（相对时间 = true）。
@@ -125,7 +118,6 @@ fun FavoritesScreen(
     /** 是否显示具体日期（和相对时间是两个独立开关）。 */
     absoluteDates: Boolean,
     autoSyncEnabled: Boolean,
-    onRequestSync: () -> Unit,
     /** 详情面板里的地名；null = 没授权 / 没解析出来 / 还在读。 */
     resolveLocationLabel: suspend (MediaItem) -> String?,
     /** 详情面板里的 EXIF。 */
@@ -383,56 +375,11 @@ fun FavoritesScreen(
                 )
             }
 
-            // 喜欢不涉及系统相册，这一整块在喜欢页不该出现 ——
-            // 留着它会让人以为"喜欢"也会同步进相册，正好和这个功能的定位相反。
-            if (!likeMode) {
-            // ---- 系统相册同步 ----
+            // ---- 顶部那排「手动同步」已移除（1.3.93）----
             //
-            // 系统的收藏标记应用改不了，只能发起请求让用户在系统弹窗里点确认。
-            // 所以这里做成显式的批量动作，而不是在每次收藏时打断手势。
-            Spacer(Modifier.height(16.dp))
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Surface1)
-                    .clickable(enabled = pendingSync > 0, onClick = onRequestSync)
-                    .padding(horizontal = 16.dp, vertical = 13.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        // 没有待写入 ≠ 和系统相册一致 —— 系统相册里另外收藏的东西
-                        // 取舍这边根本没有（`IS_FAVORITE` 只认走 API 收藏的，
-                        // 相册里手动点星的不算）。所以不能写"一致"，
-                        // 要把「反向捞回来」的入口指出来，和设置页那条对齐。
-                        text = if (pendingSync > 0) {
-                            "写入 $pendingSync 项到系统相册"
-                        } else {
-                            "取舍这边没有待写入的"
-                        },
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (pendingSync > 0) AccentKeep else TextSecondary,
-                    )
-                    Spacer(Modifier.height(3.dp))
-                    Text(
-                        text = when {
-                            pendingSync > 0 && autoSyncEnabled ->
-                                "每轮整理结束自动写入，也可以现在手动跑一次"
-                            pendingSync > 0 ->
-                                "自动写入已关闭，需要手动点这里"
-                            autoSyncEnabled ->
-                                "系统相册里另有收藏？到「设置 → 同步系统收藏到这里」收进来"
-                            else ->
-                                "自动写入已关闭；系统相册里另有收藏，可到设置里收进来"
-                        },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary,
-                    )
-                }
-            }
-            }
-
+            // 同步是低频动作，设置页已经有完整的入口（含待写入数量与开关），
+            // 收藏页再放一条只是把每屏的可用高度让出去。
+            // `autoSyncEnabled` 仍然保留：下面那行说明文字要跟着它变。
             Spacer(Modifier.height(18.dp))
         }
 

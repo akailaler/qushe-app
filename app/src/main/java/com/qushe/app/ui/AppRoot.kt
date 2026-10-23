@@ -119,7 +119,12 @@ private sealed interface SessionUi {
 }
 
 @Composable
-fun AppRoot(container: AppContainer) {
+fun AppRoot(
+    container: AppContainer,
+    /** 外观（跟随系统 / 浅色 / 深色）。由 `MainActivity` 持有，见那里的说明。 */
+    themeMode: Int = Prefs.THEME_DARK,
+    onThemeModeChange: (Int) -> Unit = {},
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
@@ -644,14 +649,12 @@ fun AppRoot(container: AppContainer) {
                     FavoritesScreen(
                         container = container,
                         refreshToken = favoriteCount,
-                        pendingSync = 0,
                         onFavoritesChanged = {
                             favoriteCount = container.sessions.favoriteCount()
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
                         relativeDates = relativeDates, absoluteDates = absoluteDates,
                         autoSyncEnabled = false,
-                        onRequestSync = {},
                         likeMode = true,
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
                         readExif = { PhotoExifReader.read(context, it) },
@@ -687,14 +690,12 @@ fun AppRoot(container: AppContainer) {
                     Tab.Favorites -> FavoritesScreen(
                         container = container,
                         refreshToken = favoriteCount,
-                        pendingSync = pendingSync,
                         onFavoritesChanged = {
                             favoriteCount = container.sessions.favoriteCount()
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
                         relativeDates = relativeDates, absoluteDates = absoluteDates,
                         autoSyncEnabled = container.prefs.autoSyncFavorites,
-                        onRequestSync = { startFavoriteSync() },
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
                         readExif = { PhotoExifReader.read(context, it) },
                         loadDayItems = { container.repo.allImagesAroundDay(it) },
@@ -726,6 +727,8 @@ fun AppRoot(container: AppContainer) {
                         onAbsoluteDatesChange = { absoluteDates = it },
                         folderColumns = folderColumns,
                         onFolderColumnsChange = { folderColumns = it },
+                        themeMode = themeMode,
+                        onThemeModeChange = onThemeModeChange,
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
                             // 只是由用户点一下触发 —— 两条路各自实现一遍必然漂移。

@@ -18,6 +18,16 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putInt(KEY_GROUP_SIZE, value.coerceIn(10, 200)).apply()
 
     /**
+     * 外观：跟随系统 / 浅色 / 深色（[THEME_SYSTEM] / [THEME_LIGHT] / [THEME_DARK]）。
+     *
+     * 存 Int 而不是 Boolean：以后要加"随日出日落"之类不用再改存储格式。
+     * **默认深色** —— 这是这个 App 原本的样子，浅色是选项，不是默认。
+     */
+    var themeMode: Int
+        get() = sp.getInt(KEY_THEME_MODE, THEME_DARK).coerceIn(0, 2)
+        set(value) = sp.edit().putInt(KEY_THEME_MODE, value.coerceIn(0, 2)).apply()
+
+    /**
      * 「整理文件夹」页每行放几个（2 或 3）。
      *
      * 两列封面大，一眼能认出是哪个目录；三列一屏多看一半，
@@ -213,6 +223,13 @@ class Prefs(context: Context) {
         const val DEFAULT_GROUP_SIZE = 30
 
         /** 「整理文件夹」默认三列。 */
+        const val THEME_SYSTEM = 0
+        const val THEME_LIGHT = 1
+        const val THEME_DARK = 2
+
+        /** 外观选项，顺序即设置页胶囊的顺序。 */
+        val THEME_CHOICES = listOf(THEME_SYSTEM, THEME_LIGHT, THEME_DARK)
+
         const val DEFAULT_FOLDER_COLUMNS = 3
 
         /** 可选列数。和 [GROUP_SIZE_CHOICES] 一样放在这里，界面层只负责画。 */
@@ -224,6 +241,7 @@ class Prefs(context: Context) {
 
         private const val KEY_GROUP_SIZE = "group_size"
         private const val KEY_FOLDER_COLUMNS = "folder_columns"
+        private const val KEY_THEME_MODE = "theme_mode"
         private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
         private const val KEY_ONLY_UNSEEN = "only_unseen"
         private const val KEY_DELETE_TO_TRASH = "delete_to_trash"

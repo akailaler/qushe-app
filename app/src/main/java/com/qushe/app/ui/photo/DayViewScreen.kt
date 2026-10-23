@@ -13,6 +13,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -1887,11 +1888,9 @@ private fun CellSlot(
                     //  · 更关键的是 `SystemThumbnailFetcher` 对长图会主动返回 null
                     //    （见它的 min-side 检查），请求随后落到默认解码器 ——
                     //    那等于为一张 828×30656 解 101MB，绝对不能发生。
-                    placeholder = if (!cell.isLongImage) {
-                        rememberSystemThumbnailPlaceholder(cell.uri)
-                    } else {
-                        null
-                    },
+                    // 尺寸在 DayCell 里算（那里才知道格子多大），
+                    // 这里只说"要不要垫底"。
+                    systemPlaceholder = !cell.isLongImage,
                     focusDecodeSize = focusDecodeSize,
                 )
             }
@@ -2014,9 +2013,9 @@ private fun DayCell(
     /**
      * 高清图到位之前先垫着的那张（系统缩略图）。null = 不垫。
      *
-     * 除长图外每一格都会拿到它 —— 见 [rememberSystemThumbnailPlaceholder] 的说明。
+     * 除长图外每一格都要垫 —— 见 [rememberSystemThumbnailPlaceholder] 的说明。
      */
-    placeholder: Painter? = null,
+    systemPlaceholder: Boolean = false,
     /**
      * 焦点格专用的解码尺寸 —— 照用整理照片页那份。
      *
@@ -2046,6 +2045,15 @@ private fun DayCell(
     // 内存和解码耗时都会掉一个量级。
     val imgContext = LocalContext.current
     val imgDensity = LocalDensity.current
+    // 格子的像素尺寸：**解码请求和垫底图必须用同一份**，
+    // 否则两者取景不同，高清接上去时画面会挪一下（看起来就是闪）。
+    val hPx = with(imgDensity) { cellH.roundToPx() }.coerceAtLeast(1)
+    val wPx = with(imgDensity) { cellW.roundToPx() }.coerceAtLeast(1)
+    val placeholder = if (systemPlaceholder) {
+        rememberSystemThumbnailPlaceholder(cell.uri, wPx, hPx)
+    } else {
+        null
+    }
     // ---- 不做交叉淡入（用户反馈"轻微闪烁、像从暗变亮"）----
     //
     // Coil 的 crossfade 不是"上层淡入"，而是 **底层淡出 + 目标淡入** 两条
@@ -2071,8 +2079,6 @@ private fun DayCell(
         //  · 竖长图（ratio 0.25）请求 225px 宽，格子要显示 264px，
         //    **解码得比显示还小，缩略图发虚**。
         // 现在直接用格子自己的宽（它由 `cellWidthDp` 统一算出），请求与布局恒等。
-        val hPx = with(imgDensity) { cellH.roundToPx() }.coerceAtLeast(1)
-        val wPx = with(imgDensity) { cellW.roundToPx() }.coerceAtLeast(1)
         if (cell.isAnimated) {
             // ---- 动图**不要**给目标尺寸 ----
             //
@@ -2396,12 +2402,24 @@ private fun DayCell(
                     scaleY = s
                 },
         ) {
+            // ---- 垫底图单独一层，常驻不动 ----
+            //
+            // 之前是把它当 Coil 的 `placeholder`：那是一个"换图"动作 ——
+            // 高清就绪时会先把 placeholder 卸掉、再挂上新 painter，
+            // 中间可能有一帧什么都不画；而且两者取景不同（见
+            // `SystemThumbnailFetcher.targetSize` 的说明），换的瞬间会"挪一下"。
+            // 现在它是一层常驻的底图，高清只是盖在上面、硬切 —— 中间没有空帧。
+            if (placeholder != null) {
+                Image(
+                    painter = placeholder,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
             AsyncImage(
                 model = imageRequest,
                 contentDescription = null,
-                // 系统缩略图垫底（见 [rememberSystemThumbnailPlaceholder]）。
-                // 高清到位后硬切：只换清晰度，内容位置完全一致。
-                placeholder = placeholder,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
             )
@@ -3498,12 +3516,18 @@ private fun DayInfoSheet(item: MediaItem) {
  * 而且 [SystemThumbnailFetcher] 会主动拒绝这类请求。
  */
 @Composable
-private fun rememberSystemThumbnailPlaceholder(uri: Uri?): Painter? {
+private fun rememberSystemThumbnailPlaceholder(
+    uri: Uri?,
+    widthPx: Int,
+    heightPx: Int,
+): Painter? {
     if (uri == null) return null
     val context = LocalContext.current
-    val request = remember(uri) {
+    val request = remember(uri, widthPx, heightPx) {
         ImageRequest.Builder(context)
             .data(uri)
+            // 传格子自己的尺寸：系统会按这个比例裁，取景才和主图一致
+            .size(widthPx, heightPx)
             .setParameter(SystemThumbnailFetcher.REQUEST_KEY, true)
             .crossfade(false)
             .build()

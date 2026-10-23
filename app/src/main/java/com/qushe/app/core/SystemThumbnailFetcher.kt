@@ -61,8 +61,9 @@ class SystemThumbnailFetcher(
         // 缩略图的短边连目标的一半都不到 —— 说明原图是个很长的长条
         // （长截图、全景），系统那份是按 fit 生成的小图，铺到正方格子里
         // 等于放大好几倍，糊得比等一会儿更难看。退回常规解码。
-        val need = targetSide()
-        if (minOf(bitmap.width, bitmap.height) * 2 < need) return null
+        val req = targetSize()
+        val need = minOf(req.width, req.height)
+        if (need > 0 && minOf(bitmap.width, bitmap.height) * 2 < need) return null
         return DrawableResult(
             drawable = bitmap.toDrawable(context.resources),
             // 系统给的就是缩略图，本来就是采样过的
@@ -72,12 +73,31 @@ class SystemThumbnailFetcher(
     }
 
     private fun loadSystemThumbnail(): Bitmap? {
-        val side = targetSide()
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            context.contentResolver.loadThumbnail(uri, Size(side, side), null)
+            context.contentResolver.loadThumbnail(uri, targetSize(), null)
         } else {
-            legacyThumbnail(side)
+            legacyThumbnail(targetSide())
         }
+    }
+
+    /**
+     * 系统缩略图要的尺寸：**按格子自己的长宽比**，不是正方形。
+     *
+     * 之前一律要正方形（`Size(side, side)`），系统按"居中裁成方块"生成，
+     * 而我们把它铺进一个 4:3 的格子（`ContentScale.Crop`）—— 那是在
+     * **已经裁过的方块**上再裁一刀，取景和原图直接 Crop 不一样。
+     * 高清图一到，画面内容会整体"挪一下"，看起来就是滑过时闪一下。
+     * 传真实比例，取景才和主图完全一致。
+     */
+    private fun targetSize(): Size {
+        val w = (options.size.width as? Dimension.Pixels)?.px ?: 0
+        val h = (options.size.height as? Dimension.Pixels)?.px ?: 0
+        if (w <= 0 || h <= 0) return Size(512, 512)
+        val k = minOf(1f, 512f / maxOf(w, h))
+        return Size(
+            (w * k).toInt().coerceAtLeast(1),
+            (h * k).toInt().coerceAtLeast(1),
+        )
     }
 
     /** API 29 以下没有通用的 `loadThumbnail`，退回各自的 Thumbnails 表。 */
