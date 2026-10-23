@@ -56,6 +56,10 @@ data class QushePalette(
     val overlaySolid: Color,
     /** 浮层的描边：白 15% / 黑 15%。 */
     val overlayBorder: Color,
+    /** 顶部渐变压暗（整理页顶栏）。浅色主题下是**透明**。 */
+    val scrimTop: Color,
+    /** 底部渐变压暗（整理页底栏）。浅色主题下是**透明**。 */
+    val scrimBottom: Color,
 )
 
 private val DarkPalette = QushePalette(
@@ -76,6 +80,8 @@ private val DarkPalette = QushePalette(
     overlayFade = Color(0x99000000),
     overlaySolid = Color(0xF2000000),
     overlayBorder = Color(0x26FFFFFF),
+    scrimTop = Color(0xCC0B0B0D),
+    scrimBottom = Color(0xE60B0B0D),
 )
 
 /**
@@ -99,11 +105,16 @@ private val LightPalette = QushePalette(
     accentFolder = Color(0xFFB0741D),
     // 浅色下浮层反过来：白底 + 深色描边。里面的图标/文字用 TextPrimary，
     // 会跟着一起翻，所以不必单独定义前景色。
-    overlaySoft = Color(0x66FFFFFF),
-    overlayStrong = Color(0xB3FFFFFF),
-    overlayFade = Color(0x99FFFFFF),
-    overlaySolid = Color(0xF2FFFFFF),
+    // 浅色下不用"白色半透明"——叠在照片上会发灰发浑（用户："有点深"）。
+    // 直接用和底栏选中态同一档的浅灰（Surface2），干净、对比稳定。
+    overlaySoft = Color(0xF2EFEFF2),
+    overlayStrong = Color(0xF7EFEFF2),
+    // 顶部/底部的渐变雾：**浅色下不要**（用户明确要求）。
+    overlayFade = Color.Transparent,
+    overlaySolid = Color.Transparent,
     overlayBorder = Color(0x26000000),
+    scrimTop = Color.Transparent,
+    scrimBottom = Color.Transparent,
 )
 
 /**
@@ -150,6 +161,8 @@ val OverlayStrong: Color get() = QusheColors.palette.overlayStrong
 val OverlayFade: Color get() = QusheColors.palette.overlayFade
 val OverlaySolid: Color get() = QusheColors.palette.overlaySolid
 val OverlayBorder: Color get() = QusheColors.palette.overlayBorder
+val ScrimTop: Color get() = QusheColors.palette.scrimTop
+val ScrimBottom: Color get() = QusheColors.palette.scrimBottom
 
 private fun schemeOf(p: QushePalette, dark: Boolean) = if (dark) {
     darkColorScheme(

@@ -37,6 +37,8 @@ import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.qushe.app.R
 import com.qushe.app.ui.theme.TextPrimary
+import com.qushe.app.ui.theme.OverlayBorder
+import com.qushe.app.ui.theme.OverlayStrong
 
 /**
  * 建一个用于翻页 / 列表里的播放器视图。
@@ -141,8 +143,8 @@ fun FullscreenPill(modifier: Modifier = Modifier, onClick: () -> Unit) {
     Row(
         modifier = modifier
             .clip(shape)
-            .background(Color(0x99000000))
-            .border(1.dp, Color(0x33FFFFFF), shape)
+            .background(OverlayStrong)
+            .border(1.dp, OverlayBorder, shape)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,

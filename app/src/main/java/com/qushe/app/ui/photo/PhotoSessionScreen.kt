@@ -122,6 +122,8 @@ import com.qushe.app.ui.theme.Surface3
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import com.qushe.app.ui.theme.ScrimBottom
+import com.qushe.app.ui.theme.ScrimTop
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.coroutineScope
@@ -1072,7 +1074,7 @@ fun PhotoSessionScreen(
                 .fillMaxWidth()
                 .graphicsLayer { alpha = chromeAlpha.value }
                 .background(
-                    Brush.verticalGradient(listOf(Color(0xCC0B0B0D), Color.Transparent))
+                    Brush.verticalGradient(listOf(ScrimTop, Color.Transparent))
                 )
                 .statusBarsPadding()
                 .padding(horizontal = 6.dp, vertical = 6.dp),
@@ -1130,7 +1132,7 @@ fun PhotoSessionScreen(
                     .fillMaxWidth()
                     .graphicsLayer { alpha = chromeAlpha.value }
                     .background(
-                        Brush.verticalGradient(listOf(Color.Transparent, Color(0xE60B0B0D)))
+                        Brush.verticalGradient(listOf(Color.Transparent, ScrimBottom))
                     )
                     .navigationBarsPadding()
                     .padding(top = 30.dp, bottom = 12.dp),
@@ -1230,7 +1232,7 @@ fun PhotoSessionScreen(
                     .align(Alignment.Center)
                     .padding(horizontal = 40.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xE61F1F25))
+                    .background(Surface2)
                     .padding(horizontal = 18.dp, vertical = 12.dp),
             ) {
                 Text(

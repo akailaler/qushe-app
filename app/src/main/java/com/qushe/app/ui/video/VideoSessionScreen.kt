@@ -108,6 +108,7 @@ import com.qushe.app.ui.theme.Surface2
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import com.qushe.app.ui.theme.OverlaySoft
 import kotlinx.coroutines.delay
 import com.qushe.app.ui.common.RailAction
 import com.qushe.app.ui.common.VideoProgressBar
@@ -491,7 +492,7 @@ fun VideoSessionScreen(
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Ink),
     ) {
         val pillTop = if (current != null) {
             // 画面高度用**真实渲染尺寸**算。解码前先用 MediaStore 的尺寸估，
@@ -811,13 +812,13 @@ fun VideoSessionScreen(
                         modifier = Modifier
                             .size(76.dp)
                             .clip(CircleShape)
-                            .background(Color(0x66000000)),
+                            .background(OverlaySoft),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             imageVector = Icons.Filled.PlayArrow,
                             contentDescription = "播放",
-                            tint = Color.White,
+                            tint = TextPrimary,
                             modifier = Modifier.size(40.dp),
                         )
                     }
@@ -873,7 +874,7 @@ private fun VideoPage(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color.Black),
+            .background(Ink),
     ) {
         AsyncImage(
             model = item.uri,
