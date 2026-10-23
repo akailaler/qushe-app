@@ -108,52 +108,54 @@ def api(url: str, tok: str, data: bytes | None = None, ctype: str | None = None)
     return json.load(OPENER.open(req, timeout=300))
 
 
-def ensure_tag(tag: str) -> None:
-    """打 tag 并确认**远端那条 tag 真的指向这一版**。
+def ensure_tag(tag: str, ver: str) -> None:
+    """打 tag 并确认**远端那条 tag 指向的代码就是这一版**。
 
     ---- 为什么必须核对 ----
     如果 tag 没推上去，接下来创建 Release 时 GitHub 会**按默认分支 HEAD
     自动补一条 tag**，于是下载页显示 v1.3.92、点进源码却是上一版。
     这个错误在网页上完全看不出来（踩过一次：推送时 DNS 挂了，
-    脚本只打印了一句警告就继续，Release 照样建成功）。
+    脚本只打印一句警告就继续，Release 照样建成功）。
 
-    所以这里把"推送成功"和"远端指向正确"分开验证，对不上就停下。
+    ---- 判据是"版本号对不对"，不是"是不是 HEAD" ----
+    发版之后照样会继续提交（文档、脚本），那时 tag 必然不等于 HEAD ——
+    所以只要 tag 那个提交里的 `versionName` 等于这次要发的版本，就认为它是对的。
     """
-    local_commit = run(["git", "rev-list", "-n", "1", "HEAD"]).stdout.strip()
-
     if run(["git", "rev-parse", "--verify", "--quiet", f"refs/tags/{tag}"]).returncode != 0:
-        p = run(["git", "tag", "-a", tag, "-m", f"取舍 {tag.lstrip('v')}"])
+        p = run(["git", "tag", "-a", tag, "-m", f"取舍 {ver}"])
         if p.returncode != 0:
             sys.exit(f"打 tag 失败：{p.stderr.strip()}")
         print(f"  打出 tag {tag}")
-    else:
-        tagged = run(["git", "rev-list", "-n", "1", tag]).stdout.strip()
-        if tagged and tagged != local_commit:
-            sys.exit(
-                f"{tag} 已存在，但指向 {tagged[:7]}，当前 HEAD 是 {local_commit[:7]}。\n"
-                f"  先确认要发的是哪一版；要改指向：\n"
-                f"    git tag -f -a {tag} -m '取舍 {tag.lstrip('v')}' && "
-                f"git push --force origin {tag}"
-            )
+
+    tagged = run(["git", "rev-list", "-n", "1", tag]).stdout.strip()
+    tagged_ver = ""
+    if tagged:
+        gradle = run(["git", "show", f"{tagged}:app/build.gradle.kts"]).stdout
+        m = re.search(r'versionName\s*=\s*"([^"]+)"', gradle)
+        tagged_ver = m.group(1) if m else ""
+    if tagged_ver != ver:
+        sys.exit(
+            f"{tag} 指向的提交里 versionName 是 {tagged_ver or '?'}，不是 {ver}。\n"
+            f"  要改指向：git tag -f -a {tag} -m '取舍 {ver}' 然后 git push --force origin {tag}"
+        )
 
     p = run(["git", "push", "origin", tag])
     if p.returncode != 0 and "up-to-date" not in (p.stderr + p.stdout):
         print(f"  ⚠ tag 推送失败：{(p.stderr or p.stdout).strip()[:200]}")
         sys.exit("  远端没有这条 tag，继续发版会让 GitHub 按默认分支自动建一条错误的。")
 
-    # 远端（annotated tag 要取 peeled 的那个提交）
+    # annotated tag 在 ls-remote 里显示的是 tag 对象，`^{}` 才是它指向的提交
     remote = run(["git", "ls-remote", "origin", f"refs/tags/{tag}^{{}}"]).stdout.split()
     if len(remote) < 1:
         print("  ⚠ 读不到远端 tag（网络？）—— 无法确认指向，请稍后手动核对")
         return
-    if not remote[0].startswith(local_commit[:12]):
+    if not remote[0].startswith(tagged[:12]):
         sys.exit(
-            f"远端 {tag} 指向 {remote[0][:7]}，本地 HEAD 是 {local_commit[:7]}。\n"
+            f"远端 {tag} 指向 {remote[0][:7]}，本地是 {tagged[:7]}。\n"
             f"  多半是这条 tag 之前被 GitHub 自动创建在别的提交上，强制改指向：\n"
             f"    git push --force origin {tag}"
         )
-    print(f"  tag {tag} 已在远端（{local_commit[:7]}）")
-
+    print(f"  tag {tag} 已在远端（{tagged[:7]}，versionName {tagged_ver}）")
 
 
 def find_release(tag: str, tok: str) -> dict | None:
@@ -187,7 +189,7 @@ def main() -> None:
     assert_releasable(ver)
 
     tok = token()
-    ensure_tag(tag)
+    ensure_tag(tag, ver)
 
     # APK 的 SHA-256：给想核对"下下来的包是不是发布者传的那个"的人用。
     # 直接对本地这个文件算，而不是读构建日志 —— 传上去的就是这个字节流。
