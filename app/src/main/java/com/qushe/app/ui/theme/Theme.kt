@@ -46,6 +46,16 @@ data class QushePalette(
     val accentInfo: Color,
     val accentPurple: Color,
     val accentFolder: Color,
+    /** 浮在内容上的控件底：深色主题是黑 40%，浅色主题是白 40%。 */
+    val overlaySoft: Color,
+    /** 更实的浮层（胶囊、按钮）：黑 70% / 白 70%。 */
+    val overlayStrong: Color,
+    /** 顶部/底部渐变，压在内容与页面之间：黑 60% / 白 60%。 */
+    val overlayFade: Color,
+    /** 几乎不透明的浮层（底栏渐变收口）：黑 95% / 白 95%。 */
+    val overlaySolid: Color,
+    /** 浮层的描边：白 15% / 黑 15%。 */
+    val overlayBorder: Color,
 )
 
 private val DarkPalette = QushePalette(
@@ -61,6 +71,11 @@ private val DarkPalette = QushePalette(
     accentInfo = Color(0xFF6BA8FF),
     accentPurple = Color(0xFFAFA9EC),
     accentFolder = Color(0xFFF0B65C),
+    overlaySoft = Color(0x66000000),
+    overlayStrong = Color(0xB3000000),
+    overlayFade = Color(0x99000000),
+    overlaySolid = Color(0xF2000000),
+    overlayBorder = Color(0x26FFFFFF),
 )
 
 /**
@@ -82,6 +97,13 @@ private val LightPalette = QushePalette(
     accentInfo = Color(0xFF2C6FD1),
     accentPurple = Color(0xFF6259BE),
     accentFolder = Color(0xFFB0741D),
+    // 浅色下浮层反过来：白底 + 深色描边。里面的图标/文字用 TextPrimary，
+    // 会跟着一起翻，所以不必单独定义前景色。
+    overlaySoft = Color(0x66FFFFFF),
+    overlayStrong = Color(0xB3FFFFFF),
+    overlayFade = Color(0x99FFFFFF),
+    overlaySolid = Color(0xF2FFFFFF),
+    overlayBorder = Color(0x26000000),
 )
 
 /**
@@ -122,6 +144,12 @@ val Surface3: Color get() = QusheColors.palette.surface3
 val TextPrimary: Color get() = QusheColors.palette.textPrimary
 val TextSecondary: Color get() = QusheColors.palette.textSecondary
 val TextTertiary: Color get() = QusheColors.palette.textTertiary
+
+val OverlaySoft: Color get() = QusheColors.palette.overlaySoft
+val OverlayStrong: Color get() = QusheColors.palette.overlayStrong
+val OverlayFade: Color get() = QusheColors.palette.overlayFade
+val OverlaySolid: Color get() = QusheColors.palette.overlaySolid
+val OverlayBorder: Color get() = QusheColors.palette.overlayBorder
 
 private fun schemeOf(p: QushePalette, dark: Boolean) = if (dark) {
     darkColorScheme(

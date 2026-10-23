@@ -15,7 +15,7 @@
   &nbsp;
   <img src="docs/screenshots/02-favorites.png" width="23%" alt="收藏预览">
   &nbsp;
-  <img src="docs/screenshots/03-timeline.png" width="23%" alt="回到那天">
+  <img src="docs/screenshots/03-timeline.jpg" width="23%" alt="回到那天">
   &nbsp;
   <img src="docs/screenshots/04-folders.png" width="23%" alt="整理文件夹">
 </p>
@@ -24,7 +24,7 @@
   <sub>首页 · 收藏预览 · 回到那天 · 整理文件夹</sub>
 </p>
 
-当前版本 **1.3.93**（versionCode 141），已在小米 HyperOS 3.0 真机长期使用。
+当前版本 **1.3.94**（versionCode 142），已在小米 HyperOS 3.0 真机长期使用。
 
 ---
 
@@ -61,8 +61,8 @@ export JAVA_HOME=/path/to/jdk17
 
 | 包                           | 体积         | 签名       | 用途                                           |
 | --------------------------- | ---------- | -------- | -------------------------------------------- |
-| `qushe-v1.3.93-release.apk` | **3.7 MB** | **正式签名** | 日常用这个——R8 裁剪过，启动和体积都更好                       |
-| `qushe-v1.3.93-debug.apk`   | 33 MB      | debug 签名 | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
+| `qushe-v1.3.94-release.apk` | **3.7 MB** | **正式签名** | 日常用这个——R8 裁剪过，启动和体积都更好                       |
+| `qushe-v1.3.94-debug.apk`   | 33 MB      | debug 签名 | 调试用。`verify.py` 的收藏核对要靠它（`run-as` 只在可调试包上工作） |
 
 ⚠️ **两种包的签名不同，不能互相覆盖安装**（1.3.89 起 release 换成了正式签名）。
   
@@ -450,6 +450,7 @@ git branch -u origin/main main
 
 | 版本     | 变化                                                     |
 | ------ | ------------------------------------------------------ |
+| 1.3.94 | 浅色模式补齐浮层（按钮 / 胶囊 / 预览背景 / 胶片条描边随主题翻转）；README 补「回到那天」截图 |
 | 1.3.93 | 设置页加「外观」（跟随系统 / 浅色 / 深色）；移除收藏页顶部的手动同步；恢复换机直传；缩略图垫底按格子比例取并改成独立一层（修左右滑的轻微闪烁） |
 | 1.3.92 | 修三键导航机型底部的白边（系统栏固定深色 + 关掉系统对比度蒙层）；关闭云备份与换机直传 |
 | 1.3.91 | 「整理文件夹」默认三列，设置页可选 2 / 3 列；Release 说明附 APK 的 SHA-256      |

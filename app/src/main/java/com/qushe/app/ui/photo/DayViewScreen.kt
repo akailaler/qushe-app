@@ -140,6 +140,8 @@ import com.qushe.app.ui.theme.Surface3
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import com.qushe.app.ui.theme.OverlayBorder
+import com.qushe.app.ui.theme.OverlaySoft
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -2865,8 +2867,8 @@ private fun DayCircleButton(
             // 44dp 圆 + 黑 40% 半透明底 + 1dp 极淡的白描边 + 22dp 图标。
             // 上一版改成"白 12% 浅圆"是为了解决"看不见"，但对比之下确实过亮了 ——
             // 真正要的是这一档：圈看得见，但整体重量压在照片之下。
-            .background(Color(0x66000000))
-            .border(1.dp, Color(0x26FFFFFF), CircleShape)
+            .background(OverlaySoft)
+            .border(1.dp, OverlayBorder, CircleShape)
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
@@ -3184,7 +3186,7 @@ private fun DayZoomView(
             modifier = Modifier
                 .fillMaxSize()
                 .graphicsLayer { alpha = 1f - fadeP }
-                .background(Color.Black),
+                .background(Ink),
         )
 
         // ② 照片层：只位移 + 缩小，不淡出

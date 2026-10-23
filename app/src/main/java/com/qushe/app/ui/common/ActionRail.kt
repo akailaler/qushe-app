@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.qushe.app.ui.theme.TextPrimary
+import com.qushe.app.ui.theme.OverlayBorder
+import com.qushe.app.ui.theme.OverlaySoft
 
 /**
  * 侧边栏上的一枚动作：图标 + 文字，选中时轻微放大。
@@ -99,8 +101,8 @@ fun RoundActionButton(
         modifier = modifier
             .size(44.dp)
             .clip(CircleShape)
-            .background(Color(0x66000000))
-            .border(1.dp, Color(0x26FFFFFF), CircleShape)
+            .background(OverlaySoft)
+            .border(1.dp, OverlayBorder, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {

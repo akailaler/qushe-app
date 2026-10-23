@@ -87,6 +87,8 @@ import com.qushe.app.ui.theme.Ink
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import com.qushe.app.ui.theme.OverlayFade
+import com.qushe.app.ui.theme.OverlaySolid
 import kotlinx.coroutines.delay
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
@@ -546,7 +548,7 @@ fun MediaPreviewOverlay(
                 translationY = dismissY.value
                 alpha = 1f - fadeP
             }
-            .background(Color.Black)
+            .background(Ink)
             // ---- 校正量在这里**每次布局后都重读一次** ----
             //
             // 曾经只在 onSizeChanged 里算一次：那一刻窗口可能刚挂上、
@@ -581,7 +583,7 @@ fun MediaPreviewOverlay(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black)
+                    .background(Ink)
                     // 随窗口校正上移 —— 缩略图必须和播放层严格重合，
                     // 否则首帧渲染前后画面会跳一下。
                     .offset(y = centerFix),
@@ -821,7 +823,7 @@ fun MediaPreviewOverlay(
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .background(
-                        Brush.verticalGradient(listOf(Color(0x99000000), Color.Transparent))
+                        Brush.verticalGradient(listOf(OverlayFade, Color.Transparent))
                     )
                     .statusBarsPadding()
                     .padding(horizontal = 4.dp, vertical = 2.dp),
@@ -872,7 +874,7 @@ fun MediaPreviewOverlay(
                         .fillMaxWidth()
                         .background(
                             Brush.verticalGradient(
-                                listOf(Color.Transparent, Color(0xF2000000))
+                                listOf(Color.Transparent, OverlaySolid)
                             )
                         )
                         // 系统栏 inset **和**一段保底下边距同时给，两者取和而不是任选其一：

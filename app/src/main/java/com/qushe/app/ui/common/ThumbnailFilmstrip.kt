@@ -44,6 +44,7 @@ import com.qushe.app.core.MediaKind
 import com.qushe.app.core.storeKey
 import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.Surface2
+import com.qushe.app.ui.theme.OverlayBorder
 
 private val THUMB_WIDTH = 46.dp
 private val THUMB_HEIGHT = 62.dp
@@ -137,7 +138,7 @@ private fun FilmstripThumb(
         label = "thumbAlpha",
     )
     val borderWidth = if (selected) 2.dp else 1.dp
-    val borderColor = if (selected) AccentKeep else Color(0x1FFFFFFF)
+    val borderColor = if (selected) AccentKeep else OverlayBorder
 
     Box(
         modifier = Modifier

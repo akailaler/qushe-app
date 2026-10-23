@@ -46,6 +46,8 @@ import com.qushe.app.ui.theme.Surface3
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import com.qushe.app.ui.theme.OverlayBorder
+import com.qushe.app.ui.theme.OverlayStrong
 import com.qushe.app.ui.common.RoundActionButton
 import com.qushe.app.ui.common.StarBorderIcon
 import java.util.Calendar
@@ -172,8 +174,8 @@ fun InfoPill(
     Row(
         modifier = modifier
             .clip(InfoPillShape)
-            .background(Color(0xB3000000))
-            .border(1.dp, Color(0x26FFFFFF), InfoPillShape)
+            .background(OverlayStrong)
+            .border(1.dp, OverlayBorder, InfoPillShape)
             .clickable(onClick = onClick)
             .padding(start = 16.dp, end = 10.dp, top = 7.dp, bottom = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
