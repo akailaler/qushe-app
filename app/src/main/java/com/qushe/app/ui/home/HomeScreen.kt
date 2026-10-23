@@ -88,6 +88,8 @@ fun HomeScreen(
     doubleTapLikes: Boolean,
     /** 上滑的含义同样由设置决定：删除 or 收藏。文案必须跟着走。 */
     swipeUpDeletes: Boolean,
+    /** 「整理文件夹」每行几列（2 / 3），来自设置页。 */
+    folderColumns: Int,
     onStart: (MediaKind) -> Unit,
     onRequestPermission: (MediaKind) -> Unit,
     /** 列出所有文件夹（懒加载 —— 打开选择面板时才调，别拖慢首页）。 */
@@ -225,6 +227,7 @@ fun HomeScreen(
     if (folderSheet) {
         FolderSheet(
             buckets = buckets,
+            columns = folderColumns,
             onPick = { picked ->
                 folderSheet = false
                 onStartBucket(picked)
@@ -329,15 +332,20 @@ private fun StatCell(value: String, label: String, accent: Color) {
  * 现在改成全屏网格：每个文件夹一张封面（该文件夹里**最新**的那张），
  * 下面一行名字、一行数量 —— 和系统相册的"相簿"页是同一个读法。
  *
- * ---- 为什么是两列网格而不是列表 ----
+ * ---- 为什么是网格而不是列表 ----
  * 封面要占地方才有意义。列表里缩略图只能给 44~56dp，等于没有；
- * 两列网格每格约 160dp，封面能看清内容，扫一眼就知道是哪个文件夹。
+ * 网格每格 100~160dp，封面能看清内容，扫一眼就知道是哪个文件夹。
+ *
+ * 列数由设置决定（`Prefs.folderColumns`，2 或 3）：两列封面大、认得出；
+ * 三列一屏多看一半，适合文件夹几十个的设备。
  * 代价是长名字会被截断 —— 但数量那一行能补足辨识度。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FolderSheet(
     buckets: List<BucketInfo>?,
+    /** 每行几列（2 或 3），由设置页决定。 */
+    columns: Int,
     onPick: (BucketInfo) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -405,16 +413,24 @@ private fun FolderSheet(
                     }
                 } else {
                     LazyVerticalGrid(
-                        columns = GridCells.Fixed(2),
+                        columns = GridCells.Fixed(columns),
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
                             start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp,
                         ),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        // 三列时每格窄了约 1/3，间距跟着收一点，
+                        // 否则一屏里全是缝、封面只剩一点点
+                        horizontalArrangement = Arrangement.spacedBy(
+                            if (columns >= 3) 10.dp else 12.dp,
+                        ),
                         verticalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
                         items(buckets, key = { "${it.kind}-${it.name}" }) { b ->
-                            FolderCell(bucket = b, onClick = { onPick(b) })
+                            FolderCell(
+                                bucket = b,
+                                compact = columns >= 3,
+                                onClick = { onPick(b) },
+                            )
                         }
                     }
                 }
@@ -425,7 +441,12 @@ private fun FolderSheet(
 
 /** 文件夹网格里的一格：正方形封面 + 名字 + 数量。 */
 @Composable
-private fun FolderCell(bucket: BucketInfo, onClick: () -> Unit) {
+private fun FolderCell(
+    bucket: BucketInfo,
+    /** 三列时每格只有约 100dp，标题字号要降一档，否则一行放不下四个字。 */
+    compact: Boolean,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .clip(RoundedCornerShape(14.dp))
@@ -465,7 +486,11 @@ private fun FolderCell(bucket: BucketInfo, onClick: () -> Unit) {
         Spacer(Modifier.height(7.dp))
         Text(
             text = bucket.name,
-            style = MaterialTheme.typography.bodyMedium,
+            style = if (compact) {
+                MaterialTheme.typography.bodySmall
+            } else {
+                MaterialTheme.typography.bodyMedium
+            },
             color = TextPrimary,
             maxLines = 1,
             overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,

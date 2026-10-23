@@ -18,6 +18,17 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putInt(KEY_GROUP_SIZE, value.coerceIn(10, 200)).apply()
 
     /**
+     * 「整理文件夹」页每行放几个（2 或 3）。
+     *
+     * 两列封面大，一眼能认出是哪个目录；三列一屏多看一半，
+     * 适合文件夹几十个的设备（默认三列）。
+     * 夹在 2~3 之间是为了容错：存量值被改坏时不会出现 12 列那种灾难。
+     */
+    var folderColumns: Int
+        get() = sp.getInt(KEY_FOLDER_COLUMNS, DEFAULT_FOLDER_COLUMNS).coerceIn(2, 3)
+        set(value) = sp.edit().putInt(KEY_FOLDER_COLUMNS, value.coerceIn(2, 3)).apply()
+
+    /**
      * 上滑 = 删除。
      *
      * ---- 为什么钉死成 true（1.3.52）----
@@ -201,11 +212,18 @@ class Prefs(context: Context) {
     companion object {
         const val DEFAULT_GROUP_SIZE = 30
 
+        /** 「整理文件夹」默认三列。 */
+        const val DEFAULT_FOLDER_COLUMNS = 3
+
+        /** 可选列数。和 [GROUP_SIZE_CHOICES] 一样放在这里，界面层只负责画。 */
+        val FOLDER_COLUMNS_CHOICES = listOf(2, 3)
+
         /** 可供选择的每组数量。放在这里而不是界面层，是因为容器启动时要拿它做一次归一。 */
         val GROUP_SIZE_CHOICES = listOf(30, 50, 100)
         const val GROUP_SIZE_OPTIONS = 10
 
         private const val KEY_GROUP_SIZE = "group_size"
+        private const val KEY_FOLDER_COLUMNS = "folder_columns"
         private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
         private const val KEY_ONLY_UNSEEN = "only_unseen"
         private const val KEY_DELETE_TO_TRASH = "delete_to_trash"

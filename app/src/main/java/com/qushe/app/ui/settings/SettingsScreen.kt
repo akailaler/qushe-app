@@ -58,6 +58,7 @@ import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
+private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
 
 @Composable
 fun SettingsScreen(
@@ -87,6 +88,9 @@ fun SettingsScreen(
     /** 显示具体日期（2020/6/6）。 */
     absoluteDates: Boolean,
     onAbsoluteDatesChange: (Boolean) -> Unit,
+    /** 「整理文件夹」每行几列（2 / 3）。同样由外层持有 state。 */
+    folderColumns: Int,
+    onFolderColumnsChange: (Int) -> Unit,
 ) {
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
@@ -172,6 +176,25 @@ fun SettingsScreen(
                             onClick = {
                                 groupSize = choice
                                 prefs.groupSize = choice
+                            },
+                        )
+                    }
+                }
+            }
+
+            SettingBlock(
+                title = "文件夹网格",
+                subtitle = "整理文件夹时每行放几个。两列封面大，三列一屏看得更多",
+            ) {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FOLDER_COLUMNS_CHOICES.forEach { choice ->
+                        Chip(
+                            text = "$choice 列",
+                            selected = folderColumns == choice,
+                            onClick = {
+                                // 先改外层 state（否则首页不重组），再落盘
+                                onFolderColumnsChange(choice)
+                                prefs.folderColumns = choice
                             },
                         )
                     }
@@ -612,7 +635,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.90",
+                text = "取舍 1.3.91",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

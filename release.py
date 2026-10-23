@@ -11,7 +11,7 @@
 1. 从 `app/build.gradle.kts` 读出 versionName（比如 1.3.87）；
 2. 本地打 tag `v1.3.87` 并推到远端；
 3. 在 GitHub 上创建对应的 Release（已存在就复用）；
-4. 把 `qushe-v1.3.87-release.apk` 传上去。
+4. 把 `qushe-v1.3.87-release.apk` 传上去，并把它的 SHA-256 写进说明。
 
 前提：本机能用 GitHub 凭据（GitHub Desktop / GCM 登录过）。
 凭据从 `git credential fill` 取，不读任何明文文件。
@@ -24,6 +24,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import pathlib
@@ -128,6 +129,11 @@ def main() -> None:
     tok = token()
     ensure_tag(tag)
 
+    # APK 的 SHA-256：给想核对"下下来的包是不是发布者传的那个"的人用。
+    # 直接对本地这个文件算，而不是读构建日志 —— 传上去的就是这个字节流。
+    apk_name = f"qushe-v{ver}.apk"
+    digest = hashlib.sha256(apk.read_bytes()).hexdigest()
+
     rel = find_release(tag, tok)
     if rel is None:
         # 说明只写「装得上、能覆盖」这两件用户真正会问的事。
@@ -138,6 +144,11 @@ def main() -> None:
             f"## 安装\n\n"
             f"- Android 11（API 30）及以上，约 {apk.stat().st_size / 1024 / 1024:.1f} MB\n"
             f"- 直接安装即可，同一签名线的版本可以直接覆盖升级\n\n"
+            f"### 校验（可选）\n\n"
+            f"```\n"
+            f"{digest}  {apk_name}\n"
+            f"```\n\n"
+            f"`sha256sum -c` 或 `Get-FileHash` 对一下，能确认包没被改动。\n\n"
             f"更新记录见 [README](https://github.com/{OWNER_REPO}#八更新日志)。"
         )
         rel = api(
@@ -155,7 +166,7 @@ def main() -> None:
     else:
         print(f"  Release {tag} 已存在（id {rel['id']}），复用")
 
-    name = f"qushe-v{ver}.apk"
+    name = apk_name
     if any(a["name"] == name for a in rel.get("assets", [])):
         print(f"  附件 {name} 已存在，跳过上传")
     else:

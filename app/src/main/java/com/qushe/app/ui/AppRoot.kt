@@ -305,6 +305,10 @@ fun AppRoot(container: AppContainer) {
     /** 显示具体日期（与相对时间是两个独立开关，四种组合都合法）。 */
     var absoluteDates by remember { mutableStateOf(container.prefs.absoluteDates) }
 
+    // 「整理文件夹」每行几列。同上：`prefs.folderColumns` 是 SharedPreferences 读，
+    // 设置页改完不会触发重组 —— 必须在这里存一份 state 往下传。
+    var folderColumns by remember { mutableIntStateOf(container.prefs.folderColumns) }
+
     /** 本轮总条数 / 已确认写入条数，只用于给用户一句进度。 */
     var syncTotal by remember { mutableIntStateOf(0) }
     var syncDone by remember { mutableIntStateOf(0) }
@@ -671,6 +675,7 @@ fun AppRoot(container: AppContainer) {
                         videoAllowed = videoAllowed,
                         doubleTapLikes = container.prefs.doubleTapLikes,
                         swipeUpDeletes = container.prefs.swipeUpDeletes,
+                        folderColumns = folderColumns,
                         onStart = { kind -> startSession(kind) },
                         onRequestPermission = { kind ->
                             permissionLauncher.launch(permissionsFor(kind))
@@ -719,6 +724,8 @@ fun AppRoot(container: AppContainer) {
                         onRelativeDatesChange = { relativeDates = it },
                         absoluteDates = absoluteDates,
                         onAbsoluteDatesChange = { absoluteDates = it },
+                        folderColumns = folderColumns,
+                        onFolderColumnsChange = { folderColumns = it },
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
                             // 只是由用户点一下触发 —— 两条路各自实现一遍必然漂移。
