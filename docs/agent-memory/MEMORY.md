@@ -22,7 +22,7 @@
 
 ## 「取舍」Android（主线）
 
-工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.0**（versionCode 148）。
+工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.1**（versionCode 149）。
 
 ```bash
 export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
