@@ -222,6 +222,15 @@ fun PhotoSessionScreen(
     // 于是"③ 之后点一下"会算成去②、回不到①（用户反馈"只在 2 和 3 之间切换"）。
     var chromeStage by remember { mutableIntStateOf(0) }
 
+    /** 上一次的缩放状态 —— 用来判断"这次回调是不是真的跨越了"。 */
+    var wasZoomed by remember { mutableStateOf(false) }
+
+    /** 底部那行操作提示是否已经收起来（翻过五张就收）。 */
+    var hintDismissed by remember { mutableStateOf(false) }
+    LaunchedEffect(index) {
+        if (index >= 5) hintDismissed = true
+    }
+
     fun advanceChromeStage() {
         val next = (chromeStage + 1) % 3
         chromeStage = next
@@ -914,8 +923,26 @@ fun PhotoSessionScreen(
                         // 注意别把参数名写成 zoomed —— 那会遮蔽外层的 var，
                         // 变成"给只读参数赋值"，编译直接报 'val' cannot be reassigned
                         zoomed = isZoomed
-                        // 放大 ⇒ 收起；缩回 1x ⇒ 强制显示（不是 toggle）。
-                        chromeHidden = isZoomed
+                        // ---- 只在"跨越"时写 chrome ----
+                        //
+                        // 之前是无条件 `chromeHidden = isZoomed`。翻页时新图从 1x 开始，
+                        // 必然回调一次 `false`，于是沉浸态（stage③）刚滑到下一张就被
+                        // 强制显示回来 —— 用户报"完全空白那种保持不住"。
+                        // 缩放状态没变就不该动 chrome。
+                        if (isZoomed != wasZoomed) {
+                            wasZoomed = isZoomed
+                            if (isZoomed) {
+                                // 放大 ⇒ 收起，并让三态跟上（③ = 全空）
+                                chromeHidden = true
+                                chromeStage = 2
+                                filmstripVisible = false
+                            } else {
+                                // 缩回 1x ⇒ 强制显示（不是 toggle），同时把 stage 拉回①，
+                                // 否则 stage 还停在③，下次单击会"点了没反应"
+                                chromeHidden = false
+                                if (chromeStage == 2) chromeStage = 0
+                            }
+                        }
                     },
                     // 手势阶梯的第三级：已回到初始大小还继续捏合 → 「回到那天」
                     //
@@ -1208,7 +1235,9 @@ fun PhotoSessionScreen(
                     },
                 )
 
-                if (!filmstripVisible) {
+                // 翻过五张之后就把这行操作提示收起来（用户要求）：
+                // 该会的已经会了，再挂在底下只是永久占掉一条边。
+                if (!filmstripVisible && !hintDismissed) {
                     Text(
                         text = buildString {
                             append("单击展开缩略图")

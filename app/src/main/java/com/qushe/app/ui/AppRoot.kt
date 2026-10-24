@@ -655,6 +655,7 @@ fun AppRoot(
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
                         relativeDates = relativeDates, absoluteDates = absoluteDates,
+                        columns = folderColumns,
                         autoSyncEnabled = false,
                         likeMode = true,
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
@@ -696,6 +697,7 @@ fun AppRoot(
                             scope.launch { pendingSync = container.sessions.pendingSyncCount() }
                         },
                         relativeDates = relativeDates, absoluteDates = absoluteDates,
+                        columns = folderColumns,
                         autoSyncEnabled = container.prefs.autoSyncFavorites,
                         resolveLocationLabel = { container.repo.resolveLocationLabel(it) },
                         readExif = { PhotoExifReader.read(context, it) },
@@ -708,7 +710,7 @@ fun AppRoot(
                         },
                     )
 
-                    Tab.Trash -> TrashScreen(container = container)
+                    Tab.Trash -> TrashScreen(container = container, columns = folderColumns)
 
                     Tab.Settings -> SettingsScreen(
                         prefs = container.prefs,

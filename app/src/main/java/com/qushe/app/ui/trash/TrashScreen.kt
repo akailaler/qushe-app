@@ -83,7 +83,11 @@ import com.qushe.app.ui.theme.QusheColors
  * 而不是让整个页面崩掉。
  */
 @Composable
-fun TrashScreen(container: AppContainer) {
+fun TrashScreen(
+    container: AppContainer,
+    /** 缩略图网格每行几列（2 或 3）。和「整理文件夹」共用设置里那一个开关。 */
+    columns: Int = 3,
+) {
     val scope = rememberCoroutineScope()
 
     var items by remember { mutableStateOf(emptyList<MediaItem>()) }
@@ -205,8 +209,8 @@ fun TrashScreen(container: AppContainer) {
             }
 
             else -> LazyVerticalGrid(
-                // 和收藏页同款：3 列正方形缩略图墙
-                columns = GridCells.Fixed(3),
+                // 和收藏页同款：正方形缩略图墙，列数由设置决定
+                columns = GridCells.Fixed(columns),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 // 缩略图网格保持 4.dp —— 这是"密集小图"的间距，和大图之间的
                 // 接缝（rememberPageGap）不是同一件事，别混。

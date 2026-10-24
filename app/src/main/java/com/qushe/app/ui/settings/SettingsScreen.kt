@@ -212,8 +212,8 @@ fun SettingsScreen(
             }
 
             SettingBlock(
-                title = "文件夹网格",
-                subtitle = "整理文件夹时每行放几个。两列封面大，三列一屏看得更多",
+                title = "缩略图网格",
+                subtitle = "整理文件夹、收藏、回收站每行放几个。两列图更大，三列一屏看得更多",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FOLDER_COLUMNS_CHOICES.forEach { choice ->
@@ -664,7 +664,7 @@ fun SettingsScreen(
             Spacer(Modifier.height(16.dp))
 
             Text(
-                text = "取舍 1.3.98",
+                text = "取舍 1.3.99",
                 style = MaterialTheme.typography.bodyMedium,
                 color = TextSecondary,
             )

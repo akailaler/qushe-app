@@ -118,6 +118,8 @@ fun FavoritesScreen(
     relativeDates: Boolean,
     /** 是否显示具体日期（和相对时间是两个独立开关）。 */
     absoluteDates: Boolean,
+    /** 缩略图网格每行几列（2 或 3）。和「整理文件夹」共用设置里那一个开关。 */
+    columns: Int,
     autoSyncEnabled: Boolean,
     /** 详情面板里的地名；null = 没授权 / 没解析出来 / 还在读。 */
     resolveLocationLabel: suspend (MediaItem) -> String?,
@@ -412,7 +414,7 @@ fun FavoritesScreen(
             }
 
             else -> LazyVerticalGrid(
-                columns = GridCells.Fixed(3),
+                columns = GridCells.Fixed(columns),
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 // 缩略图网格保持 4.dp —— 这是"密集小图"的间距，和大图之间的
                 // 接缝（rememberPageGap）不是同一件事，别混。
