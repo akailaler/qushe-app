@@ -375,11 +375,12 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
             // 从"左上角小深底"改成压在缩略图**底部居中**的一条渐变：
             // 底部最深、向上渐隐到全透明，上沿没有硬边（渐变本身就是羽化）。
             // 白字不描边、不加阴影 —— 对比度全部由下面这层渐变提供。
+            // 高度 25dp：刚好托住一行 labelSmall，再高就会吃掉缩略图的下一行内容。
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .height(40.dp)
+                    .height(25.dp)
                     .background(
                         Brush.verticalGradient(
                             colorStops = arrayOf(
