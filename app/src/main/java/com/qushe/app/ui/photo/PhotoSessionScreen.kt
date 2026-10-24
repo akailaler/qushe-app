@@ -225,10 +225,10 @@ fun PhotoSessionScreen(
     /** 上一次的缩放状态 —— 用来判断"这次回调是不是真的跨越了"。 */
     var wasZoomed by remember { mutableStateOf(false) }
 
-    /** 底部那行操作提示是否已经收起来（翻过五张就收）。 */
+    /** 底部那行操作提示是否已经收起来（翻过三张就收）。 */
     var hintDismissed by remember { mutableStateOf(false) }
     LaunchedEffect(index) {
-        if (index >= 5) hintDismissed = true
+        if (index >= 3) hintDismissed = true
     }
 
     fun advanceChromeStage() {
@@ -1235,7 +1235,7 @@ fun PhotoSessionScreen(
                     },
                 )
 
-                // 翻过五张之后就把这行操作提示收起来（用户要求）：
+                // 翻过三张之后就把这行操作提示收起来（用户要求）：
                 // 该会的已经会了，再挂在底下只是永久占掉一条边。
                 if (!filmstripVisible && !hintDismissed) {
                     Text(

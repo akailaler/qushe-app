@@ -68,6 +68,10 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.layout.ContentScale
 import coil.compose.AsyncImage
 import com.qushe.app.ui.common.rememberThumbnailRequest
+import android.net.Uri
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.text.style.TextOverflow
 
 /**
  * 首页。
@@ -349,6 +353,27 @@ private fun FolderSheet(
     onPick: (BucketInfo) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // ---- 同名文件夹合并成一条（1.4.0）----
+    //
+    // 一个文件夹里既有照片又有视频很常见（Camera / DCIM / WeiXin 都这样）。
+    // 底层 `buckets()` 是分别扫 images 和 video 两张表再拼起来的，
+    // 于是这种文件夹会给**两条同名记录**：直接铺进网格就是两格同名、
+    // 按各自数量插在不同位置 —— 看起来像两个不相干的文件夹（用户反馈）。
+    //
+    // 现在按名字合成一条，副标题写清「1,204 张 · 38 个视频」；
+    // 两类都有时才在点击后让用户选整理哪一类。
+    val groups = remember(buckets) {
+        buckets?.groupBy { it.name }?.map { (name, list) ->
+            FolderGroup(
+                name = name,
+                photos = list.firstOrNull { it.kind == MediaKind.PHOTO },
+                videos = list.firstOrNull { it.kind == MediaKind.VIDEO },
+            )
+        }?.sortedByDescending { it.total }
+    }
+
+    var choosing by remember { mutableStateOf<FolderGroup?>(null) }
+
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(
@@ -358,83 +383,232 @@ private fun FolderSheet(
         ),
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Ink) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                // ---- 顶栏：返回 + 标题 + 文件夹数 ----
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .statusBarsPadding()
-                        .padding(start = 4.dp, end = 18.dp, top = 4.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onDismiss) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "返回",
-                            tint = TextPrimary,
-                        )
-                    }
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "按文件夹挑一批",
-                            style = MaterialTheme.typography.titleLarge,
-                            color = TextPrimary,
-                            fontWeight = FontWeight.Medium,
-                        )
-                        Spacer(Modifier.height(2.dp))
-                        Text(
-                            // 说清和默认模式的区别，否则用户会以为「只抽没看过的」失效了
-                            text = if (buckets == null) {
-                                "正在统计文件夹…"
-                            } else {
-                                "共 ${buckets.size} 个 · 只从这个文件夹抽，不套用「只看没看过的」"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextTertiary,
-                        )
-                    }
-                }
-
-                if (buckets == null) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(26.dp),
-                            color = TextSecondary,
-                            strokeWidth = 2.dp,
-                        )
-                    }
-                } else if (buckets.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        Text(
-                            text = "没有找到文件夹",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = TextSecondary,
-                        )
-                    }
-                } else {
-                    LazyVerticalGrid(
-                        columns = GridCells.Fixed(columns),
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(
-                            start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp,
-                        ),
-                        // 三列时每格窄了约 1/3，间距跟着收一点，
-                        // 否则一屏里全是缝、封面只剩一点点
-                        horizontalArrangement = Arrangement.spacedBy(
-                            if (columns >= 3) 10.dp else 12.dp,
-                        ),
-                        verticalArrangement = Arrangement.spacedBy(18.dp),
+            Box(modifier = Modifier.fillMaxSize()) {
+                Column(modifier = Modifier.fillMaxSize()) {
+                    // ---- 顶栏：返回 + 标题 + 文件夹数 ----
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .statusBarsPadding()
+                            .padding(start = 4.dp, end = 18.dp, top = 4.dp, bottom = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        items(buckets, key = { "${it.kind}-${it.name}" }) { b ->
-                            FolderCell(
-                                bucket = b,
-                                compact = columns >= 3,
-                                onClick = { onPick(b) },
+                        IconButton(onClick = onDismiss) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "返回",
+                                tint = TextPrimary,
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "按文件夹挑一批",
+                                style = MaterialTheme.typography.titleLarge,
+                                color = TextPrimary,
+                                fontWeight = FontWeight.Medium,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                // 说清和默认模式的区别，否则用户会以为「只抽没看过的」失效了
+                                text = if (groups == null) {
+                                    "正在统计文件夹…"
+                                } else {
+                                    "共 ${groups.size} 个 · 只从这个文件夹抽，不套用「只看没看过的」"
+                                },
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextTertiary,
                             )
                         }
                     }
+
+                    if (groups == null) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(26.dp),
+                                color = TextSecondary,
+                                strokeWidth = 2.dp,
+                            )
+                        }
+                    } else if (groups.isEmpty()) {
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = "没有找到文件夹",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = TextSecondary,
+                            )
+                        }
+                    } else {
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(columns),
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(
+                                start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp,
+                            ),
+                            // 三列时每格窄了约 1/3，间距跟着收一点，
+                            // 否则一屏里全是缝、封面只剩一点点
+                            horizontalArrangement = Arrangement.spacedBy(
+                                if (columns >= 3) 10.dp else 12.dp,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(18.dp),
+                        ) {
+                            items(groups, key = { it.name }) { group ->
+                                FolderCell(
+                                    group = group,
+                                    compact = columns >= 3,
+                                    onClick = {
+                                        val only = group.only
+                                        // 只有一类 → 直接开；两类都有 → 先问整理哪一类
+                                        if (only != null) onPick(only) else choosing = group
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // ---- 「整理照片 / 整理视频」二选一 ----
+                //
+                // 不用 AlertDialog：这里已经在一个 Dialog 窗口里了，
+                // 再开一个窗口容易出现"点外面关掉的是哪一个"的层级问题。
+                // 直接在同一个 Surface 里铺一层遮罩，z 序完全可控。
+                choosing?.let { group ->
+                    FolderPickOverlay(
+                        group = group,
+                        onPick = {
+                            onPick(it)
+                            choosing = null
+                        },
+                        onDismiss = { choosing = null },
+                    )
                 }
             }
+        }
+    }
+}
+
+/**
+ * 同名文件夹合成后的一条。
+ *
+ * 一个文件夹可能只有照片、只有视频，或者两类都有 ——
+ * 后者需要用户在点开时再选一次整理哪一类。
+ */
+private data class FolderGroup(
+    val name: String,
+    val photos: BucketInfo?,
+    val videos: BucketInfo?,
+) {
+    val total: Int get() = (photos?.count ?: 0) + (videos?.count ?: 0)
+
+    /** 只有一类时直接开，不需要再问。 */
+    val only: BucketInfo? get() = when {
+        photos != null && videos == null -> photos
+        videos != null && photos == null -> videos
+        else -> null
+    }
+
+    /** 封面取数量多的那一类（数量相同取照片）—— 它更能代表这个文件夹。 */
+    val cover: Uri? get() {
+        val p = photos
+        val v = videos
+        return when {
+            p == null -> v?.coverUri
+            v == null -> p.coverUri
+            p.count >= v.count -> p.coverUri ?: v.coverUri
+            else -> v.coverUri ?: p.coverUri
+        }
+    }
+
+    /** 「1,204 张 · 38 个视频」。只有一类时只写那一类。 */
+    val subtitle: String get() = buildList {
+        photos?.let { add("${thousand(it.count)} 张") }
+        videos?.let { add("${thousand(it.count)} 个视频") }
+    }.joinToString(" · ")
+
+    /** 纯视频文件夹才在封面上挂「视频」角标；混合的靠副标题说明。 */
+    val videoOnly: Boolean get() = photos == null && videos != null
+}
+
+/** 千分位：1204 → 1,204。文件夹里的内容动辄四位数，不分组很难一眼读数。 */
+private fun thousand(n: Int): String = "%,d".format(n)
+
+/** 「整理照片 / 整理视频」二选一。 */
+@Composable
+private fun FolderPickOverlay(
+    group: FolderGroup,
+    onPick: (BucketInfo) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0x99000000))
+            .clickable(onClick = onDismiss),
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(
+            modifier = Modifier
+                .widthIn(max = 320.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(Surface1)
+                // 吃掉卡片内部的点击，否则点选项以外的空白也会关掉
+                .clickable(
+                    indication = null,
+                    interactionSource = remember { MutableInteractionSource() },
+                    onClick = {},
+                )
+                .padding(vertical = 8.dp),
+        ) {
+            Text(
+                text = group.name,
+                style = MaterialTheme.typography.titleMedium,
+                color = TextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 10.dp, bottom = 6.dp),
+            )
+            group.photos?.let { b ->
+                PickRow("整理照片", "${thousand(b.count)} 张", AccentInfo) { onPick(b) }
+            }
+            group.videos?.let { b ->
+                PickRow("整理视频", "${thousand(b.count)} 个", AccentKeep) { onPick(b) }
+            }
+            PickRow("取消", null, TextSecondary, onClick = onDismiss)
+        }
+    }
+}
+
+@Composable
+private fun PickRow(
+    title: String,
+    subtitle: String?,
+    color: Color,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 20.dp, vertical = 13.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyLarge,
+            color = color,
+            modifier = Modifier.weight(1f),
+        )
+        if (subtitle != null) {
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary,
+            )
         }
     }
 }
@@ -442,7 +616,7 @@ private fun FolderSheet(
 /** 文件夹网格里的一格：正方形封面 + 名字 + 数量。 */
 @Composable
 private fun FolderCell(
-    bucket: BucketInfo,
+    group: FolderGroup,
     /** 三列时每格只有约 100dp，标题字号要降一档，否则一行放不下四个字。 */
     compact: Boolean,
     onClick: () -> Unit,
@@ -459,7 +633,7 @@ private fun FolderCell(
                 .clip(RoundedCornerShape(14.dp))
                 .background(Surface2),
         ) {
-            val cover = bucket.coverUri
+            val cover = group.cover
             if (cover != null) {
                 AsyncImage(
                     // 系统相册已经生成好的缩略图，1~2ms 出图
@@ -469,7 +643,7 @@ private fun FolderCell(
                     modifier = Modifier.fillMaxSize(),
                 )
             }
-            if (bucket.kind == MediaKind.VIDEO) {
+            if (group.videoOnly) {
                 Text(
                     text = "视频",
                     style = MaterialTheme.typography.labelSmall,
@@ -485,7 +659,7 @@ private fun FolderCell(
         }
         Spacer(Modifier.height(7.dp))
         Text(
-            text = bucket.name,
+            text = group.name,
             style = if (compact) {
                 MaterialTheme.typography.bodySmall
             } else {
@@ -493,17 +667,14 @@ private fun FolderCell(
             },
             color = TextPrimary,
             maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            overflow = TextOverflow.Ellipsis,
         )
         Spacer(Modifier.height(1.dp))
         Text(
-            text = if (bucket.kind == MediaKind.VIDEO) {
-                "${bucket.count} 个视频"
-            } else {
-                "${bucket.count} 张照片"
-            },
+            text = group.subtitle,
             style = MaterialTheme.typography.labelSmall,
             color = TextTertiary,
+            maxLines = 1,
         )
     }
 }

@@ -56,6 +56,7 @@ import com.qushe.app.ui.theme.Surface3
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
+import androidx.compose.foundation.layout.width
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
 private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
@@ -213,7 +214,7 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "缩略图网格",
-                subtitle = "整理文件夹、收藏、回收站每行放几个。两列图更大，三列一屏看得更多",
+                subtitle = "两列图更大，三列一屏看得更多",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     FOLDER_COLUMNS_CHOICES.forEach { choice ->
@@ -612,70 +613,70 @@ fun SettingsScreen(
                 }
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            SettingBlock(
-                title = "检查更新",
-                subtitle = updateNote ?: "当前版本 $currentVersion",
-                onClick = when {
-                    checkingUpdate -> null
-                    // 已经查到新版本：这一下是"去下载"
-                    updatePage != null -> {
-                        {
-                            runCatching {
-                                context.startActivity(
-                                    Intent(Intent.ACTION_VIEW, Uri.parse(updatePage))
-                                )
-                            }
-                        }
-                    }
-                    else -> {
-                        {
-                            scope.launch {
-                                checkingUpdate = true
-                                updateNote = when (val r = checkForUpdate(currentVersion)) {
-                                    is UpdateResult.Newer -> {
-                                        updatePage = r.pageUrl
-                                        "发现新版本 ${r.version}，点这里去下载"
-                                    }
-                                    UpdateResult.UpToDate ->
-                                        "已是最新版本（$currentVersion）"
-                                    is UpdateResult.Failed -> r.reason
-                                }
-                                checkingUpdate = false
-                            }
-                        }
-                    }
-                },
-            ) {
-                Text(
-                    text = when {
-                        checkingUpdate -> "检查中…"
-                        updatePage != null -> "去下载"
-                        else -> "检查"
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (updatePage != null) AccentInfo else TextSecondary,
-                )
-            }
-
             Spacer(Modifier.height(26.dp))
             HorizontalDivider(color = Surface3)
             Spacer(Modifier.height(16.dp))
 
-            Text(
-                text = "取舍 1.3.99",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextSecondary,
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = "手势设计参考「去留 linger」的公开设计思考：" +
-                    "照片用浏览照片的手势，视频用浏览视频的手势，" +
-                    "导航归滑动，决策归双击与按钮",
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-            )
+            // ---- 版本 + 检查更新（1.4.0 合并成一行）----
+            //
+            // 原来是一整栏「检查更新」（标题 + 右侧"检查"），下面又单独一栏版本号 ——
+            // 两处说的其实是同一件事，读起来重复（用户反馈）。
+            // 现在合成一行：左边版本与状态，右边一颗「检查更新」。
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "取舍 1.4.0",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = TextSecondary,
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = updateNote ?: "手势设计参考「去留 linger」的公开设计思考：" +
+                            "照片用浏览照片的手势，视频用浏览视频的手势，" +
+                            "导航归滑动，决策归双击与按钮",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = TextTertiary,
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Text(
+                    // 平时就是「检查更新」四个字；查到新版本才变成「去下载」。
+                    text = when {
+                        checkingUpdate -> "检查中…"
+                        updatePage != null -> "去下载"
+                        else -> "检查更新"
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = if (updatePage != null) AccentInfo else TextSecondary,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(enabled = !checkingUpdate) {
+                            val page = updatePage
+                            when {
+                                // 已经查到新版本：这一下是"去下载"
+                                page != null -> runCatching {
+                                    context.startActivity(
+                                        Intent(Intent.ACTION_VIEW, Uri.parse(page))
+                                    )
+                                }
+                                else -> scope.launch {
+                                    checkingUpdate = true
+                                    updateNote = when (val r = checkForUpdate(currentVersion)) {
+                                        is UpdateResult.Newer -> {
+                                            updatePage = r.pageUrl
+                                            "发现新版本 ${r.version}，点这里去下载"
+                                        }
+                                        UpdateResult.UpToDate ->
+                                            "已是最新版本（$currentVersion）"
+                                        is UpdateResult.Failed -> r.reason
+                                    }
+                                    checkingUpdate = false
+                                }
+                            }
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                )
+            }
 
             // ---- 崩溃日志导出 ----
             // 只有崩溃过才出现。点一下走系统分享，直接发给开发者即可。
