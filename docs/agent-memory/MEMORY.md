@@ -22,7 +22,7 @@
 
 ## 「取舍」Android（主线）
 
-工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.1**（versionCode 149）。
+工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.2**（versionCode 150）。
 
 ```bash
 export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
@@ -35,6 +35,8 @@ export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1
 - 稳定 tag **`v1.3.54`**（用户评价"比较完美"）。构建后 `app-debug.apk` 复制为 `qushe-vX.Y-debug.apk`；改版本号别漏 `SettingsScreen.kt` 硬编码字符串。
 - **包体积先看构成**：debug 32.6MB 里 dex 占 99% ⇒ 删 ABI / 压资源全是无效功，**只有 R8 有效**（`isMinifyEnabled + isShrinkResources` + debug 签名 ⇒ 3.7MB）。release 不可 `run-as`，收藏核对用 debug 包。
 - **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。
+- **版本号只有一个真源**：只改 `build.gradle.kts`；设置页读 `BuildConfig.VERSION_NAME`，
+  **不要再写死 `"取舍 x.y.z"`**（`verify.py` 会报错拦下）。
 - **颜色一律走 `QusheColors.palette`**：`val Ink: Color get() = QusheColors.palette.ink`，
   **不要再加 `val X = Color(...)` 这种常量**——浅色主题下它不会变。
   两套调色板在 `ui/theme/Theme.kt`，默认 `THEME_DARK`，设置在「外观」。
