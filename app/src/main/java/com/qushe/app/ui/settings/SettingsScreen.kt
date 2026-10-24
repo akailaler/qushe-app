@@ -58,6 +58,8 @@ import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import androidx.compose.foundation.layout.width
 import com.qushe.app.BuildConfig
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
 private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
@@ -95,7 +97,10 @@ fun SettingsScreen(
     /** 外观：跟随系统 / 浅色 / 深色（`Prefs.THEME_*`）。 */
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
+    /** 统计清零。长按「到目前为止」里的「已删除」触发，和首页同一个实现。 */
+    onStatsReset: () -> Unit = {},
 ) {
+    var confirmReset by remember { mutableStateOf(false) }
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
     var deleteToTrash by remember { mutableStateOf(prefs.deleteToTrash) }
@@ -574,7 +579,15 @@ fun SettingsScreen(
             ) {
                 MiniStat(stats.reviewedPhotos.toString(), "照片", TextPrimary)
             MiniStat(stats.reviewedVideos.toString(), "视频", TextPrimary)
-                MiniStat(stats.deleted.toString(), "已删除", AccentDelete)
+                // 长按「已删除」= 统计清零（和首页那格同一个入口语义）
+                MiniStat(
+                    value = stats.deleted.toString(),
+                    label = "已删除",
+                    accent = AccentDelete,
+                    modifier = Modifier.pointerInput(Unit) {
+                        detectTapGestures(onLongPress = { confirmReset = true })
+                    },
+                )
                 MiniStat(stats.favorited.toString(), "已收藏", AccentKeep)
                 MiniStat(formatSize(stats.freedBytes), "瘦身", AccentInfo)
             }
@@ -707,6 +720,38 @@ fun SettingsScreen(
 
     }
 
+    // 统计清零的二次确认。入口是长按，更要保证"按到"不等于"执行"。
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            containerColor = Surface2,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            title = { Text("确认清零") },
+            text = {
+                Text(
+                    "会把本应用的累计数字全部归零：已回顾、已删除、已收藏、瘦身，" +
+                        "照片和视频不会有任何变化，收藏记录也不会丢 —— " +
+                        "归零的只是那几个计数。此操作无法撤销",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmReset = false
+                        onStatsReset()
+                    },
+                ) {
+                    Text("确认清零", color = AccentDelete, fontWeight = FontWeight.Medium)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) {
+                    Text("取消", color = TextSecondary)
+                }
+            },
+        )
+    }
 }
 
 private const val DEFAULT_LABEL = "30"
@@ -811,8 +856,13 @@ private fun Chip(text: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun MiniStat(value: String, label: String, accent: androidx.compose.ui.graphics.Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun MiniStat(
+    value: String,
+    label: String,
+    accent: androidx.compose.ui.graphics.Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,

@@ -173,6 +173,21 @@ fun AppRoot(
     }
     var session by remember { mutableStateOf<SessionUi>(SessionUi.None) }
     var stats by remember { mutableStateOf(container.prefs.stats()) }
+
+    /**
+     * 统计清零。
+     *
+     * 入口有两个，**同一个实现**：首页「到目前为止」长按「已删除」、
+     * 设置页同名那一行长按。两处各写一遍迟早会漂移（少归零一个字段）。
+     */
+    val resetStats: () -> Unit = {
+        container.prefs.reviewedTotal = 0
+        container.prefs.deletedTotal = 0
+        container.prefs.favoritedTotal = 0
+        container.prefs.freedBytesTotal = 0L
+        container.prefs.roundsCompleted = 0
+        stats = container.prefs.stats()
+    }
     var favoriteCount by remember { mutableIntStateOf(container.sessions.favoriteCount()) }
     // ---- 首页三个计数：null = 还在数，不等于0 ----
     //
@@ -687,16 +702,8 @@ fun AppRoot(
                         },
                         loadBuckets = { container.repo.buckets() },
                         onStartBucket = { b -> startSession(b.kind, b.name) },
-                        // 「统计清零」从设置页搬到这里：长按首页统计里的「已删除」触发。
-                        // 低频、不可撤销，但入口就在那组数字上 —— 比藏在设置里更符合直觉。
-                        onResetStats = {
-                            container.prefs.reviewedTotal = 0
-                            container.prefs.deletedTotal = 0
-                            container.prefs.favoritedTotal = 0
-                            container.prefs.freedBytesTotal = 0L
-                            container.prefs.roundsCompleted = 0
-                            stats = container.prefs.stats()
-                        },
+                        // 长按首页统计里的「已删除」触发清零（实现见 resetStats）
+                        onResetStats = resetStats,
                     )
 
                     Tab.Favorites -> FavoritesScreen(
@@ -742,6 +749,7 @@ fun AppRoot(
                         onFolderColumnsChange = { folderColumns = it },
                         themeMode = themeMode,
                         onThemeModeChange = onThemeModeChange,
+                        onStatsReset = resetStats,
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），
                             // 只是由用户点一下触发 —— 两条路各自实现一遍必然漂移。

@@ -1169,10 +1169,12 @@ fun PhotoSessionScreen(
                 horizontalArrangement = Arrangement.spacedBy(5.dp),
             ) {
                 Icon(
-                    imageVector = Icons.Filled.Delete,
+                    // 向上箭头：说的是"上滑"这个方向，不是"删除"这个结果 ——
+                    // 紧跟其后的文字已经把结果讲清楚了。
+                    imageVector = Icons.Filled.KeyboardArrowUp,
                     contentDescription = null,
                     tint = TextSecondary,
-                    modifier = Modifier.size(13.dp),
+                    modifier = Modifier.size(15.dp),
                 )
                 Text(
                     text = "上滑删除",

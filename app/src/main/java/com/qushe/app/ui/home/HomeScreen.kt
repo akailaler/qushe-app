@@ -104,7 +104,7 @@ fun HomeScreen(
     loadBuckets: suspend () -> List<BucketInfo>,
     /** 从某个文件夹开一组。 */
     onStartBucket: (BucketInfo) -> Unit,
-    /** 统计清零。由长按「已删除」触发（原来在设置页，1.4.1 搬过来）。 */
+    /** 统计清零。首页与设置页的「已删除」都能长按触发，实现是同一个 `AppRoot.resetStats`。 */
     onResetStats: () -> Unit = {},
 ) {
     var folderSheet by remember { mutableStateOf(false) }

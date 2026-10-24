@@ -30,8 +30,8 @@ android {
         // 直接操作文件，完全另一套代码路径。回留同样只支持 Android 11+。
         minSdk = 30
         targetSdk = 35
-        versionCode = 152
-        versionName = "1.4.4"
+        versionCode = 153
+        versionName = "1.4.5"
         resourceConfigurations += listOf("zh", "en")
     }
 
