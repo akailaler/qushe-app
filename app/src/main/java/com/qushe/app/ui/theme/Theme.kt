@@ -182,6 +182,8 @@ val TextTertiary: Color get() = QusheColors.palette.textTertiary
 val BadgeScrim = Color(0xB3000000)
 val BadgeText = Color(0xFFF2F2F5)
 val BadgeAccent = Color(0xFF8FC3FF)
+/** 角标里的紧急色（回收站快到期）。压深底用，不跟主题翻。 */
+val BadgeAlert = Color(0xFFFF8A9B)
 
 val OverlaySoft: Color get() = QusheColors.palette.overlaySoft
 val OverlayStrong: Color get() = QusheColors.palette.overlayStrong

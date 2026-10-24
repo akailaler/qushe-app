@@ -71,6 +71,7 @@ import com.qushe.app.ui.theme.BadgeAccent
 import com.qushe.app.ui.theme.BadgeScrim
 import com.qushe.app.ui.theme.BadgeText
 import com.qushe.app.ui.theme.QusheColors
+import com.qushe.app.ui.theme.BadgeAlert
 
 /**
  * 回收站。
@@ -368,9 +369,12 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
             (TRASH_RETENTION_DAYS.toInt() - used).coerceIn(0, TRASH_RETENTION_DAYS.toInt())
         }
         if (daysLeft != null) {
-            // 只留文字，不加底色块（用户要求）。底色块在 1/3 列的格子里
-            // 又占地方又显脏；可读性靠**文字自身的描边阴影**来保 ——
-            // 浅色缩略图上也能看清，而且不遮内容。
+            // ---- 小深底 + 亮字（1.4.1）----
+            //
+            // 之前是"纯文字 + 描边阴影"：阴影本身就是模糊，字被糊了一圈，
+            // 在浅色缩略图上反而更难认（用户反馈）。
+            // 现在给一枚很小的深色底 —— 只在文字范围内，不占格子面积，
+            // 也不再依赖阴影。深底浅字在深色/浅色两种模式下都稳。
             Text(
                 // 角标只留数字，单位已经在语境里了（回收站页 + 左上角位置）。
                 text = when (daysLeft) {
@@ -378,65 +382,14 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
                     else -> "$daysLeft 天"
                 },
                 style = MaterialTheme.typography.labelSmall,
-                color = if (daysLeft <= 3) AccentDelete else Color.White,
+                color = if (daysLeft <= 3) BadgeAlert else BadgeText,
                 modifier = Modifier
                     .align(Alignment.TopStart)
-                    .padding(5.dp)
-                    .shadow(
-                        elevation = 3.dp,
-                        shape = RoundedCornerShape(2.dp),
-                        clip = false,
-                    ),
-            )
-        }
-        val tag = when {
-            item.kind == MediaKind.VIDEO && item.durationMillis > 0L ->
-                formatDuration(item.durationMillis)
-            item.kind == MediaKind.SCREENSHOT -> "截屏"
-            else -> null
-        }
-        if (tag != null) {
-            // ---- 浅色下换成和左上角天数角标同一套 ----
-            //
-            // 左上角是「无底色 + 白字 + 描边阴影」，右下角原来是一块黑底，
-            // 在浅色界面上那块黑太抢眼（用户反馈）。
-            // 深色模式保持不变：黑底浅字在深色缩略图上是对的。
-            val dark = QusheColors.palette.isDark
-            Box(
-                modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(3.dp)
-                    .then(
-                        if (dark) {
-                            Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .background(BadgeScrim)
-                        } else {
-                            Modifier
-                        }
-                    )
+                    .padding(4.dp)
+                    .clip(RoundedCornerShape(4.dp))
+                    .background(BadgeScrim)
                     .padding(horizontal = 4.dp, vertical = 1.dp),
-            ) {
-                Text(
-                    text = tag,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = when {
-                        !dark -> Color.White
-                        item.kind == MediaKind.VIDEO -> BadgeAccent
-                        else -> BadgeText
-                    },
-                    // 和左上角那颗同样的描边阴影：浅色缩略图上才读得出字
-                    modifier = if (dark) {
-                        Modifier
-                    } else {
-                        Modifier.shadow(
-                            elevation = 3.dp,
-                            shape = RoundedCornerShape(2.dp),
-                            clip = false,
-                        )
-                    },
-                )
-            }
+            )
         }
     }
 }

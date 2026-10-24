@@ -68,7 +68,6 @@ fun SettingsScreen(
     permissionTick: Int,
     onProbeLocation: suspend () -> MediaRepository.LocationProbe,
     onRequestLocationPermission: () -> Unit,
-    onStatsReset: () -> Unit,
     onOpenAppSettings: () -> Unit,
     /** 反向同步：把系统相册里的收藏导入本应用。返回一句给用户看的话。 */
     onImportSystemFavorites: suspend () -> String,
@@ -112,7 +111,6 @@ fun SettingsScreen(
     LaunchedEffect(showLocation, permissionTick) {
         locationProbe = if (showLocation) onProbeLocation() else null
     }
-    var confirmReset by remember { mutableStateOf(false) }
 
     // ---- 反向同步系统收藏 ----
     //
@@ -622,22 +620,15 @@ fun SettingsScreen(
             // 原来是一整栏「检查更新」（标题 + 右侧"检查"），下面又单独一栏版本号 ——
             // 两处说的其实是同一件事，读起来重复（用户反馈）。
             // 现在合成一行：左边版本与状态，右边一颗「检查更新」。
+            // 版本号和「检查更新」必须在**同一行**；说明文字另起一行。
+            // 之前把按钮塞在"版本 + 说明"这一整列里，视觉上它落在说明那一行上。
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "取舍 1.4.0",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = TextSecondary,
-                    )
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = updateNote ?: "手势设计参考「去留 linger」的公开设计思考：" +
-                            "照片用浏览照片的手势，视频用浏览视频的手势，" +
-                            "导航归滑动，决策归双击与按钮",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = TextTertiary,
-                    )
-                }
+                Text(
+                    text = "取舍 1.4.1",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextSecondary,
+                    modifier = Modifier.weight(1f),
+                )
                 Spacer(Modifier.width(12.dp))
                 Text(
                     // 平时就是「检查更新」四个字；查到新版本才变成「去下载」。
@@ -677,6 +668,14 @@ fun SettingsScreen(
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                 )
             }
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = updateNote ?: "手势设计参考「去留 linger」的公开设计思考：" +
+                    "照片用浏览照片的手势，视频用浏览视频的手势，" +
+                    "导航归滑动，决策归双击与按钮",
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary,
+            )
 
             // ---- 崩溃日志导出 ----
             // 只有崩溃过才出现。点一下走系统分享，直接发给开发者即可。
@@ -700,69 +699,11 @@ fun SettingsScreen(
                 )
             }
 
-            // ---- 清零统计 ----
-            //
-            // 放整页最底部、用最低的文字层级，并写明作用范围 ——
-            // 之前它长得和普通设置项一样（浅色大字号 + 整行可点），被误触过。
-            Spacer(Modifier.height(26.dp))
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(10.dp))
-                    .clickable { confirmReset = true }
-                    .padding(vertical = 10.dp),
-            ) {
-                Text(
-                    text = "统计清零",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = TextTertiary,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "只把本应用的累计数字归零（已回顾 / 已删除 / 已收藏 / 瘦身），" +
-                        "不会删除或恢复任何照片、视频，也不影响系统相册里的收藏",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextTertiary.copy(alpha = 0.65f),
-                )
-            }
             Spacer(Modifier.height(30.dp))
         }
 
     }
 
-    // 二次确认。这个动作本身不可撤销，而入口又刻意做得很不起眼 ——
-    // 越是不起眼的入口，越要保证"点到"不等于"执行"。
-    if (confirmReset) {
-        AlertDialog(
-            onDismissRequest = { confirmReset = false },
-            containerColor = Surface2,
-            titleContentColor = TextPrimary,
-            textContentColor = TextSecondary,
-            title = { Text("确认清零") },
-            text = {
-                Text(
-                    "会把本应用的累计数字全部归零：已回顾、已删除、已收藏、瘦身，" +
-                        "照片和视频不会有任何变化，收藏记录也不会丢 —— " +
-                        "归零的只是那几个计数。此操作无法撤销",
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmReset = false
-                        onStatsReset()
-                    },
-                ) {
-                    Text("确认清零", color = AccentDelete, fontWeight = FontWeight.Medium)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmReset = false }) {
-                    Text("取消", color = TextSecondary)
-                }
-            },
-        )
-    }
 }
 
 private const val DEFAULT_LABEL = "30"

@@ -687,6 +687,16 @@ fun AppRoot(
                         },
                         loadBuckets = { container.repo.buckets() },
                         onStartBucket = { b -> startSession(b.kind, b.name) },
+                        // 「统计清零」从设置页搬到这里：长按首页统计里的「已删除」触发。
+                        // 低频、不可撤销，但入口就在那组数字上 —— 比藏在设置里更符合直觉。
+                        onResetStats = {
+                            container.prefs.reviewedTotal = 0
+                            container.prefs.deletedTotal = 0
+                            container.prefs.favoritedTotal = 0
+                            container.prefs.freedBytesTotal = 0L
+                            container.prefs.roundsCompleted = 0
+                            stats = container.prefs.stats()
+                        },
                     )
 
                     Tab.Favorites -> FavoritesScreen(
@@ -757,14 +767,6 @@ fun AppRoot(
                                 added == 0 -> "已经和系统相册一致，没有新增"
                                 else -> "已导入 $added 项到本应用的「收藏」"
                             }
-                        },
-                        onStatsReset = {
-                            container.prefs.reviewedTotal = 0
-                            container.prefs.deletedTotal = 0
-                            container.prefs.favoritedTotal = 0
-                            container.prefs.freedBytesTotal = 0L
-                            container.prefs.roundsCompleted = 0
-                            stats = container.prefs.stats()
                         },
                         onOpenAppSettings = {
                             runCatching {

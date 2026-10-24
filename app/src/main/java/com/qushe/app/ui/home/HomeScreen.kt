@@ -72,6 +72,10 @@ import android.net.Uri
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 
 /**
  * 首页。
@@ -100,8 +104,11 @@ fun HomeScreen(
     loadBuckets: suspend () -> List<BucketInfo>,
     /** 从某个文件夹开一组。 */
     onStartBucket: (BucketInfo) -> Unit,
+    /** 统计清零。由长按「已删除」触发（原来在设置页，1.4.1 搬过来）。 */
+    onResetStats: () -> Unit = {},
 ) {
     var folderSheet by remember { mutableStateOf(false) }
+    var confirmReset by remember { mutableStateOf(false) }
     var buckets by remember { mutableStateOf<List<BucketInfo>?>(null) }
 
     // 只在第一次打开时读一次 —— 这一步要扫全库的 bucket 列，不该在首页启动时做。
@@ -211,7 +218,16 @@ fun HomeScreen(
             // 只写"照片"会被读成相册总数 —— 用户报过"删了截屏总数没变"。
             StatCell(stats.reviewedPhotos.toString(), "看过照片", TextPrimary)
             StatCell(stats.reviewedVideos.toString(), "看过视频", TextPrimary)
-            StatCell(stats.deleted.toString(), "已删除", AccentDelete)
+            // 长按「已删除」= 统计清零（二次确认）。这格平时不可点，
+            // 所以用 pointerInput 的长按手势，不会和别的交互打架。
+            StatCell(
+                value = stats.deleted.toString(),
+                label = "已删除",
+                accent = AccentDelete,
+                modifier = Modifier.pointerInput(Unit) {
+                    detectTapGestures(onLongPress = { confirmReset = true })
+                },
+            )
             StatCell(favoriteCount.toString(), "已收藏", AccentKeep)
             StatCell(formatSize(stats.freedBytes), "瘦身", AccentInfo)
         }
@@ -226,6 +242,39 @@ fun HomeScreen(
         }
 
         Spacer(Modifier.height(24.dp))
+    }
+
+    // 「统计清零」的二次确认。入口是长按，更要保证"按到"不等于"执行"。
+    if (confirmReset) {
+        AlertDialog(
+            onDismissRequest = { confirmReset = false },
+            containerColor = Surface2,
+            titleContentColor = TextPrimary,
+            textContentColor = TextSecondary,
+            title = { Text("确认清零") },
+            text = {
+                Text(
+                    "会把本应用的累计数字全部归零：已回顾、已删除、已收藏、瘦身，" +
+                        "照片和视频不会有任何变化，收藏记录也不会丢 —— " +
+                        "归零的只是那几个计数。此操作无法撤销",
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmReset = false
+                        onResetStats()
+                    },
+                ) {
+                    Text("确认清零", color = AccentDelete, fontWeight = FontWeight.Medium)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmReset = false }) {
+                    Text("取消", color = TextSecondary)
+                }
+            },
+        )
     }
 
     if (folderSheet) {
@@ -310,8 +359,13 @@ private fun EntryCard(
 }
 
 @Composable
-private fun StatCell(value: String, label: String, accent: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun StatCell(
+    value: String,
+    label: String,
+    accent: Color,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier, horizontalAlignment = Alignment.CenterHorizontally) {
         Text(
             text = value,
             style = MaterialTheme.typography.titleMedium,
@@ -621,11 +675,8 @@ private fun FolderCell(
     compact: Boolean,
     onClick: () -> Unit,
 ) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
-    ) {
+    // 只给封面圆角，**不要把整列一起 clip** —— 那样底部的副标题会被圆角削掉一截。
+    Column(modifier = Modifier.clickable(onClick = onClick)) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
