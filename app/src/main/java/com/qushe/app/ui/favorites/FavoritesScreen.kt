@@ -87,7 +87,6 @@ import com.qushe.app.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
 import com.qushe.app.ui.common.fitInside
 import com.qushe.app.ui.common.scaledAboutCenter
-import com.qushe.app.ui.common.rememberFrostedBackdrop
 import com.qushe.app.ui.common.StarFilledIcon
 
 /**
@@ -639,8 +638,6 @@ fun FavoritesScreen(
             photoActions = if (viewOnly) null else {
                 { item ->
                     val (liked, faved) = rememberMarkState(container, item, markTick)
-                    // 毛玻璃：一排控件共用同一张 256px 小图（只解一份）
-                    val frosted = rememberFrostedBackdrop(item.uri)
                     // 地点异步读（仓库有缓存，翻回来不会重复查）
                     var location by remember(item.storeKey()) { mutableStateOf<String?>(null) }
                     LaunchedEffect(item.storeKey()) {
@@ -664,14 +661,10 @@ fun FavoritesScreen(
                         // 左边并排两颗：喜欢（心）+ 收藏（星）。
                         FavoriteButton(
                             selected = liked,
-                            backdrop = frosted,
-                            backdropAlignment = Alignment.CenterStart,
                         ) { mark(item, like = true) }
                         Spacer(Modifier.width(10.dp))
                         StarButton(
                             selected = faved,
-                            backdrop = frosted,
-                            backdropAlignment = Alignment.CenterEnd,
                         ) { mark(item, like = false) }
 
                         Box(
@@ -684,7 +677,6 @@ fun FavoritesScreen(
                                 primary = infoPillPrimary(item, relativeDates, absoluteDates),
                                 secondary = infoPillSecondary(item, relativeDates, absoluteDates),
                                 location = location,
-                                backdrop = frosted,
                                 onClick = { detailItem = item },
                             )
                         }
@@ -693,8 +685,6 @@ fun FavoritesScreen(
                             icon = Icons.Filled.Delete,
                             label = "删除",
                             tint = if (doomed) AccentDelete else TextPrimary,
-                            backdrop = frosted,
-                            backdropAlignment = Alignment.CenterEnd,
                         ) {
                             // 同视频那排：只改颜色，退出时才统一结算
                             val key = item.storeKey()

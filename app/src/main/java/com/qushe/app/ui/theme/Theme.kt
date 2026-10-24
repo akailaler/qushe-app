@@ -15,13 +15,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
 import com.qushe.app.core.Prefs
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 
 /**
  * 一套配色。
@@ -110,14 +114,19 @@ private val LightPalette = QushePalette(
     accentFolder = Color(0xFFB0741D),
     // 浅色下浮层反过来：白底 + 深色描边。里面的图标/文字用 TextPrimary，
     // 会跟着一起翻，所以不必单独定义前景色。
-    // 浅色下不用"白色半透明"——叠在照片上会发灰发浑（用户："有点深"）。
-    // 直接用和底栏选中态同一档的浅灰（Surface2），干净、对比稳定。
-    overlaySoft = Color(0xF2EFEFF2),
-    overlayStrong = Color(0xF7EFEFF2),
+    // ---- 浅色浮层：半透浅白 + 极淡描边（不做模糊）----
+    //
+    // 之前试过真模糊（把照片再画一份糊掉），问题有两个：
+    //  · 背后是白/浅色图时，糊完还是白的，再叠一层色就"发灰、脏"；
+    //  · Android 12 以下根本没有模糊，同一套 UI 在旧机上退化成死白块。
+    // 现在走"通透卡片"：白 75% + 黑 8% 描边 + 极轻阴影（阴影在组件上加）。
+    // 识别度靠**描边**兜底 —— 这是浅色大图上最关键的一条。
+    overlaySoft = Color(0xBFFFFFFF),
+    overlayStrong = Color(0xC4FFFFFF),
     // 顶部/底部的渐变雾：**浅色下不要**（用户明确要求）。
     overlayFade = Color.Transparent,
     overlaySolid = Color.Transparent,
-    overlayBorder = Color(0x26000000),
+    overlayBorder = Color(0x14000000),
     scrimTop = Color.Transparent,
     scrimBottom = Color.Transparent,
     isDark = false,
@@ -251,6 +260,27 @@ fun ForceDarkPalette(content: @Composable () -> Unit) {
     }
     content()
 }
+
+/**
+ * 浮层的极轻阴影（只有浅色主题有）。
+ *
+ * 浅色下"半透白卡片"压在照片上，如果四周没有一点点暗边，
+ * 会像是图片本身的一块白斑 —— 2dp 的淡阴影刚好把它"抬起来"。
+ * 深色主题返回原样：那套半透明黑本来就不需要阴影。
+ */
+@Composable
+fun Modifier.overlayShadow(shape: Shape, elevation: androidx.compose.ui.unit.Dp = 2.dp): Modifier =
+    if (QusheColors.palette.isDark) {
+        this
+    } else {
+        shadow(
+            elevation = elevation,
+            shape = shape,
+            clip = false,
+            ambientColor = Color.Black.copy(alpha = 0.12f),
+            spotColor = Color.Black.copy(alpha = 0.12f),
+        )
+    }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this

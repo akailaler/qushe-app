@@ -70,6 +70,7 @@ import kotlinx.coroutines.launch
 import com.qushe.app.ui.theme.BadgeAccent
 import com.qushe.app.ui.theme.BadgeScrim
 import com.qushe.app.ui.theme.BadgeText
+import com.qushe.app.ui.theme.QusheColors
 
 /**
  * 回收站。
@@ -391,18 +392,45 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
             else -> null
         }
         if (tag != null) {
+            // ---- 浅色下换成和左上角天数角标同一套 ----
+            //
+            // 左上角是「无底色 + 白字 + 描边阴影」，右下角原来是一块黑底，
+            // 在浅色界面上那块黑太抢眼（用户反馈）。
+            // 深色模式保持不变：黑底浅字在深色缩略图上是对的。
+            val dark = QusheColors.palette.isDark
             Box(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(3.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(BadgeScrim)
+                    .then(
+                        if (dark) {
+                            Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(BadgeScrim)
+                        } else {
+                            Modifier
+                        }
+                    )
                     .padding(horizontal = 4.dp, vertical = 1.dp),
             ) {
                 Text(
                     text = tag,
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (item.kind == MediaKind.VIDEO) BadgeAccent else BadgeText,
+                    color = when {
+                        !dark -> Color.White
+                        item.kind == MediaKind.VIDEO -> BadgeAccent
+                        else -> BadgeText
+                    },
+                    // 和左上角那颗同样的描边阴影：浅色缩略图上才读得出字
+                    modifier = if (dark) {
+                        Modifier
+                    } else {
+                        Modifier.shadow(
+                            elevation = 3.dp,
+                            shape = RoundedCornerShape(2.dp),
+                            clip = false,
+                        )
+                    },
                 )
             }
         }

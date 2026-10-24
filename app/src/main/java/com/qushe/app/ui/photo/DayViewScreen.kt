@@ -150,6 +150,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import com.qushe.app.ui.theme.BadgeAccent
 import com.qushe.app.ui.theme.BadgeScrim
 import com.qushe.app.ui.theme.BadgeText
+import com.qushe.app.ui.theme.overlayShadow
 
 /** 上下两排 —— 「去留」就是这个数。多了会变成网格墙，横拨的手感就没了。 */
 private const val ROWS = 2
@@ -2865,6 +2866,8 @@ private fun DayCircleButton(
     Box(
         modifier = Modifier
             .size(44.dp)
+            // 浅色下加一点阴影，和整理页的圆钮同一套观感
+            .overlayShadow(CircleShape)
             .clip(CircleShape)
             // 和整理照片页左下红心 / 右下五星**完全同一套**（`StarButton`）：
             // 44dp 圆 + 黑 40% 半透明底 + 1dp 极淡的白描边 + 22dp 图标。

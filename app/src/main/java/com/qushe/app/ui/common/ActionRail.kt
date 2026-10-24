@@ -31,6 +31,7 @@ import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.OverlayBorder
 import com.qushe.app.ui.theme.OverlaySoft
 import com.qushe.app.ui.theme.QusheColors
+import com.qushe.app.ui.theme.overlayShadow
 
 /**
  * 侧边栏上的一枚动作：图标 + 文字，选中时轻微放大。
@@ -97,36 +98,19 @@ fun RoundActionButton(
     label: String,
     modifier: Modifier = Modifier,
     tint: Color = TextPrimary,
-    /**
-     * 非空 = 走"毛玻璃"：背后垫一层模糊的照片（见 [rememberFrostedBackdrop]）。
-     * 收藏/喜欢页的预览用它；整理页、瀑布流那些不需要（背景不是单张照片）。
-     */
-    backdrop: Painter? = null,
-    /** 取哪一块照片当玻璃底色 —— 左边的心用 Start、右边的星用 End。 */
-    backdropAlignment: Alignment = Alignment.Center,
     onClick: () -> Unit,
 ) {
     Box(
         modifier = modifier
             .size(44.dp)
+            // 浅色下"透明白卡片"需要一点点阴影才立得起来；深色原样
+            .overlayShadow(CircleShape)
             .clip(CircleShape)
+            .background(OverlaySoft)
+            .border(1.dp, OverlayBorder, CircleShape)
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        // ---- 毛玻璃只在浅色主题下开 ----
-        //
-        // 深色主题下本来就是"深色半透明压一层"，再糊一层看不出差别，
-        // 反而多一次绘制。用户要求：深色回归原样。
-        if (backdrop != null && !QusheColors.palette.isDark) {
-            FrostedBackground(
-                painter = backdrop,
-                tint = OverlaySoft,
-                alignment = backdropAlignment,
-            )
-        } else {
-            Box(Modifier.matchParentSize().background(OverlaySoft))
-        }
-        Box(Modifier.matchParentSize().border(1.dp, OverlayBorder, CircleShape))
         Icon(
             imageVector = icon,
             contentDescription = label,
