@@ -134,6 +134,7 @@ import java.io.File
 import kotlin.math.abs
 import com.qushe.app.ui.common.fitInside
 import com.qushe.app.ui.common.scaledAboutCenter
+import com.qushe.app.ui.theme.OverlaySoft
 
 /**
  * 照片 / 截屏整理：卡片堆叠 + 滑动决策 + 缩放查看 + 缩略胶片条。
@@ -1147,6 +1148,37 @@ fun PhotoSessionScreen(
                         )
                     }
                 }
+            }
+        }
+
+        // ---- 手势提示：上滑删除 ----
+        //
+        // 和底部那行提示**同条件、同寿命**：展开胶片栏或翻过三张就一起消失。
+        // 放大时 `chromeAlpha` 归零，它跟着整层淡出，不需要单独判断。
+        if (!filmstripVisible && !hintDismissed) {
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer { alpha = chromeAlpha.value }
+                    .statusBarsPadding()
+                    .padding(top = 54.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(OverlaySoft)
+                    .padding(horizontal = 10.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Delete,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier.size(13.dp),
+                )
+                Text(
+                    text = "上滑删除",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                )
             }
         }
 
