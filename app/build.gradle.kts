@@ -30,8 +30,8 @@ android {
         // 直接操作文件，完全另一套代码路径。回留同样只支持 Android 11+。
         minSdk = 30
         targetSdk = 35
-        versionCode = 149
-        versionName = "1.4.1"
+        versionCode = 150
+        versionName = "1.4.2"
         resourceConfigurations += listOf("zh", "en")
     }
 
@@ -83,6 +83,9 @@ android {
     }
 
     buildFeatures {
+        // 版本号只有一个真源：设置页读 BuildConfig.VERSION_NAME，
+        // 不再手写 "取舍 x.y.z"（AGP 8 默认不生成 BuildConfig，必须显式打开）。
+        buildConfig = true
         compose = true
     }
 

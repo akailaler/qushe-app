@@ -57,6 +57,7 @@ import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextSecondary
 import com.qushe.app.ui.theme.TextTertiary
 import androidx.compose.foundation.layout.width
+import com.qushe.app.BuildConfig
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
 private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
@@ -624,7 +625,7 @@ fun SettingsScreen(
             // 之前把按钮塞在"版本 + 说明"这一整列里，视觉上它落在说明那一行上。
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "取舍 1.4.1",
+                    text = "取舍 ${BuildConfig.VERSION_NAME}",
                     style = MaterialTheme.typography.bodyMedium,
                     color = TextSecondary,
                     modifier = Modifier.weight(1f),

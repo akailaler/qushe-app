@@ -132,7 +132,7 @@ def check_encoding():
 # ---------------------------------------------------------------------------
 
 def check_version():
-    section(1, "版本号一致性（改版本时最容易漏的地方）")
+    section(1, "版本号一致性（BuildConfig 单一来源 + 文件名 + 设备）")
 
     gradle = read(os.path.join(ROOT, "app", "build.gradle.kts"))
     vn = re.search(r'versionName\s*=\s*"([^"]+)"', gradle)
@@ -142,9 +142,12 @@ def check_version():
 
     settings = read(os.path.join(JAVA_SRC, "com", "qushe", "app",
                                 "ui", "settings", "SettingsScreen.kt"))
-    # 设置页里硬编码的那一行，例如 "取舍 1.3.72"
-    m = re.search(r'"取舍\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)', settings)
-    settings_vn = m.group(1) if m else None
+    # 1.4.2 起版本号**只有一个真源**：设置页读 BuildConfig.VERSION_NAME。
+    # 所以这里反过来查两件事：确实用了 BuildConfig；没有又冒出一个写死的「取舍 x.y.z」。
+    uses_build_config = "BuildConfig.VERSION_NAME" in settings
+    hardcoded_vn = re.search(r'"取舍\s*([0-9]+\.[0-9]+(?:\.[0-9]+)?)', settings)
+    settings_vn = ("BuildConfig" if uses_build_config
+                   else (hardcoded_vn.group(1) if hardcoded_vn else None))
 
     # 最新 APK 文件名。**仓库目录和工作区根都要找** ——
     # 版本化 APK 有时放在仓库里、有时放在工作区根，只认一处就会误报"版本落后"。
@@ -175,11 +178,13 @@ def check_version():
     if not gradle_vn:
         bad("build.gradle.kts 里读不到 versionName")
         return
-    if settings_vn == gradle_vn:
-        ok("SettingsScreen 的硬编码版本一致")
+    if hardcoded_vn:
+        bad("设置页又出现了硬编码版本号",
+            f'{hardcoded_vn.group(0)}… —— 应改为 取舍 ${{BuildConfig.VERSION_NAME}}')
+    elif uses_build_config:
+        ok("设置页版本号取自 BuildConfig（没有第二个真源）")
     else:
-        bad("SettingsScreen 的硬编码版本不一致",
-            f"{settings_vn} ≠ {gradle_vn}（设置页会显示旧版本号）")
+        bad("设置页读不到版本号", "应当使用 BuildConfig.VERSION_NAME")
     if apk_vn == gradle_vn:
         ok("最新 APK 文件名一致")
     elif apk_vn is None:

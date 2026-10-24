@@ -72,6 +72,7 @@ import com.qushe.app.ui.theme.BadgeScrim
 import com.qushe.app.ui.theme.BadgeText
 import com.qushe.app.ui.theme.QusheColors
 import com.qushe.app.ui.theme.BadgeAlert
+import androidx.compose.ui.graphics.Brush
 
 /**
  * 回收站。
@@ -369,27 +370,38 @@ private fun TrashCell(item: MediaItem, deletedAt: Long?, onClick: () -> Unit) {
             (TRASH_RETENTION_DAYS.toInt() - used).coerceIn(0, TRASH_RETENTION_DAYS.toInt())
         }
         if (daysLeft != null) {
-            // ---- 小深底 + 亮字（1.4.1）----
+            // ---- 底部渐变蒙版（1.4.2）----
             //
-            // 之前是"纯文字 + 描边阴影"：阴影本身就是模糊，字被糊了一圈，
-            // 在浅色缩略图上反而更难认（用户反馈）。
-            // 现在给一枚很小的深色底 —— 只在文字范围内，不占格子面积，
-            // 也不再依赖阴影。深底浅字在深色/浅色两种模式下都稳。
-            Text(
-                // 角标只留数字，单位已经在语境里了（回收站页 + 左上角位置）。
-                text = when (daysLeft) {
-                    0 -> "今天到期"
-                    else -> "$daysLeft 天"
-                },
-                style = MaterialTheme.typography.labelSmall,
-                color = if (daysLeft <= 3) BadgeAlert else BadgeText,
+            // 从"左上角小深底"改成压在缩略图**底部居中**的一条渐变：
+            // 底部最深、向上渐隐到全透明，上沿没有硬边（渐变本身就是羽化）。
+            // 白字不描边、不加阴影 —— 对比度全部由下面这层渐变提供。
+            Box(
                 modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(4.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(BadgeScrim)
-                    .padding(horizontal = 4.dp, vertical = 1.dp),
-            )
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .height(40.dp)
+                    .background(
+                        Brush.verticalGradient(
+                            colorStops = arrayOf(
+                                0f to Color.Transparent,
+                                0.55f to Color(0x4D000000),
+                                1f to Color(0x99000000),
+                            ),
+                        )
+                    ),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                Text(
+                    // 角标只留数字，单位已经在语境里了（回收站页 + 底部居中）。
+                    text = when (daysLeft) {
+                        0 -> "今天到期"
+                        else -> "$daysLeft 天"
+                    },
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White,
+                    modifier = Modifier.padding(bottom = 5.dp),
+                )
+            }
         }
     }
 }
