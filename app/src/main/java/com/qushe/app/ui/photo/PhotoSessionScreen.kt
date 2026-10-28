@@ -815,8 +815,15 @@ fun PhotoSessionScreen(
                                 scaleY = s
                             } else {
                                 translationX = 0f
+                                // ---- 只有"向上"才让下面那张露出来 ----
+                                //
+                                // 这里原来写的是 `abs(dy)`：往下拖时同样在增加，
+                                // 于是"下滑退出"的过程中会先看到**下一张照片**浮出来
+                                // （用户反馈）。而下滑退出要的是"整张照片从屏幕上拖走"，
+                                // 背后应该是空的（Ink 底色），不是另一张图。
+                                // 所以取 `-dy` 的正数部分：向上位移才算"正在删除"。
                                 val moved = maxOf(
-                                    kotlin.math.abs(dy),
+                                    (-dy).coerceAtLeast(0f),
                                     // 收藏的"收走"是缩放淡出、不带位移，也得让底露出来
                                     dismissProgress.value * maxOf(vLimitPx, 1f),
                                 )
