@@ -6,7 +6,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -286,16 +285,6 @@ fun FavoritesScreen(
         runCatching { deleteLauncher.launch(IntentSenderRequest.Builder(sender).build()) }
     }
 
-    fun remove(item: MediaItem) {
-        // 两套数据是两个独立概念，别串了 —— 在喜欢页里点的应该是"取消喜欢"，
-        // 而不是去动系统的收藏
-        if (likeMode) container.sessions.toggleLike(item)
-        else container.sessions.toggleFavorite(item)
-        // 落盘异步化，别在点击回调里等一次文件写
-        container.persistAsync()
-        reload()
-    }
-
     /** 「回到那天」里上滑标记的那些，在退出时一次性提交（走系统弹窗）。 */
     fun commitDayDeletes() {
         if (dayMarked.isEmpty()) return
@@ -427,11 +416,15 @@ fun FavoritesScreen(
                             // 和大图预览、瀑布流格子共用同一个圆角值（rememberContentCorner）
                             .clip(rememberContentShape())
                             .background(Surface1)
-                            .combinedClickable(
+                            // ---- 只保留单击（1.4.7）----
+                            //
+                            // 这里原来还挂了一个"长按直接取消收藏/喜欢"。那是**隐形的**：
+                            // 界面上没有任何提示，用户不知道它存在，而它又是一个
+                            // 会改动数据的动作 —— 指头压久一点就悄悄改掉了一条。
+                            // 要去掉某个收藏，进预览点星形/红心，路径清楚得多。
+                            .clickable(
                                 // 点开应用内预览，而不是把用户丢给外部应用
                                 onClick = { previewIndex = index },
-                                // 纯观看模式下长按也不动内容
-                                onLongClick = { if (!viewOnly) remove(item) },
                             ),
                     ) {
                         AsyncImage(

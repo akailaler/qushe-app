@@ -9,6 +9,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -150,6 +151,9 @@ import com.qushe.app.ui.theme.OverlaySoft
  * 3. 每一层都是全屏、不透明、不缩放。照片用 Fit 完整显示会留边，
  *    只要有一层透明或者比上层小，边缘就会透出再下面那张的内容。
  */
+/** 下滑退出：甩动速度门槛（px/s）。和左右翻页同一档，低于这个值只看距离。 */
+private const val DISMISS_FLING_VELOCITY = 1200f
+
 @androidx.annotation.OptIn(UnstableApi::class)
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -192,6 +196,14 @@ fun PhotoSessionScreen(
     // 不会和"手滑"混淆。
     val hLimitPx = with(density) { 72.dp.toPx() }
     val upDecision = if (swipeUpDeletes) SwipeDecision.DELETE else SwipeDecision.FAVORITE
+
+    /**
+     * 下滑退出：滑过 0.22 屏高（且不小于上方删除阈值 `vLimitPx`）算数。
+     *
+     * 和大图预览、瀑布流放大是**同一档手感** —— 三个地方都是"往下拖离开"，
+     * 阈值不一样的话，同一台机器上会有一种"时灵时不灵"的感觉。
+     */
+    val dismissFraction = 0.22f
 
     var index by remember { mutableIntStateOf(0) }
     var marked by remember { mutableStateOf(emptyList<MediaItem>()) }
@@ -743,10 +755,15 @@ fun PhotoSessionScreen(
 
     // 用 BoxWithConstraints 是为了算「图片本身」在屏幕上的位置 ——
     // 实况 / 动图 / 截屏的角标要贴在**图片的左上角**，而不是屏幕的左上角。
+    // 下滑退出时整页淡出。用 `graphicsLayer` 而不是每帧读值改 alpha：
+    // 它只走绘制阶段，不会把整棵子树登记成观察者。
+    val exitProgress = remember { Animatable(0f) }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink),
+            .background(Ink)
+            .graphicsLayer { alpha = 1f - exitProgress.value },
     ) {
         if (current != null) {
             val offsetX = remember(current.id) { Animatable(0f) }
@@ -816,30 +833,40 @@ fun PhotoSessionScreen(
                 offsetX = offsetX,
                 offsetY = offsetY,
                 dismissProgress = dismissProgress,
+                exitProgress = exitProgress,
                 vLimitPx = vLimitPx,
                 hLimitPx = hLimitPx,
+                dismissFraction = dismissFraction,
                 upDecision = upDecision,
                 onDragDir = { d -> if (pageDir != d) pageDir = d },
                 // 放大态把单指手势整条让给 ZoomableImage —— 否则长图放大后拖不动
                 zoomed = zoomed,
                 onDecision = { decision ->
-                    if (decision != SwipeDecision.NEXT) pageDir = 0
-                    when (decision) {
-                        SwipeDecision.DELETE -> {
-                            if (marked.none { it.storeKey() == current.storeKey() }) {
-                                marked = marked + current
-                            }
-                        }
-
-                        SwipeDecision.FAVORITE -> applyFavorite(current)
-
-                        else -> Unit
-                    }
-                    onSeen(current)
-                    index = if (decision == SwipeDecision.PREV) {
-                        (index - 1).coerceAtLeast(0)
+                    if (decision == SwipeDecision.DISMISS) {
+                        // ---- 下滑退出：直接收尾，不前移索引 ----
+                        // 走 `finish()` 而不是自己调 onConclude：已标记的项要照常
+                        // 交出去（系统删除弹窗、统计记账都在那里）。
+                        // 也不调 onSeen —— 退出不是"看过这一张"，那是翻页的语义。
+                        finish()
                     } else {
-                        index + 1
+                        if (decision != SwipeDecision.NEXT) pageDir = 0
+                        when (decision) {
+                            SwipeDecision.DELETE -> {
+                                if (marked.none { it.storeKey() == current.storeKey() }) {
+                                    marked = marked + current
+                                }
+                            }
+
+                            SwipeDecision.FAVORITE -> applyFavorite(current)
+
+                            else -> Unit
+                        }
+                        onSeen(current)
+                        index = if (decision == SwipeDecision.PREV) {
+                            (index - 1).coerceAtLeast(0)
+                        } else {
+                            index + 1
+                        }
                     }
                 },
             ) {
@@ -1177,7 +1204,7 @@ fun PhotoSessionScreen(
                     modifier = Modifier.size(15.dp),
                 )
                 Text(
-                    text = "上滑删除",
+                    text = "上滑删除 · 下滑退出",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary,
                 )
@@ -1428,8 +1455,12 @@ private fun DraggablePhoto(
     offsetY: Animatable<Float, AnimationVector1D>,
     /** 收藏的"被收走"进度：0 = 原样，1 = 缩到 0.85 并淡出。删除/翻页不走这条。 */
     dismissProgress: Animatable<Float, AnimationVector1D>,
+    /** 下滑退出的整页淡出：0 = 正常，1 = 完全透明（调用方拿它做 alpha）。 */
+    exitProgress: Animatable<Float, AnimationVector1D>,
     vLimitPx: Float,
     hLimitPx: Float,
+    /** 下滑退出的判定比例（见调用处的 `dismissFraction`）。 */
+    dismissFraction: Float,
     upDecision: SwipeDecision,
     onDecision: (SwipeDecision) -> Unit,
     /**
@@ -1666,14 +1697,25 @@ private fun DraggablePhoto(
                                 val fling = kotlin.math.abs(v.x) >= SWIPE_FLING_VELOCITY
                                 if (far || fling) SwipeDecision.NEXT else SwipeDecision.NONE
                             }
-                            // 下滑不再触发任何动作 —— 收藏已经移到左下角的小按钮上。
+                            // 竖直方向两个互斥的动作：向上 = 删除/收藏，向下 = 退出。
+                            //
+                            // 下滑从 1.3.x 起空着（收藏挪到左下角按钮之后就没再接动作），
+                            // 现在补回"退出到上一级"—— 这是看图类界面的通用手势，
+                            // 用户在原生的相册/浏览器里都是这么退的。
+                            // 判定看"距离够 或 甩得够快"，和左右翻页、上滑删除一致。
                             axis == 'y' -> {
-                                if (y <= -vLimitPx ||
-                                    (v.y <= -SWIPE_FLING_VELOCITY && y < 0f)
-                                ) {
-                                    upDecision
-                                } else {
-                                    SwipeDecision.NONE
+                                val downLimit =
+                                    (viewHeightPx * dismissFraction).coerceAtLeast(vLimitPx)
+                                when {
+                                    y >= downLimit ||
+                                        (v.y >= DISMISS_FLING_VELOCITY && y > 0f) ->
+                                        SwipeDecision.DISMISS
+
+                                    y <= -vLimitPx ||
+                                        (v.y <= -SWIPE_FLING_VELOCITY && y < 0f) ->
+                                        upDecision
+
+                                    else -> SwipeDecision.NONE
                                 }
                             }
                             else -> SwipeDecision.NONE
@@ -1714,6 +1756,9 @@ private fun DraggablePhoto(
                             }
                             val targetY = when (decision) {
                                 SwipeDecision.DELETE -> -viewHeightPx * 1.2f
+                                // 退出**不飞出一整屏**：飞太远会先把下排那张露出来，
+                                // 观感像"换了一张"。只走 0.45 屏，配合整页淡出。
+                                SwipeDecision.DISMISS -> viewHeightPx * 0.45f
                                 else -> y
                             }
                             coroutineScope {
@@ -1726,6 +1771,19 @@ private fun DraggablePhoto(
                                 } else {
                                     launch { offsetX.flingTo(targetX) }
                                     launch { offsetY.flingTo(targetY) }
+                                    if (decision == SwipeDecision.DISMISS) {
+                                        // 和位移同速（flingTo 是 200ms 的 tween）：
+                                        // 两者同时结束，中间不会露出下面那张。
+                                        launch {
+                                            exitProgress.animateTo(
+                                                1f,
+                                                tween(
+                                                    durationMillis = 200,
+                                                    easing = FastOutLinearInEasing,
+                                                ),
+                                            )
+                                        }
+                                    }
                                 }
                             }
                             // `coroutineScope` 要等两个 launch 都跑完才返回，

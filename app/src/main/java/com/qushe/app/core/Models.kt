@@ -127,7 +127,16 @@ data class BucketInfo(
 )
 
 /** 一次滑动的判定结果。 */
-enum class SwipeDecision { NONE, DELETE, FAVORITE, NEXT, PREV }
+enum class SwipeDecision {
+    NONE,
+    DELETE,
+    FAVORITE,
+    NEXT,
+    PREV,
+
+    /** 下滑退出（离开这一组回到上一级）。和大图预览、瀑布流放大同一套手势。 */
+    DISMISS,
+}
 
 /** 上滑 / 下滑是一对互斥的动作，知道一个就知道另一个。 */
 fun SwipeDecision.opposite(): SwipeDecision = when (this) {
