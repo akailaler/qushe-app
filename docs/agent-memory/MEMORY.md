@@ -25,14 +25,21 @@
 
 ## 「取舍」Android（主线）
 
-工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.5**（versionCode 153）。
+工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.6**（versionCode 154）。
 
 ```bash
 export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
 "C:/Users/<用户名>/.workbuddy/binaries/gradle-8.9/bin/gradle" assembleDebug lintDebug
 ```
 
-- **改完先跑 `python verify.py`**（退出码 0/1）：编码自证 / 版本号四处一致 / 收藏同步逐条比对 / 回收站记账 / **顶层函数重名** / 历史残留 / 构建产物。
+- **改完先跑 `python verify.py`**（退出码 0/1）和 `gradle testDebugUnitTest`（纯 JVM 单测：版本比较、格式化；19 例）
+- **`gradle.properties` 的 jvmargs 里不能加 `-Dfile.encoding=UTF-8`**：
+  Gradle 用守护进程编码写测试进程的 `@argfile`，JDK 17 却按 GBK 读 ⇒
+  中文路径失效、单测全部 `ClassNotFoundException`（1.4.6 踩过，查了很久）。
+- **`DayViewScreen.kt` 已拆成 6 个文件**（DayFilmstrip / DayCell / DayChrome /
+  DayZoomOverlay / DayInfoSheet）；同包内一律用 `internal`，别再改回 `private`。
+- **同类控件散在多处时，先抽成一个组件**：角标曾经三处各写一遍，
+  只改对了两处，收藏页在浅色下一直看不清（1.4.6 抽成 `MediaBadge`）。（退出码 0/1）：编码自证 / 版本号四处一致 / 收藏同步逐条比对 / 回收站记账 / **顶层函数重名** / 历史残留 / 构建产物。
 - **换机器**：`git clone` → `python setup.py`（恢复记忆 + 找 JDK/SDK + 写 `local.properties`）。离开前 commit+push，回来先 pull。
 - **旧 APK 归档在 `D:/backup/apk-archive/{repo,work}/`**：保留全部 release + 最近 3 版所有包，
   其余 debug 移过去（`qushe-android/` 与工作区根各留最新几版）。
