@@ -1210,7 +1210,7 @@ fun PhotoSessionScreen(
                 // 文字区 + 50dp 图标内边距 = 280dp，比两颗按钮之间剩下的还宽）。
                 //
                 // 现在胶囊自己不设上限，由这里给它一块**确定不会被按钮占用**的空间：
-                // 外层再套一层 `padding(horizontal = 52.dp)`（按钮 44 + 8 间隙），
+                // 外层再套一层 `padding(horizontal = 56.dp)`（按钮 48 + 8 间隙），
                 // 它拿到的最大宽度就是屏幕宽减去两侧 —— 结构上不可能压住按钮。
 
                 Box(
@@ -1244,7 +1244,7 @@ fun PhotoSessionScreen(
                         location = currentLocation,
                         modifier = Modifier
                             .align(Alignment.Center)
-                            .padding(horizontal = 52.dp),
+                            .padding(horizontal = 56.dp),
                         onClick = { detailVisible = true },
                     )
                 }

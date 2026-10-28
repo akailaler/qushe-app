@@ -78,6 +78,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LifecycleEventEffect
+import androidx.media3.common.AudioAttributes
+import androidx.media3.common.C
 import androidx.media3.common.MediaItem as Media3Item
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -215,6 +217,19 @@ fun VideoSessionScreen(
         ExoPlayer.Builder(context).build().apply {
             repeatMode = Player.REPEAT_MODE_ONE
             playWhenReady = autoPlay
+            // ---- 接管音频焦点（1.4.6）----
+            //
+            // 不设的话 ExoPlayer 默认**不申请焦点**：后台在放音乐/播客时打开
+            // 视频页，两路声音会一起响；来电或微信语音也不会把它压低。
+            // `handleAudioFocus = true` 交给播放器自己处理"暂停/恢复/闪避"，
+            // 我们不用手写 AudioManager 那一套。
+            setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(C.USAGE_MEDIA)
+                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
+                    .build(),
+                /* handleAudioFocus = */ true,
+            )
         }
     }
     DisposableEffect(Unit) {

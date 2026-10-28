@@ -30,7 +30,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -42,8 +41,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import com.qushe.app.core.formatSize
-import com.qushe.app.core.relativeDayLabel
 import com.qushe.app.ui.photo.InfoPill
 import com.qushe.app.ui.photo.infoPillPrimary
 import com.qushe.app.ui.photo.infoPillSecondary
@@ -52,7 +49,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import com.qushe.app.ui.photo.PhotoDetailContent
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
@@ -88,6 +84,7 @@ import kotlinx.coroutines.launch
 import com.qushe.app.ui.common.fitInside
 import com.qushe.app.ui.common.scaledAboutCenter
 import com.qushe.app.ui.common.StarFilledIcon
+import com.qushe.app.ui.common.MediaBadge
 
 /**
  * 收藏夹。
@@ -444,20 +441,16 @@ fun FavoritesScreen(
                             modifier = Modifier.fillMaxSize(),
                         )
                         if (item.kind == MediaKind.VIDEO) {
-                            Box(
+                            // 颜色由 [MediaBadge] 统一给：固定深底 + 浅字。
+                            // 这里原来写死 0xB3000000 + AccentInfo，浅色模式下
+                            // AccentInfo 会变深，压在黑底上就看不清了。
+                            MediaBadge(
+                                text = formatDuration(item.durationMillis),
+                                accent = true,
                                 modifier = Modifier
                                     .align(Alignment.BottomEnd)
-                                    .padding(6.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(Color(0xB3000000))
-                                    .padding(horizontal = 5.dp, vertical = 2.dp),
-                            ) {
-                                Text(
-                                    text = formatDuration(item.durationMillis),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = AccentInfo,
-                                )
-                            }
+                                    .padding(6.dp),
+                            )
                         }
                     }
                 }

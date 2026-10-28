@@ -102,7 +102,9 @@ fun RoundActionButton(
 ) {
     Box(
         modifier = modifier
-            .size(44.dp)
+            // 48dp：Material 的最小触摸目标。之前 44dp 视觉上略小，
+            // 手指偏一点就滑出去（用户要求试一版）。
+            .size(48.dp)
             // 浅色下"透明白卡片"需要一点点阴影才立得起来；深色原样
             .overlayShadow(CircleShape)
             .clip(CircleShape)

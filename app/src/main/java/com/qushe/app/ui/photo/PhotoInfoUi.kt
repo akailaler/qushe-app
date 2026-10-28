@@ -166,7 +166,7 @@ fun InfoPill(
      * 根因就是胶囊压住了星形的内侧，点击被它的 `clickable` 先吃掉）。
      *
      * 正确做法：调用方把胶囊放进"两颗按钮之外"的那块空间里
-     * （整理页用 `padding(horizontal = 52.dp)`、收藏页用 `weight(1f)`），
+     * （整理页用 `padding(horizontal = 56.dp)`、收藏页用 `weight(1f)`），
      * 这里就自动拿到那块空间的宽度上限，结构上不可能重叠。
      */
     contentMaxWidth: Dp? = null,

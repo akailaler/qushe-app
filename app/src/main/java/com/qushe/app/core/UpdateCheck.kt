@@ -86,7 +86,9 @@ suspend fun checkForUpdate(current: String): UpdateResult = withContext(Dispatch
  *
  * 不用字符串比较：`"1.3.9" > "1.3.10"` 在字典序下是 true，但版本号不是这样。
  */
-private fun isNewer(latest: String, current: String): Boolean {
+// internal 而不是 private：单元测试要直接测它。这是全工程唯一一处
+// "纯算术但错了会很难发现"的逻辑，值得有断言。
+internal fun isNewer(latest: String, current: String): Boolean {
     val a = latest.split('.').map { it.toIntOrNull() ?: 0 }
     val b = current.split('.').map { it.toIntOrNull() ?: 0 }
     for (i in 0 until maxOf(a.size, b.size)) {

@@ -30,9 +30,11 @@ android {
         // 直接操作文件，完全另一套代码路径。回留同样只支持 Android 11+。
         minSdk = 30
         targetSdk = 35
-        versionCode = 153
-        versionName = "1.4.5"
-        resourceConfigurations += listOf("zh", "en")
+        versionCode = 154
+        versionName = "1.4.6"
+        // 只打包中文资源：工程里没有 values-en，声明 "en" 只是让
+        // `aapt` 去翻译一堆空资源，在多语言系统上还会误判"支持英文"。
+        resourceConfigurations += listOf("zh")
     }
 
     signingConfigs {
@@ -76,6 +78,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // 显式声明，不依赖机器区域设置
+        encoding = "UTF-8"
     }
 
     kotlinOptions {
@@ -130,4 +134,8 @@ dependencies {
     implementation("io.coil-kt:coil-gif:2.7.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // 纯 JVM 单元测试。只测不依赖 Android 运行时的逻辑（版本比较、格式化），
+    // 因为本工程没有 Android Studio，Robolectric / instrumentation 跑起来太重。
+    testImplementation("junit:junit:4.13.2")
 }
