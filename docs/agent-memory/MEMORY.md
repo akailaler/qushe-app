@@ -25,7 +25,7 @@
 
 ## 「取舍」Android（主线）
 
-工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.6**（versionCode 154）。
+工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.7**（versionCode 155）。
 
 ```bash
 export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
@@ -38,6 +38,8 @@ export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1
   中文路径失效、单测全部 `ClassNotFoundException`（1.4.6 踩过，查了很久）。
 - **`DayViewScreen.kt` 已拆成 6 个文件**（DayFilmstrip / DayCell / DayChrome /
   DayZoomOverlay / DayInfoSheet）；同包内一律用 `internal`，别再改回 `private`。
+- **会改数据的动作不要挂在隐藏手势上**：收藏页曾有"长按直接取消收藏"，
+  界面上零提示，用户根本不记得有这功能（1.4.7 删掉）。
 - **同类控件散在多处时，先抽成一个组件**：角标曾经三处各写一遍，
   只改对了两处，收藏页在浅色下一直看不清（1.4.6 抽成 `MediaBadge`）。（退出码 0/1）：编码自证 / 版本号四处一致 / 收藏同步逐条比对 / 回收站记账 / **顶层函数重名** / 历史残留 / 构建产物。
 - **换机器**：`git clone` → `python setup.py`（恢复记忆 + 找 JDK/SDK + 写 `local.properties`）。离开前 commit+push，回来先 pull。
