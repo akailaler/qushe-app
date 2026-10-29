@@ -25,7 +25,7 @@
 
 ## 「取舍」Android（主线）
 
-工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.4.8**（versionCode 156）。
+工程 `qushe-android/`，JDK17 + Gradle 8.9 + SDK 35，无 Android Studio，命令行构建 + 小米真机验证。当前 **1.5.0**（versionCode 157）。
 
 ```bash
 export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1"
@@ -52,6 +52,11 @@ export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1
 - **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。
 - **版本号只有一个真源**：只改 `build.gradle.kts`；设置页读 `BuildConfig.VERSION_NAME`，
   **不要再写死 `"取舍 x.y.z"`**（`verify.py` 会报错拦下）。
+- **配色是「皮肤 × 深浅」两个正交维度**：皮肤（QusheSkin，含浅/深两版）决定色相，
+  `themeMode` 决定用哪一版。加一套皮肤 = 在 `QusheSkins` 里加一个 QusheSkin
+  （11 个种子色，其余由 `skinPalette()` 推导），**不要在别处写颜色**。
+  ★ 设计稿的主色往往太浅（柔桃 #E8BFB0 在白底上对比度 1.7），
+  而 AccentKeep 还兼作选中态文字色 —— 要按对比度反算压深再落地。
 - **颜色一律走 `QusheColors.palette`**：`val Ink: Color get() = QusheColors.palette.ink`，
   **不要再加 `val X = Color(...)` 这种常量**——浅色主题下它不会变。
   两套调色板在 `ui/theme/Theme.kt`，默认 `THEME_DARK`，设置在「外观」。
