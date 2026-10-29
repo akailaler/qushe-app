@@ -52,20 +52,19 @@ export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1
 - **UI 副标题只写"影响什么"，不解释"为什么"**（为什么写注释）。
 - **版本号只有一个真源**：只改 `build.gradle.kts`；设置页读 `BuildConfig.VERSION_NAME`，
   **不要再写死 `"取舍 x.y.z"`**（`verify.py` 会报错拦下）。
-- **配色是「皮肤 × 深浅」两个正交维度**：皮肤（QusheSkin，含浅/深两版）决定色相，
-  `themeMode` 决定用哪一版。加一套皮肤 = 在 `QusheSkins` 里加一个 QusheSkin
-  （11 个种子色，其余由 `skinPalette()` 推导），**不要在别处写颜色**。
-  1.6.0 起 **10 套**，名字统一四字（素白玄墨/暖桃初雪/新茶初雨/燕麦秋声/远山如黛/
-  烟粉旧梦/睡莲静水/赤陶晚照/椰影暖沙/青苔石阶）。加皮肤要同时改
-  `Prefs.SKIN_MAX`，否则选完被 `coerceIn` 夹回默认、表现是「点了没反应」
-  （`verify.py` §6 会核对，别绕过）。
+- **配色在 1.7.0 拆成两张表**：`LightSkins` / `DarkSkins` 各五套，`Prefs.lightSkinId` /
+  `darkSkinId` 各选各的（"白天一张纸、夜里一盏灯"，不是把浅色压暗）。
+  加一套 = 各自表里加 `QusheSkin(id, name, skinPalette(...))`（11 个种子色），
+  **不要在别处写颜色**；同时改 `Prefs.SKIN_MAX`，否则选完被 `coerceIn` 夹回默认、
+  表现是「点了没反应」（`verify.py` §6 核对，别绕过）。
+  名字四字、按奔驰氛围灯那一路（地名 + 色）。
 - **★ 主色必须能被当文字读**：`AccentKeep` 同时是底部导航选中标签（12sp）的颜色，
   浅色版对底色 **≥4.5:1**；删除 ≥4.2、信息/文件夹 ≥4.0、紫 ≥3.6、正文 ≥10、次要 ≥4.6。
   设计稿给的柔和色一律按对比度反算压深（暖桃 #E8BFB0 → #9C6454 才够）。
   改配色后**跑脚本算对比度**，不要凭眼睛判断"看起来还行"。
-- **新配色的取色方法**：油画的彩度不能直接搬（会变糖水），只取**明度关系**；
-  每套只挑一个色相，四个分类色做小幅偏移，不从别的色系借色，否则 10 套会串味。
-  预览页 `docs/skins.html` **由 `skins_page.py` 从 Theme.kt 生成**（纯静态、无 JS），
+- **分类色要跨色系**：主色定调子，但"照片/截屏/视频/文件夹"四个色必须互相分得开
+  （首页四张卡并排），只压低饱和度，不把色相也统一掉 —— 否则四张卡糊成一片。
+- 预览页 `docs/skins.html` **由 `skins_page.py` 从 Theme.kt 生成**（纯静态、无 JS），
   改了配色重跑 `python skins_page.py`；忘了会被 `verify.py` §6 拦下。
 - **颜色一律走 `QusheColors.palette`**：`val Ink: Color get() = QusheColors.palette.ink`，
   **不要再加 `val X = Color(...)` 这种常量**——浅色主题下它不会变。
