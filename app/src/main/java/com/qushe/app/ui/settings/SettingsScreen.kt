@@ -14,11 +14,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -50,6 +54,7 @@ import com.qushe.app.ui.theme.AccentDelete
 import com.qushe.app.ui.theme.AccentInfo
 import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.Ink
+import com.qushe.app.ui.theme.QusheSkins
 import com.qushe.app.ui.theme.Surface1
 import com.qushe.app.ui.theme.Surface2
 import com.qushe.app.ui.theme.Surface3
@@ -197,12 +202,32 @@ fun SettingsScreen(
                             },
                         )
                     }
-                    // 第四颗不是"模式"，是入口：点开一整页色卡。
-                    // 选了皮肤之后它显示皮肤名，这样不看那一页也知道现在是什么配色。
-                    Chip(
-                        text = if (skinId == 0) "更多" else skinOf(skinId).name,
-                        selected = skinId != 0,
-                        onClick = { showSkinPicker = true },
+                }
+            }
+
+            // 配色**单独一行**。
+            //
+            // 原来它是「深浅模式」那一排的第四颗胶囊（写着"更多"）。三个问题：
+            //  · 和三种深浅模式长得一模一样，会被读成"第四种模式"；
+            //  · "更多"没说是更多什么，用户不知道点进去是配色；
+            //  · 四字色名（烟粉旧梦）比"浅色/深色"长出近一倍，一排四颗要挤着排。
+            // 现在给它一行、一个标题、一个右箭头 —— 和设置页其它"点进去"的条目同构。
+            SettingBlock(
+                title = "配色",
+                subtitle = "浅色和深色各有一版，共 ${QusheSkins.size} 套",
+                onClick = { showSkinPicker = true },
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = skinOf(skinId).name,
+                        style = MaterialTheme.typography.labelLarge,
+                        color = TextSecondary,
+                    )
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = TextTertiary,
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }

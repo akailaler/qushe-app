@@ -63,6 +63,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.layout.ContentScale
@@ -132,7 +133,11 @@ fun HomeScreen(
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            text = "像刷短视频一样刷自己的相册。不用下决心整理，想起来就划两下",
+            // 19 个字，正好一行。
+            // 原来写的是"像刷短视频一样刷自己的相册。不用下决心整理，想起来就划两下"（30 字），
+            // 在这个宽度下会断成两行、第二行只剩一个"下"字 —— 孤字挂在左边很难看，
+            // 而且两行的副标题会把下面四张卡整体往下推。
+            text = "不用下决心整理，像刷短视频一样划两下",
             style = MaterialTheme.typography.bodyMedium,
             color = TextTertiary,
         )
@@ -353,6 +358,17 @@ private fun EntryCard(
                 style = MaterialTheme.typography.titleLarge,
                 color = if (enabled) accent else TextTertiary,
                 fontWeight = FontWeight.Medium,
+            )
+        } else {
+            // 「整理文件夹」没有"多少条"这个概念，所以没有数字。
+            // 但空着会让这一张看起来像没加载完（前三张右边都有大数字），
+            // 而且它是**唯一一个不直接开一组、而是先让人挑一个**的入口 ——
+            // 箭头正好把"接下来还有一步"说出来。
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = if (enabled) TextTertiary else TextTertiary.copy(alpha = 0.5f),
+                modifier = Modifier.size(22.dp),
             )
         }
     }

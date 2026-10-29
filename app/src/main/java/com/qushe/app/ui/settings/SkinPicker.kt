@@ -101,8 +101,9 @@ fun SkinPickerSheet(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            // 说清和「深浅模式」的分工，否则会以为选了皮肤就不用管深浅
-                            text = "每套都含浅色和深色；深浅仍由上面的「深浅模式」决定",
+                            // 只说明"这张卡怎么读"。原来写的是"深浅仍由上面的模式决定"，
+                            // 可这一页是全屏的，用户看不到"上面"在哪儿。
+                            text = "左半是浅色效果，右半是深色效果",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextTertiary,
                         )
@@ -123,14 +124,6 @@ fun SkinPickerSheet(
                             skin = skin,
                             selected = skin.id == currentId,
                             onClick = { onPick(skin.id) },
-                        )
-                    }
-                    item(span = { androidx.compose.foundation.lazy.grid.GridItemSpan(maxLineSpan) }) {
-                        Text(
-                            text = "后面还会再加几套。用的是同一套结构，加一套只改一处配色表。",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = TextTertiary,
-                            modifier = Modifier.padding(top = 6.dp, start = 2.dp),
                         )
                     }
                 }

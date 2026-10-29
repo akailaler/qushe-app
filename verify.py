@@ -370,8 +370,59 @@ def check_legacy():
         warn("synced_favorites.txt 还在", "已无用途（1.3.68 起不再记账），可以删")
 
 
+def check_skins():
+    """
+    配色表的两处真源必须对齐：`QusheSkins`（ui 层）与 `Prefs.SKIN_MAX`（core 层）。
+
+    ---- 为什么值得单独做一项 ----
+    core 层不能读 ui 层的那张表，所以上限只能另写一个常量。
+    这类"同一个数写在两处"的坑在这个工程已经出过好几次（版本号、角标、文件夹列数）。
+    一旦忘了改：新皮肤点下去存进去，下次读出来被 `coerceIn` 夹回默认 ——
+    表现是"选了没反应"，而且不崩、不报错，最难查。
+    """
+    section(6, "配色皮肤")
+    theme = read(os.path.join(JAVA_SRC, "com/qushe/app/ui/theme/Theme.kt"))
+    prefs = read(os.path.join(JAVA_SRC, "com/qushe/app/core/Prefs.kt"))
+
+    # 两种写法都要认：独立的 `QusheSkin(id = 5, name = "…")`，以及列表里内联的
+    # `QusheSkin(0, "…", LightPalette, DarkPalette)`。注意 id 与 name 之间
+    # 隔着换行和 `name =`，正则不能只认逗号后紧跟引号。
+    skins = {}
+    for m in re.finditer(
+        r'QusheSkin\(\s*(?:id\s*=\s*)?(\d+)\s*,\s*(?:name\s*=\s*)?"([^"]+)"', theme
+    ):
+        skins[int(m.group(1))] = m.group(2)
+    if not skins:
+        bad("没解析到任何皮肤", "Theme.kt 里 QusheSkin(...) 的写法变了？")
+        return
+
+    if sorted(skins) != list(range(len(skins))):
+        bad("皮肤 id 不连续", f"实际 {sorted(skins)}")
+    else:
+        ok("皮肤 id 连续", f"0..{len(skins) - 1}，共 {len(skins)} 套")
+
+    odd = [(i, n) for i, n in sorted(skins.items()) if len(n) != 4]
+    for i, n in odd:
+        warn(f"皮肤名不是四个字：{n}", f"第 {i} 套，{len(n)} 字")
+    if not odd:
+        ok("皮肤名都是四个字")
+
+    m = re.search(r"SKIN_MAX\s*=\s*(\d+)", prefs)
+    last = len(skins) - 1
+    if not m:
+        bad("Prefs 里找不到 SKIN_MAX")
+    elif int(m.group(1)) != last:
+        bad(
+            "SKIN_MAX 与皮肤数量不一致",
+            f"SKIN_MAX={m.group(1)}，最后一套 id={last} —— 新皮肤会被夹回默认："
+            "表现是「选了没反应」",
+        )
+    else:
+        ok("SKIN_MAX 与最后一套 id 一致", str(last))
+
+
 def check_artifacts():
-    section(6, "构建产物")
+    section(7, "构建产物")
     apk = os.path.join(ROOT, "app", "build", "outputs", "apk", "debug", "app-debug.apk")
     if not os.path.exists(apk):
         skip("没有 app-debug.apk")
@@ -444,6 +495,7 @@ def main():
     check_trash()
     check_duplicate_functions()
     check_legacy()
+    check_skins()
     check_artifacts()
 
     print("\n" + "=" * 46)
