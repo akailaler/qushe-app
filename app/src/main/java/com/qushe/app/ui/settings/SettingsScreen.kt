@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.launch
 import com.qushe.app.core.CrashLog
 import com.qushe.app.core.MediaRepository
@@ -54,7 +55,6 @@ import com.qushe.app.ui.theme.AccentDelete
 import com.qushe.app.ui.theme.AccentInfo
 import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.Ink
-import com.qushe.app.ui.theme.QusheSkins
 import com.qushe.app.ui.theme.Surface1
 import com.qushe.app.ui.theme.Surface2
 import com.qushe.app.ui.theme.Surface3
@@ -65,7 +65,8 @@ import androidx.compose.foundation.layout.width
 import com.qushe.app.BuildConfig
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
-import com.qushe.app.ui.theme.skinOf
+import com.qushe.app.ui.theme.darkSkinOf
+import com.qushe.app.ui.theme.lightSkinOf
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
 private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
@@ -103,9 +104,12 @@ fun SettingsScreen(
     /** 外观：跟随系统 / 浅色 / 深色（`Prefs.THEME_*`）。 */
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
-    /** 配色皮肤（0 = 默认）。和深浅正交，见 `ui/theme/Theme.kt`。 */
-    skinId: Int = 0,
-    onSkinIdChange: (Int) -> Unit = {},
+    /** 浅色皮肤 id（见 `LightSkins`）。 */
+    lightSkinId: Int = 0,
+    /** 深色皮肤 id（见 `DarkSkins`）。 */
+    darkSkinId: Int = 0,
+    onLightSkinChange: (Int) -> Unit = {},
+    onDarkSkinChange: (Int) -> Unit = {},
     /** 统计清零。长按「到目前为止」里的「已删除」触发，和首页同一个实现。 */
     onStatsReset: () -> Unit = {},
 ) {
@@ -174,7 +178,7 @@ fun SettingsScreen(
                 color = TextPrimary,
                 fontWeight = FontWeight.Medium,
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(8.dp))
         }
 
         // ---- 第 2 块（分块是为了让 LazyColumn 惰性组合；块内顺序与原来一致）----
@@ -210,16 +214,18 @@ fun SettingsScreen(
             // 原来它是「深浅模式」那一排的第四颗胶囊（写着"更多"）。三个问题：
             //  · 和三种深浅模式长得一模一样，会被读成"第四种模式"；
             //  · "更多"没说是更多什么，用户不知道点进去是配色；
-            //  · 四字色名（烟粉旧梦）比"浅色/深色"长出近一倍，一排四颗要挤着排。
+            //  · 四字色名比"浅色/深色"长出近一倍，一排四颗要挤着排。
             // 现在给它一行、一个标题、一个右箭头 —— 和设置页其它"点进去"的条目同构。
             SettingBlock(
                 title = "配色",
-                subtitle = "浅色和深色各有一版，共 ${QusheSkins.size} 套",
+                subtitle = "左边浅色、右边深色，各选一套",
                 onClick = { showSkinPicker = true },
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
-                        text = skinOf(skinId).name,
+                        // 两个名字都给出来：跟随系统时两套都会用到，只显示一套会让人
+                        // 以为另一套没设过。中间用间隔号，读作"白天这套 / 夜里这套"。
+                        text = "${lightSkinOf(lightSkinId).name} · ${darkSkinOf(darkSkinId).name}",
                         style = MaterialTheme.typography.labelLarge,
                         color = TextSecondary,
                     )
@@ -328,7 +334,6 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
             SectionTitle("删除")
 
             SettingBlock(
@@ -369,12 +374,11 @@ fun SettingsScreen(
 
         // ---- 第 3 块（分块是为了让 LazyColumn 惰性组合；块内顺序与原来一致）----
         item {
-            Spacer(Modifier.height(20.dp))
             SectionTitle("视频播放")
 
             SettingBlock(
+                // 标题自明，不再加"所有视频默认静音…"那一行 —— 开关本身就说清了
                 title = "默认静音",
-                subtitle = "所有视频默认静音；页面内可切回有声",
             ) {
                 Switch(
                     checked = videoMuted,
@@ -388,7 +392,6 @@ fun SettingsScreen(
 
             SettingBlock(
                 title = "自动播放",
-                subtitle = "进入即开始播放，不用再点一下",
             ) {
                 Switch(
                     checked = autoPlay,
@@ -404,8 +407,8 @@ fun SettingsScreen(
             // 用户还得在脑子里把"关闭"翻译成"那就是左边"。
             // 两个选项各自写清位置，就没有这一步翻译了。
             SettingBlock(
-                title = "操作栏",
-                subtitle = "视频的侧边按钮",
+                // 标题里带上"位置"，就不必再用副标题解释"操作栏是什么"
+                title = "操作栏位置",
             ) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Chip(
@@ -533,7 +536,6 @@ fun SettingsScreen(
 
         // ---- 第 4 块（分块是为了让 LazyColumn 惰性组合；块内顺序与原来一致）----
         item {
-            Spacer(Modifier.height(20.dp))
             SectionTitle("收藏")
 
             SettingBlock(
@@ -603,7 +605,6 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.height(20.dp))
             SectionTitle("到目前为止")
 
             Row(
@@ -759,11 +760,15 @@ fun SettingsScreen(
 
     if (showSkinPicker) {
         SkinPickerSheet(
-            currentId = skinId,
-            onPick = { id ->
-                onSkinIdChange(id)
-                prefs.skinId = id
-                showSkinPicker = false
+            lightId = lightSkinId,
+            darkId = darkSkinId,
+            onPickLight = { id ->
+                onLightSkinChange(id)
+                prefs.lightSkinId = id
+            },
+            onPickDark = { id ->
+                onDarkSkinChange(id)
+                prefs.darkSkinId = id
             },
             onDismiss = { showSkinPicker = false },
         )
@@ -807,10 +812,18 @@ private const val DEFAULT_LABEL = "30"
 
 @Composable
 private fun SectionTitle(text: String) {
+    // 分组标题前面留一大口气（块与块之间只有 10dp）。
+    //
+    // 之前组间距和块间距一样，整页看起来就是"一条线接一条线"——
+    // 用户的原话是"像撒了一层噪点"。分组要能一眼看出来，靠的就是这 22dp。
+    Spacer(Modifier.height(22.dp))
     Text(
+        // 退成"标签"而不是"标题"：13sp + 字距 + 三级文字色。
+        // 原来和条目标题一样大（16sp），两者抢层级，扫读时找不到重点。
         text = text,
-        style = MaterialTheme.typography.titleMedium,
-        color = TextSecondary,
+        fontSize = 13.sp,
+        letterSpacing = 0.8.sp,
+        color = TextTertiary,
         fontWeight = FontWeight.Medium,
     )
     Spacer(Modifier.height(10.dp))
@@ -827,7 +840,13 @@ private val SETTING_TRAILING_HEIGHT = 36.dp
 @Composable
 private fun SettingBlock(
     title: String,
-    subtitle: String,
+    /**
+     * 副标题：**只写"影响什么"**，可以不写。
+     *
+     * 纯开关（默认静音、自动播放）标题已经说清了，再加一行 11sp 灰字只是噪音 ——
+     * 二十多条都带副标题时，整页会像撒了一层灰。传 null 这一行就不占高度。
+     */
+    subtitle: String? = null,
     onClick: (() -> Unit)? = null,
     trailing: @Composable () -> Unit,
 ) {
@@ -875,12 +894,14 @@ private fun SettingBlock(
                 trailing()
             }
         }
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = subtitle,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextTertiary,
-        )
+        if (subtitle != null) {
+            Spacer(Modifier.height(4.dp))
+            Text(
+                text = subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = TextTertiary,
+            )
+        }
         Spacer(Modifier.height(10.dp))
         HorizontalDivider(color = Surface3.copy(alpha = 0.5f))
         Spacer(Modifier.height(10.dp))

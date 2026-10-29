@@ -16,6 +16,14 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.qushe.app.ui.theme.overlayShadow
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -1211,38 +1219,12 @@ fun PhotoSessionScreen(
             }
         }
 
-        // ---- 手势提示：上滑删除 ----
+        // ---- 手势提示 ----
         //
-        // 和底部那行提示**同条件、同寿命**：展开胶片栏或翻过三张就一起消失。
-        // 放大时 `chromeAlpha` 归零，它跟着整层淡出，不需要单独判断。
-        if (!filmstripVisible && !hintDismissed) {
-            Row(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
-                    .statusBarsPadding()
-                    .padding(top = 54.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(OverlaySoft)
-                    .padding(horizontal = 10.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                Icon(
-                    // 向上箭头：说的是"上滑"这个方向，不是"删除"这个结果 ——
-                    // 紧跟其后的文字已经把结果讲清楚了。
-                    imageVector = Icons.Filled.KeyboardArrowUp,
-                    contentDescription = null,
-                    tint = TextSecondary,
-                    modifier = Modifier.size(15.dp),
-                )
-                Text(
-                    text = "左右滑下一张 · 上滑删除 · 下滑退出",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
-                )
-            }
-        }
+        // 原来这里是一行顶部胶囊（"左右滑下一张 · 上滑删除 · 下滑退出"）。
+        // 一行字要读三遍才知道哪个方向对应哪件事，而且是**横排**的，
+        // 和它描述的"上下左右"完全对不上。现在改成下面那张三行教学卡：
+        // 一行一个方向，箭头会沿着它说的方向来回动。
 
         // ---- 底部：信息 + 胶片条 + 提示 ----
         val currentForInfo = list.getOrNull(index)
@@ -1348,6 +1330,23 @@ fun PhotoSessionScreen(
                     )
                 }
             }
+        }
+
+        // ---- 前三张：手势教学 ----
+        //
+        // 只在"这一组的前三张"出现：`hintDismissed` 在 index 走到 3 时置位，
+        // 之后整场都不再显示 —— 学过一次就够了，常驻就变成噪音。
+        //
+        // 放在**底部**而不是正中：照片主体在中间，教学卡压在那儿等于不让人看。
+        // 它浮在信息胶囊上方、胶片条收起的默认状态里，正好是拇指够不到的那一条。
+        if (!filmstripVisible && !hintDismissed) {
+            GestureTutorial(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
+                    .navigationBarsPadding()
+                    .padding(bottom = 172.dp),
+            )
         }
 
         motionHint?.let { hint ->
@@ -2072,3 +2071,120 @@ private const val BEHIND_FADE_FRACTION = 1.2f
  * 两格等宽 ⇒ 中间的计数才真的是几何居中。
  */
 private val BADGE_SLOT_WIDTH = 56.dp
+
+/**
+ * 前三张才出现的手势教学。
+ *
+ * ---- 为什么不是一行字 ----
+ * 原来是顶部一行"左右滑下一张 · 上滑删除 · 下滑退出"。三个动作挤在一条线上，
+ * 而且"左右 / 上 / 下"是横排写的，和它描述的手势方向对不上 ——
+ * 读的人得在脑子里转一道弯。这里一行一个方向，箭头还沿着那个方向来回动。
+ *
+ * ---- 为什么很轻 ----
+ * 前 3 张是"正在看照片"的时刻，不是教程页。所以只有一块半透明浮层、
+ * 三行字、5dp 的往复位移：不铺全屏、不加遮罩、不需要点"我知道了"。
+ */
+@Composable
+private fun GestureTutorial(modifier: Modifier = Modifier) {
+    val transition = rememberInfiniteTransition(label = "tutorial")
+    val shift by transition.animateFloat(
+        initialValue = -5f,
+        targetValue = 5f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1050, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "shift",
+    )
+    val shape = RoundedCornerShape(18.dp)
+    Column(
+        modifier = modifier
+            .width(258.dp)
+            .clip(shape)
+            .background(OverlaySoft)
+            // 浅色下这块半透白压在照片上会和照片糊成一片，2dp 淡阴影把它抬起来
+            .overlayShadow(shape, 6.dp)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp),
+    ) {
+        TutorialRow(
+            title = "左右滑",
+            hint = "看下一张",
+            accent = AccentKeep,
+            offset = shift,
+            icon = null,
+        )
+        TutorialRow(
+            title = "上滑",
+            hint = "删掉这一张",
+            accent = AccentDelete,
+            offset = -shift,
+            icon = Icons.Filled.KeyboardArrowUp,
+        )
+        TutorialRow(
+            title = "下滑",
+            hint = "退出整理",
+            accent = TextSecondary,
+            offset = shift,
+            icon = Icons.Filled.KeyboardArrowDown,
+        )
+    }
+}
+
+/**
+ * 教学卡里的一行：左边一个会动的方向提示，右边"动作 + 结果"。
+ *
+ * `offset` 由外面统一驱动，三行共用同一个时钟 —— 各自起一个动画的话，
+ * 三条箭头会不同步，看着像卡了。
+ */
+@Composable
+private fun TutorialRow(
+    title: String,
+    hint: String,
+    accent: Color,
+    offset: Float,
+    /** null 表示左右双箭头。 */
+    icon: ImageVector?,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.width(38.dp), contentAlignment = Alignment.CenterStart) {
+            if (icon == null) {
+                Row(modifier = Modifier.graphicsLayer { translationX = offset }) {
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowLeft,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(15.dp),
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.KeyboardArrowRight,
+                        contentDescription = null,
+                        tint = accent,
+                        modifier = Modifier.size(15.dp),
+                    )
+                }
+            } else {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = accent,
+                    modifier = Modifier
+                        .size(17.dp)
+                        .graphicsLayer { translationY = offset },
+                )
+            }
+        }
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            color = TextPrimary,
+            fontWeight = FontWeight.Medium,
+        )
+        Spacer(Modifier.weight(1f))
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.labelSmall,
+            color = TextTertiary,
+        )
+    }
+}

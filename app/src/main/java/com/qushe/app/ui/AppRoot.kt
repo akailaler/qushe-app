@@ -24,11 +24,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -52,6 +47,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import com.qushe.app.ui.common.HomeFilledIcon
+import com.qushe.app.ui.common.HomeIcon
+import com.qushe.app.ui.common.StarBorderIcon
+import com.qushe.app.ui.common.StarFilledIcon
+import com.qushe.app.ui.common.TrashFilledIcon
+import com.qushe.app.ui.common.TrashIcon
+import com.qushe.app.ui.common.TuneFilledIcon
+import com.qushe.app.ui.common.TuneIcon
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -87,16 +90,22 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.qushe.app.ui.theme.ForceDarkPalette
 
-private enum class Tab(val label: String, val icon: ImageVector) {
+private enum class Tab(
+    val label: String,
+    /** 未选中：线描。 */
+    val icon: ImageVector,
+    /** 选中：同一个形状填满 —— 形状不跳，只是从空心变实心。 */
+    val iconSelected: ImageVector,
+) {
     // 标签叫「首页」而不是「整理」：这一页其实是整站的第一屏 ——
     // 三个整理入口 + 累计成果 + 收藏 / 回收站 / 设置的落脚点。
     // 叫「整理」会让人以为这一页本身在做整理，而它只是个入口页。
-    Review("首页", Icons.Filled.Home),
+    Review("首页", HomeIcon, HomeFilledIcon),
     // 星形，不是心形 —— 和「回到那天」里的实心星、整理页的五星是同一个符号。
     // "收藏"这个概念在本 App 里统一用星；心形留给「喜欢」（另一条独立列表）。
-    Favorites("收藏", Icons.Filled.Star),
-    Trash("回收站", Icons.Filled.Delete),
-    Settings("设置", Icons.Filled.Settings),
+    Favorites("收藏", StarBorderIcon, StarFilledIcon),
+    Trash("回收站", TrashIcon, TrashFilledIcon),
+    Settings("设置", TuneIcon, TuneFilledIcon),
 }
 
 /**
@@ -125,9 +134,12 @@ fun AppRoot(
     /** 外观（跟随系统 / 浅色 / 深色）。由 `MainActivity` 持有，见那里的说明。 */
     themeMode: Int = Prefs.THEME_DARK,
     onThemeModeChange: (Int) -> Unit = {},
-    /** 配色皮肤（0 = 默认）。由 `MainActivity` 持有，见那里的说明。 */
-    skinId: Int = 0,
-    onSkinIdChange: (Int) -> Unit = {},
+    /** 浅色皮肤（见 `LightSkins`）。和 [darkSkinId] 各选各的。 */
+    lightSkinId: Int = 0,
+    /** 深色皮肤（见 `DarkSkins`）。 */
+    darkSkinId: Int = 0,
+    onLightSkinChange: (Int) -> Unit = {},
+    onDarkSkinChange: (Int) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -633,7 +645,12 @@ fun AppRoot(
                         NavigationBarItem(
                             selected = tab == entry,
                             onClick = { goToTab(entry) },
-                            icon = { Icon(entry.icon, contentDescription = entry.label) },
+                            icon = {
+                                Icon(
+                                    imageVector = if (tab == entry) entry.iconSelected else entry.icon,
+                                    contentDescription = entry.label,
+                                )
+                            },
                             label = { Text(entry.label, style = MaterialTheme.typography.labelSmall) },
                             colors = NavigationBarItemDefaults.colors(
                                 selectedIconColor = AccentKeep,
@@ -752,8 +769,10 @@ fun AppRoot(
                         onFolderColumnsChange = { folderColumns = it },
                         themeMode = themeMode,
                         onThemeModeChange = onThemeModeChange,
-                        skinId = skinId,
-                        onSkinIdChange = onSkinIdChange,
+                        lightSkinId = lightSkinId,
+                        darkSkinId = darkSkinId,
+                        onLightSkinChange = onLightSkinChange,
+                        onDarkSkinChange = onDarkSkinChange,
                         onStatsReset = resetStats,
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），

@@ -28,15 +28,22 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putInt(KEY_THEME_MODE, value.coerceIn(0, 2)).apply()
 
     /**
-     * 配色皮肤（0 = 默认）。见 `ui/theme/Theme.kt` 的 `QusheSkins`。
+     * 浅色皮肤（见 `ui/theme/Theme.kt` 的 `LightSkins`）。
      *
-     * 和 [themeMode] **正交**：深浅决定"用浅版还是深版"，皮肤决定"什么色相"。
-     * 上限是 [SKIN_MAX]，必须与 `QusheSkins` 的最后一个 id 一致（`verify.py` 会核对）；
-     * 取到不存在的 id 时 `skinOf` 会回落到默认，所以调小上限不会崩，只会少几套。
+     * 和 [darkSkinId] 是**两件事**：白天用哪套、夜里用哪套，互不影响。
+     * 跟随系统时两套都会用到，所以两个都得存。
+     *
+     * 上限 [SKIN_MAX] 必须与两张表的最后一个 id 一致（`verify.py` 会核对）；
+     * 取到不存在的 id 时 `lightSkinOf` 会回落到第一套，所以调小上限只会少几套。
      */
-    var skinId: Int
-        get() = sp.getInt(KEY_SKIN_ID, 0).coerceIn(0, SKIN_MAX)
-        set(value) = sp.edit().putInt(KEY_SKIN_ID, value.coerceIn(0, SKIN_MAX)).apply()
+    var lightSkinId: Int
+        get() = sp.getInt(KEY_LIGHT_SKIN, 0).coerceIn(0, SKIN_MAX)
+        set(value) = sp.edit().putInt(KEY_LIGHT_SKIN, value.coerceIn(0, SKIN_MAX)).apply()
+
+    /** 深色皮肤（见 `DarkSkins`）。 */
+    var darkSkinId: Int
+        get() = sp.getInt(KEY_DARK_SKIN, 0).coerceIn(0, SKIN_MAX)
+        set(value) = sp.edit().putInt(KEY_DARK_SKIN, value.coerceIn(0, SKIN_MAX)).apply()
 
     /**
      * 缩略图网格每行放几个（2 或 3）。
@@ -253,15 +260,18 @@ class Prefs(context: Context) {
         private const val KEY_GROUP_SIZE = "group_size"
         private const val KEY_FOLDER_COLUMNS = "folder_columns"
         private const val KEY_THEME_MODE = "theme_mode"
+        /** 1.6.0 及以前只有一列皮肤，已废弃 —— **不再读取**，读回来也不认识。 */
         private const val KEY_SKIN_ID = "skin_id"
+        private const val KEY_LIGHT_SKIN = "light_skin_id"
+        private const val KEY_DARK_SKIN = "dark_skin_id"
 
         /**
-         * 皮肤 id 上限，必须等于 `QusheSkins` 里最后一个 id。
+         * 皮肤 id 上限，必须等于 `LightSkins` / `DarkSkins` 里最后一个 id。
          *
-         * 放在 core 层不能直接读 ui 层的那张表，所以两处都得写 —— 由 `verify.py` 核对，
+         * 放在 core 层不能直接读 ui 层的那两张表，所以两处都得写 —— 由 `verify.py` 核对，
          * 加皮肤时忘了改这里会直接报错，而不是"新皮肤选完又跳回默认"。
          */
-        private const val SKIN_MAX = 9
+        private const val SKIN_MAX = 4
         private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
         private const val KEY_ONLY_UNSEEN = "only_unseen"
         private const val KEY_DELETE_TO_TRASH = "delete_to_trash"

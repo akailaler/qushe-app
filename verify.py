@@ -372,10 +372,10 @@ def check_legacy():
 
 def check_skins():
     """
-    配色表的两处真源必须对齐：`QusheSkins`（ui 层）与 `Prefs.SKIN_MAX`（core 层）。
+    配色表的两处真源必须对齐：`LightSkins` / `DarkSkins`（ui 层）与 `Prefs.SKIN_MAX`（core 层）。
 
     ---- 为什么值得单独做一项 ----
-    core 层不能读 ui 层的那张表，所以上限只能另写一个常量。
+    core 层不能读 ui 层的那两张表，所以上限只能另写一个常量。
     这类"同一个数写在两处"的坑在这个工程已经出过好几次（版本号、角标、文件夹列数）。
     一旦忘了改：新皮肤点下去存进去，下次读出来被 `coerceIn` 夹回默认 ——
     表现是"选了没反应"，而且不崩、不报错，最难查。
@@ -384,31 +384,42 @@ def check_skins():
     theme = read(os.path.join(JAVA_SRC, "com/qushe/app/ui/theme/Theme.kt"))
     prefs = read(os.path.join(JAVA_SRC, "com/qushe/app/core/Prefs.kt"))
 
-    # 两种写法都要认：独立的 `QusheSkin(id = 5, name = "…")`，以及列表里内联的
-    # `QusheSkin(0, "…", LightPalette, DarkPalette)`。注意 id 与 name 之间
-    # 隔着换行和 `name =`，正则不能只认逗号后紧跟引号。
-    skins = {}
-    for m in re.finditer(
-        r'QusheSkin\(\s*(?:id\s*=\s*)?(\d+)\s*,\s*(?:name\s*=\s*)?"([^"]+)"', theme
-    ):
-        skins[int(m.group(1))] = m.group(2)
-    if not skins:
-        bad("没解析到任何皮肤", "Theme.kt 里 QusheSkin(...) 的写法变了？")
+    def skins_in(marker):
+        start = theme.index(marker)
+        # listOf 的收尾是顶格的 `)` —— 里面 skinPalette 的收尾都带缩进
+        end = theme.index("\n)", start)
+        seg = theme[start:end]
+        ids = [int(x) for x in re.findall(r"id\s*=\s*([0-9]+)", seg)]
+        names = re.findall(r'name\s*=\s*"([^"]+)"', seg)
+        return ids, names
+
+    try:
+        light_ids, light_names = skins_in("val LightSkins: List<QusheSkin>")
+        dark_ids, dark_names = skins_in("val DarkSkins: List<QusheSkin>")
+    except ValueError:
+        bad("解析不到肤色表", "Theme.kt 里 LightSkins / DarkSkins 的写法变了？")
         return
 
-    if sorted(skins) != list(range(len(skins))):
-        bad("皮肤 id 不连续", f"实际 {sorted(skins)}")
-    else:
-        ok("皮肤 id 连续", f"0..{len(skins) - 1}，共 {len(skins)} 套")
+    if not light_ids or not dark_ids:
+        bad("肤色表是空的", f"浅 {len(light_ids)} 套 / 深 {len(dark_ids)} 套")
+        return
 
-    odd = [(i, n) for i, n in sorted(skins.items()) if len(n) != 4]
-    for i, n in odd:
-        warn(f"皮肤名不是四个字：{n}", f"第 {i} 套，{len(n)} 字")
-    if not odd:
-        ok("皮肤名都是四个字")
+    for label, ids, names in (("浅色", light_ids, light_names), ("深色", dark_ids, dark_names)):
+        if sorted(ids) != list(range(len(ids))):
+            bad(f"{label}皮肤 id 不连续", f"实际 {sorted(ids)}")
+        elif len(names) != len(ids):
+            bad(f"{label}皮肤名数量和 id 数量不一致", f"{len(names)} 个名字 / {len(ids)} 个 id")
+        else:
+            ok(f"{label}皮肤", f"0..{len(ids) - 1}，共 {len(ids)} 套")
+
+        odd = [n for n in names if len(n) != 4]
+        for n in odd:
+            warn(f"{label}皮肤名不是四个字：{n}", f"{len(n)} 字")
+        if not odd and names:
+            ok(f"{label}皮肤名都是四个字")
 
     m = re.search(r"SKIN_MAX\s*=\s*(\d+)", prefs)
-    last = len(skins) - 1
+    last = max(len(light_ids), len(dark_ids)) - 1
     if not m:
         bad("Prefs 里找不到 SKIN_MAX")
     elif int(m.group(1)) != last:

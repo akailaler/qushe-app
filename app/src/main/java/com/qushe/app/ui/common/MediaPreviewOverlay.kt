@@ -101,7 +101,6 @@ import androidx.compose.ui.layout.onSizeChanged
 import kotlinx.coroutines.launch
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import com.qushe.app.ui.common.flingTo
-import com.qushe.app.ui.theme.DarkPalette
 import com.qushe.app.ui.theme.QusheColors
 
 /**
@@ -233,7 +232,9 @@ fun MediaPreviewOverlay(
     val pageIsVideo = items.getOrNull(pagerState.currentPage)?.kind == MediaKind.VIDEO
     DisposableEffect(pageIsVideo) {
         val before = QusheColors.palette
-        if (pageIsVideo) QusheColors.palette = DarkPalette
+        // 用**用户选的那套深色**，不是写死一套 —— 选了「紫罗兰夜」的人
+        // 一进视频预览就掉回石墨灰，会很突兀。
+        if (pageIsVideo) QusheColors.palette = QusheColors.darkSkin.palette
         onDispose { if (pageIsVideo) QusheColors.palette = before }
     }
 
