@@ -420,19 +420,20 @@ def check_skins():
     else:
         ok("SKIN_MAX 与最后一套 id 一致", str(last))
 
-    # 预览页的色值是手抄的，最容易出现"代码改了、文档还是旧的"。
+    # 预览页是**生成**的（docs/skins.html 由 skins_page.py 从 Theme.kt 渲染），
+    # 但生成物会被提交进仓库，所以要确认它没落后于代码。
     page = os.path.join(ROOT, "docs", "skins.html")
-    tool = os.path.join(ROOT, "skins_sync.py")
+    tool = os.path.join(ROOT, "skins_page.py")
     if os.path.exists(page) and os.path.exists(tool):
         r = subprocess.run(
-            [sys.executable, tool], cwd=ROOT,
+            [sys.executable, tool, "--check"], cwd=ROOT,
             capture_output=True, text=True, encoding="utf-8", errors="replace",
         )
         if r.returncode == 0:
-            ok("docs/skins.html 与 Theme.kt 色值一致")
+            ok("docs/skins.html 与 Theme.kt 一致")
         else:
-            bad("docs/skins.html 与 Theme.kt 不一致",
-                "跑 python skins_sync.py 看是哪几处（预览页是手抄的）")
+            bad("docs/skins.html 落后于 Theme.kt",
+                "跑 python skins_page.py 重新生成（改了配色忘了重新渲染）")
     else:
         skip("没有 docs/skins.html，跳过预览页核对")
 
