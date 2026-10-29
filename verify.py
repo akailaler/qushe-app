@@ -420,6 +420,22 @@ def check_skins():
     else:
         ok("SKIN_MAX 与最后一套 id 一致", str(last))
 
+    # 预览页的色值是手抄的，最容易出现"代码改了、文档还是旧的"。
+    page = os.path.join(ROOT, "docs", "skins.html")
+    tool = os.path.join(ROOT, "skins_sync.py")
+    if os.path.exists(page) and os.path.exists(tool):
+        r = subprocess.run(
+            [sys.executable, tool], cwd=ROOT,
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+        )
+        if r.returncode == 0:
+            ok("docs/skins.html 与 Theme.kt 色值一致")
+        else:
+            bad("docs/skins.html 与 Theme.kt 不一致",
+                "跑 python skins_sync.py 看是哪几处（预览页是手抄的）")
+    else:
+        skip("没有 docs/skins.html，跳过预览页核对")
+
 
 def check_artifacts():
     section(7, "构建产物")
