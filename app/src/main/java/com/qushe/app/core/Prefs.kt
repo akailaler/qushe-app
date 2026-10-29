@@ -28,6 +28,16 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putInt(KEY_THEME_MODE, value.coerceIn(0, 2)).apply()
 
     /**
+     * 配色皮肤（0 = 默认）。见 `ui/theme/Theme.kt` 的 `QusheSkins`。
+     *
+     * 和 [themeMode] **正交**：深浅决定"用浅版还是深版"，皮肤决定"什么色相"。
+     * 上限写死 7 是给以后扩到 8 套留余量；取到不存在的 id 时 `skinOf` 会回落到默认。
+     */
+    var skinId: Int
+        get() = sp.getInt(KEY_SKIN_ID, 0).coerceIn(0, 7)
+        set(value) = sp.edit().putInt(KEY_SKIN_ID, value.coerceIn(0, 7)).apply()
+
+    /**
      * 缩略图网格每行放几个（2 或 3）。
      *
      * 三个页面共用这一份：整理文件夹、收藏 / 喜欢、回收站。
@@ -242,6 +252,7 @@ class Prefs(context: Context) {
         private const val KEY_GROUP_SIZE = "group_size"
         private const val KEY_FOLDER_COLUMNS = "folder_columns"
         private const val KEY_THEME_MODE = "theme_mode"
+        private const val KEY_SKIN_ID = "skin_id"
         private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
         private const val KEY_ONLY_UNSEEN = "only_unseen"
         private const val KEY_DELETE_TO_TRASH = "delete_to_trash"

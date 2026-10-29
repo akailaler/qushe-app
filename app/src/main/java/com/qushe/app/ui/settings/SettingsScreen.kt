@@ -60,6 +60,7 @@ import androidx.compose.foundation.layout.width
 import com.qushe.app.BuildConfig
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
+import com.qushe.app.ui.theme.skinOf
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
 private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
@@ -97,10 +98,14 @@ fun SettingsScreen(
     /** 外观：跟随系统 / 浅色 / 深色（`Prefs.THEME_*`）。 */
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
+    /** 配色皮肤（0 = 默认）。和深浅正交，见 `ui/theme/Theme.kt`。 */
+    skinId: Int = 0,
+    onSkinIdChange: (Int) -> Unit = {},
     /** 统计清零。长按「到目前为止」里的「已删除」触发，和首页同一个实现。 */
     onStatsReset: () -> Unit = {},
 ) {
     var confirmReset by remember { mutableStateOf(false) }
+    var showSkinPicker by remember { mutableStateOf(false) }
     var groupSize by remember { mutableIntStateOf(prefs.groupSize) }
     var onlyUnseen by remember { mutableStateOf(prefs.onlyUnseen) }
     var deleteToTrash by remember { mutableStateOf(prefs.deleteToTrash) }
@@ -192,6 +197,13 @@ fun SettingsScreen(
                             },
                         )
                     }
+                    // 第四颗不是"模式"，是入口：点开一整页色卡。
+                    // 选了皮肤之后它显示皮肤名，这样不看那一页也知道现在是什么配色。
+                    Chip(
+                        text = if (skinId == 0) "更多" else skinOf(skinId).name,
+                        selected = skinId != 0,
+                        onClick = { showSkinPicker = true },
+                    )
                 }
             }
 
@@ -718,6 +730,18 @@ fun SettingsScreen(
             Spacer(Modifier.height(30.dp))
         }
 
+    }
+
+    if (showSkinPicker) {
+        SkinPickerSheet(
+            currentId = skinId,
+            onPick = { id ->
+                onSkinIdChange(id)
+                prefs.skinId = id
+                showSkinPicker = false
+            },
+            onDismiss = { showSkinPicker = false },
+        )
     }
 
     // 统计清零的二次确认。入口是长按，更要保证"按到"不等于"执行"。

@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
@@ -133,6 +134,246 @@ private val LightPalette = QushePalette(
 )
 
 /**
+ * 一套皮肤：**一个色相**，含浅色与深色两版。
+ *
+ * ---- 为什么按"皮肤"组织，而不是再加几套 light/dark ----
+ * 深浅是"看的时候环境光怎样"，皮肤是"这个 App 长什么样"——两件事正交。
+ * 所以皮肤同时提供 light / dark，用户切深浅时色相不变。
+ * 这样 8 套皮肤 × 2 种深浅只需要 8 份定义，而不是 16 份互不相干的调色板。
+ */
+data class QusheSkin(
+    val id: Int,
+    val name: String,
+    val light: QushePalette,
+    val dark: QushePalette,
+)
+
+/**
+ * 由"种子色"推出一整套调色板。
+ *
+ * 只让每套皮肤定义 11 个真正决定观感的颜色（底色、卡片、主色、删除色、
+ * 三种文字色、三个分类色），其余全部按规则推导：
+ *  · 卡片二/三级 = 卡片色与文字色按比例混合（深色往上提、浅色往下压）；
+ *  · 浮层 = 深色用半透明黑、浅色用半透明卡片色（沿用默认皮肤的做法）；
+ *  · 渐变遮罩 = 深色用底色带透明度、浅色**透明**（浅色下不要那层雾）。
+ *
+ * 这样加一套皮肤只要写 11 行，而且不会出现"某套的卡片色忘了调"这种漂移。
+ */
+private fun skinPalette(
+    dark: Boolean,
+    bg: Color,
+    surface: Color,
+    main: Color,
+    delete: Color,
+    info: Color,
+    purple: Color,
+    folder: Color,
+    textPrimary: Color,
+    textSecondary: Color,
+    textTertiary: Color,
+): QushePalette {
+    val surface2 = lerp(surface, textPrimary, if (dark) 0.06f else 0.05f)
+    val surface3 = lerp(surface, textPrimary, if (dark) 0.13f else 0.11f)
+    return if (dark) {
+        QushePalette(
+            ink = bg,
+            surface1 = surface,
+            surface2 = surface2,
+            surface3 = surface3,
+            textPrimary = textPrimary,
+            textSecondary = textSecondary,
+            textTertiary = textTertiary,
+            accentKeep = main,
+            accentDelete = delete,
+            accentInfo = info,
+            accentPurple = purple,
+            accentFolder = folder,
+            overlaySoft = Color(0x66000000),
+            overlayStrong = Color(0xB3000000),
+            overlayFade = Color(0x99000000),
+            overlaySolid = Color(0xF2000000),
+            overlayBorder = Color(0x26FFFFFF),
+            scrimTop = bg.copy(alpha = 0.80f),
+            scrimBottom = bg.copy(alpha = 0.90f),
+            isDark = true,
+        )
+    } else {
+        QushePalette(
+            ink = bg,
+            surface1 = surface,
+            surface2 = surface2,
+            surface3 = surface3,
+            textPrimary = textPrimary,
+            textSecondary = textSecondary,
+            textTertiary = textTertiary,
+            accentKeep = main,
+            accentDelete = delete,
+            accentInfo = info,
+            accentPurple = purple,
+            accentFolder = folder,
+            overlaySoft = surface.copy(alpha = 0.78f),
+            overlayStrong = surface.copy(alpha = 0.82f),
+            overlayFade = Color.Transparent,
+            overlaySolid = Color.Transparent,
+            overlayBorder = textPrimary.copy(alpha = 0.08f),
+            scrimTop = Color.Transparent,
+            scrimBottom = Color.Transparent,
+            isDark = false,
+        )
+    }
+}
+
+/**
+ * 所有皮肤。**第 0 套必须是默认**（[DarkPalette] / [LightPalette]）。
+ *
+ * ---- 配色上的两条硬规矩 ----
+ * 1. **主色要能读字**：主色同时用于"选中态的文字与图标"（底部导航、星形、勾选），
+ *    所以不能直接用很浅的粉/绿当主色 —— 浅底上会糊成一片。
+ *    设计稿里给的柔桃 `#E8BFB0`、奶绿 `#B9D4C7` 都压深了一档。
+ * 2. **删除色单独一档**：每个皮肤都配一个低饱和的红，避免"整套色调统一但删除键炸眼"。
+ */
+private val PeachSkin = QusheSkin(
+    id = 1,
+    name = "暖桃",
+    light = skinPalette(
+        dark = false,
+        bg = Color(0xFFFFF9F4),
+        surface = Color(0xFFFFF6EF),
+        main = Color(0xFFBE8574),
+        delete = Color(0xFFA9675C),
+        info = Color(0xFF6E93B8),
+        purple = Color(0xFFA08FBE),
+        folder = Color(0xFFC69A63),
+        textPrimary = Color(0xFF4A3B36),
+        textSecondary = Color(0xFF7E6C65),
+        textTertiary = Color(0xFF9B8C86),
+    ),
+    dark = skinPalette(
+        dark = true,
+        bg = Color(0xFF1F1D24),
+        surface = Color(0xFF2B2831),
+        main = Color(0xFFA8867C),
+        delete = Color(0xFFB47A73),
+        info = Color(0xFF7D97B8),
+        purple = Color(0xFF9A8CB8),
+        folder = Color(0xFFB08A55),
+        textPrimary = Color(0xFFE4E0E2),
+        textSecondary = Color(0xFFA89CA0),
+        textTertiary = Color(0xFF736C74),
+    ),
+)
+
+private val GreenSkin = QusheSkin(
+    id = 2,
+    name = "奶绿",
+    light = skinPalette(
+        dark = false,
+        bg = Color(0xFFF4F9F4),
+        surface = Color(0xFFFAFCFA),
+        main = Color(0xFF6E9A88),
+        delete = Color(0xFFA8665F),
+        info = Color(0xFF6E8FA8),
+        purple = Color(0xFF9488AE),
+        folder = Color(0xFFB99763),
+        textPrimary = Color(0xFF2F3A35),
+        textSecondary = Color(0xFF66726C),
+        textTertiary = Color(0xFF838D88),
+    ),
+    dark = skinPalette(
+        dark = true,
+        bg = Color(0xFF1D2424),
+        surface = Color(0xFF262E2D),
+        main = Color(0xFF86A79B),
+        delete = Color(0xFFB5837D),
+        info = Color(0xFF7C97A8),
+        purple = Color(0xFF9488AE),
+        folder = Color(0xFFAE8B5B),
+        textPrimary = Color(0xFFE1E7E4),
+        textSecondary = Color(0xFFA0ABA6),
+        textTertiary = Color(0xFF6B7671),
+    ),
+)
+
+private val OatSkin = QusheSkin(
+    id = 3,
+    name = "燕麦",
+    light = skinPalette(
+        dark = false,
+        bg = Color(0xFFF7F3ED),
+        surface = Color(0xFFFBF8F3),
+        main = Color(0xFF9A8570),
+        delete = Color(0xFFA16961),
+        info = Color(0xFF7C8FA0),
+        purple = Color(0xFF9A8CA8),
+        folder = Color(0xFFB08B5C),
+        textPrimary = Color(0xFF3A352E),
+        textSecondary = Color(0xFF736B62),
+        textTertiary = Color(0xFF918980),
+    ),
+    dark = skinPalette(
+        dark = true,
+        bg = Color(0xFF222120),
+        surface = Color(0xFF2C2B29),
+        main = Color(0xFFA79C90),
+        delete = Color(0xFFAE7D76),
+        info = Color(0xFF8595A3),
+        purple = Color(0xFF9C90A8),
+        folder = Color(0xFFAE8A5E),
+        textPrimary = Color(0xFFE6E2DC),
+        textSecondary = Color(0xFFA8A199),
+        textTertiary = Color(0xFF736C64),
+    ),
+)
+
+private val MistSkin = QusheSkin(
+    id = 4,
+    name = "雾蓝",
+    light = skinPalette(
+        dark = false,
+        bg = Color(0xFFF3F6F9),
+        surface = Color(0xFFFAFCFE),
+        main = Color(0xFF5E7E96),
+        delete = Color(0xFFA46863),
+        info = Color(0xFF5A87B5),
+        purple = Color(0xFF8789B8),
+        folder = Color(0xFFB08F5E),
+        textPrimary = Color(0xFF2C353D),
+        textSecondary = Color(0xFF626E78),
+        textTertiary = Color(0xFF808992),
+    ),
+    dark = skinPalette(
+        dark = true,
+        bg = Color(0xFF191D22),
+        surface = Color(0xFF232830),
+        main = Color(0xFF8FAEC6),
+        delete = Color(0xFFAF7C77),
+        info = Color(0xFF7EA3C9),
+        purple = Color(0xFF9A9CC8),
+        folder = Color(0xFFA98A5F),
+        textPrimary = Color(0xFFDFE5EA),
+        textSecondary = Color(0xFF9DA9B4),
+        textTertiary = Color(0xFF6A757E),
+    ),
+)
+
+/**
+ * 全部皮肤，顺序即色卡页的顺序。
+ *
+ * 后面还要再加 4 套（凑满 8 个色卡）—— 加一套就是在这个列表里加一个
+ * [QusheSkin]，其余代码不用动：色卡页、持久化、切换逻辑都是按 id 走的。
+ */
+val QusheSkins: List<QusheSkin> = listOf(
+    QusheSkin(0, "默认", LightPalette, DarkPalette),
+    PeachSkin,
+    GreenSkin,
+    OatSkin,
+    MistSkin,
+)
+
+/** 按 id 取皮肤；越界一律回落到默认。 */
+fun skinOf(id: Int): QusheSkin = QusheSkins.firstOrNull { it.id == id } ?: QusheSkins.first()
+
+/**
  * 当前调色板。
  *
  * 用一个全局的快照状态：切主题时，读过这些颜色的 Composable 会重组、
@@ -140,6 +381,14 @@ private val LightPalette = QushePalette(
  */
 object QusheColors {
     var palette by mutableStateOf(DarkPalette)
+
+    /**
+     * 当前皮肤。
+     *
+     * [ForceDarkPalette] 需要它 —— 强制深色时要用**当前皮肤的深色版**，
+     * 而不是默认那套，否则浅色皮肤的视频页会突然变成蓝黑色调。
+     */
+    var skin by mutableStateOf(QusheSkins.first())
 }
 
 /** 收藏 / 保留。 */
@@ -256,7 +505,8 @@ private val QusheTypography = Typography(
 @Composable
 fun ForceDarkPalette(content: @Composable () -> Unit) {
     val previous = QusheColors.palette
-    if (QusheColors.palette !== DarkPalette) QusheColors.palette = DarkPalette
+    val dark = QusheColors.skin.dark
+    if (QusheColors.palette !== dark) QusheColors.palette = dark
     DisposableEffect(Unit) {
         onDispose { QusheColors.palette = previous }
     }
@@ -292,22 +542,29 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 
 /**
  * @param mode 见 `Prefs.THEME_SYSTEM / THEME_LIGHT / THEME_DARK`。
+ * @param skinId 皮肤 id（见 [QusheSkins]）。深浅决定"用哪一版"，皮肤决定"什么色相"。
  */
 @Composable
-fun QusheTheme(mode: Int = Prefs.THEME_DARK, content: @Composable () -> Unit) {
+fun QusheTheme(
+    mode: Int = Prefs.THEME_DARK,
+    skinId: Int = 0,
+    content: @Composable () -> Unit,
+) {
     val dark = when (mode) {
         Prefs.THEME_LIGHT -> false
         Prefs.THEME_DARK -> true
         else -> isSystemInDarkTheme()
     }
-    val palette = if (dark) DarkPalette else LightPalette
+    val skin = skinOf(skinId)
+    val palette = if (dark) skin.dark else skin.light
 
     // ---- 只在"模式真的变了"时写一次 ----
     //
     // 不能每次重组都写：视频页 / 预览页会临时把调色板设成深色
     // （见 [ForceDarkPalette]），这里一写就把人家的覆盖顶回去了。
     // 返回 palette 而不是 Unit：`remember { ... }` 返回 Unit 会被 lint 判为错误
-    remember(mode, dark) {
+    remember(mode, dark, skinId) {
+        QusheColors.skin = skin
         QusheColors.palette = palette
         palette
     }

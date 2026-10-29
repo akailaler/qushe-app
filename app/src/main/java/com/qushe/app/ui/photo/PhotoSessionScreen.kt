@@ -72,6 +72,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
@@ -759,18 +760,42 @@ fun PhotoSessionScreen(
     // 它只走绘制阶段，不会把整棵子树登记成观察者。
     val exitProgress = remember { Animatable(0f) }
 
+    // 三个位移量提到这里（原来是 `if (current != null)` 内部声明的）：
+    // 根背景要在**绘制阶段**读 `offsetY` 才能"下滑时逐渐透明"，
+    // 而背景的 modifier 在 BoxWithConstraints 之外，那里读不到内部变量。
+    // 键仍然用条目 id —— 换一张就重置，和原来的语义一致。
+    val cardKey = current?.id
+    val offsetX = remember(cardKey) { Animatable(0f) }
+    val offsetY = remember(cardKey) { Animatable(0f) }
+    // 收藏的"被收走"进度：0 = 原样，1 = 缩到 0.85 并淡出。
+    // 删除仍然飞出屏幕（扔掉），收藏是收进夹子 —— 两条动线必须分开。
+    val dismissProgress = remember(cardKey) { Animatable(0f) }
+
     BoxWithConstraints(
         modifier = Modifier
             .fillMaxSize()
-            .background(Ink)
+            // ---- 底色随"下拉"逐渐透明 ----
+            //
+            // 这一页是盖在 AppRoot 上的一层，**下面的首页/收藏页一直都在**。
+            // 原来这里是一块写死的 `background(Ink)`，于是往下拖的时候
+            // 背后是一片漆黑，和"退出去"的预期接不上（用户反馈）。
+            // 现在底色跟着下拉进度淡出，露出下面那一屏 —— 松手前就能看到
+            // 自己会回到哪里，松手后直接衔接。
+            //
+            // 读 `offsetY.value` 放在 `drawBehind` 里：只触发重绘，不重组。
+            .drawBehind {
+                val limit = (size.height * dismissFraction).coerceAtLeast(1f)
+                val pull = (offsetY.value / limit).coerceIn(0f, 1f)
+                drawRect(Ink.copy(alpha = 1f - pull))
+            }
             .graphicsLayer { alpha = 1f - exitProgress.value },
     ) {
+        // 判定阈值用屏高算一次，下拉进度和手势判定共用同一个数。
+        val pullLimitPx = with(density) { maxHeight.toPx() * dismissFraction }.coerceAtLeast(1f)
+        /** 0 = 没下拉，1 = 已经越过退出阈值。只在绘制阶段读。 */
+        val pullAlpha = { (offsetY.value / pullLimitPx).coerceIn(0f, 1f) }
+
         if (current != null) {
-            val offsetX = remember(current.id) { Animatable(0f) }
-            val offsetY = remember(current.id) { Animatable(0f) }
-            // 收藏的"被收走"进度：0 = 原样，1 = 缩到 0.85 并淡出。
-            // 删除仍然飞出屏幕（扔掉），收藏是收进夹子 —— 两条动线必须分开。
-            val dismissProgress = remember(current.id) { Animatable(0f) }
 
             // ---- 垫在下面那一张：真正的"翻页" ----
             //
@@ -1114,7 +1139,7 @@ fun PhotoSessionScreen(
                                 // 92dp ≈ 状态栏 + 顶栏的高度，再往下 12dp 是角标自身的内缩
                                 top = (imageTop + 12.dp).coerceAtLeast(92.dp),
                             )
-                            .graphicsLayer { alpha = chromeAlpha.value }
+                            .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
                             .clip(RoundedCornerShape(8.dp))
                             .background(Color(0x99000000))
                             .padding(horizontal = 9.dp, vertical = 4.dp),
@@ -1134,7 +1159,8 @@ fun PhotoSessionScreen(
             modifier = Modifier
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .graphicsLayer { alpha = chromeAlpha.value }
+                // 下拉时整层淡出：否则顶栏/按钮会孤零零地浮在首页上面
+                .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
                 .background(
                     Brush.verticalGradient(listOf(ScrimTop, Color.Transparent))
                 )
@@ -1193,7 +1219,7 @@ fun PhotoSessionScreen(
             Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .graphicsLayer { alpha = chromeAlpha.value }
+                    .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
                     .statusBarsPadding()
                     .padding(top = 54.dp)
                     .clip(RoundedCornerShape(50))
@@ -1211,7 +1237,7 @@ fun PhotoSessionScreen(
                     modifier = Modifier.size(15.dp),
                 )
                 Text(
-                    text = "上滑删除 · 下滑退出",
+                    text = "左右滑下一张 · 上滑删除 · 下滑退出",
                     style = MaterialTheme.typography.labelSmall,
                     color = TextSecondary,
                 )
@@ -1225,7 +1251,7 @@ fun PhotoSessionScreen(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
-                    .graphicsLayer { alpha = chromeAlpha.value }
+                    .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
                     .background(
                         Brush.verticalGradient(listOf(Color.Transparent, ScrimBottom))
                     )
@@ -1432,11 +1458,9 @@ fun PhotoSessionScreen(
  */
 @Composable
 private fun PhotoLayer(item: MediaItem) {
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Ink),
-    ) {
+    // 不铺底色：底色由会话页的根节点统一给（它要随下拉淡出）。
+    // 这一层再铺一块不透明的 Ink，下滑退出时就会把下面的首页盖死。
+    Box(modifier = Modifier.fillMaxSize()) {
         AsyncImage(
             model = item.uri,
             contentDescription = null,

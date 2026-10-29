@@ -53,13 +53,20 @@ class MainActivity : ComponentActivity() {
             // 外观由这里持有：设置页改完要立刻换色，而 SharedPreferences 读
             // 不是 Compose 的可观察状态（直接读会"改了没反应"）。
             var themeMode by remember { mutableIntStateOf(prefs.themeMode) }
-            QusheTheme(mode = themeMode) {
+            // 皮肤也是同一套逻辑：改完立刻换色，再落盘。
+            var skinId by remember { mutableIntStateOf(prefs.skinId) }
+            QusheTheme(mode = themeMode, skinId = skinId) {
                 AppRoot(
                     container = container,
                     themeMode = themeMode,
                     onThemeModeChange = {
                         themeMode = it
                         prefs.themeMode = it
+                    },
+                    skinId = skinId,
+                    onSkinIdChange = {
+                        skinId = it
+                        prefs.skinId = it
                     },
                 )
             }
