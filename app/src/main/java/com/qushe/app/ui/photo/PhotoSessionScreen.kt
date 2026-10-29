@@ -30,6 +30,7 @@ import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -43,6 +44,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
@@ -145,6 +147,7 @@ import kotlin.math.abs
 import com.qushe.app.ui.common.fitInside
 import com.qushe.app.ui.common.scaledAboutCenter
 import com.qushe.app.ui.theme.OverlaySoft
+import com.qushe.app.ui.theme.OverlayStrong
 
 /**
  * 照片 / 截屏整理：卡片堆叠 + 滑动决策 + 缩放查看 + 缩略胶片条。
@@ -194,6 +197,15 @@ fun PhotoSessionScreen(
      * 不该因为用户从"整理照片"还是"整理截屏"入口进来就只看一半（用户报）。
      */
     loadDayItems: suspend (Long) -> List<MediaItem>,
+    /**
+     * 手势提示还该不该露出来。只在**第一次用**时为 true（见 `Prefs.gestureHintSeen`）。
+     *
+     * 这三个提示贴在画面三条边上，虽然不挡主体，但每开一组就冒出来一次仍然很烦 ——
+     * 真正需要它的只有第一次。
+     */
+    showGestureHints: Boolean = false,
+    /** 提示已经露过一次了，写回偏好，以后不再打扰。 */
+    onGestureHintsSeen: () -> Unit = {},
     onConclude: (SessionResult) -> Unit,
 ) {
     val context = LocalContext.current
@@ -249,8 +261,16 @@ fun PhotoSessionScreen(
 
     /** 底部那行操作提示是否已经收起来（翻过三张就收）。 */
     var hintDismissed by remember { mutableStateOf(false) }
+    /** 手势提示这一次还要不要显示 —— 滑过一张就认为看过了。 */
+    var hintsShown by remember { mutableStateOf(showGestureHints) }
     LaunchedEffect(index) {
         if (index >= 3) hintDismissed = true
+        // 滑过一张就算"看到了"：进页面可能只是误触，真滑了一下才算数。
+        // 写回偏好之后，下一次打开整理页就再也不出现 —— 用户第二次用它已经不需要提示了。
+        if (index >= 1 && hintsShown) {
+            hintsShown = false
+            onGestureHintsSeen()
+        }
     }
 
     fun advanceChromeStage() {
@@ -1221,10 +1241,15 @@ fun PhotoSessionScreen(
 
         // ---- 手势提示 ----
         //
-        // 原来这里是一行顶部胶囊（"左右滑下一张 · 上滑删除 · 下滑退出"）。
-        // 一行字要读三遍才知道哪个方向对应哪件事，而且是**横排**的，
-        // 和它描述的"上下左右"完全对不上。现在改成下面那张三行教学卡：
-        // 一行一个方向，箭头会沿着它说的方向来回动。
+        // 这一块改过三代，最后落在这里，原因记一下：
+        //  ① 一行顶部胶囊（"左右滑下一张 · 上滑删除 · 下滑退出"）：
+        //     三个动作挤成一句，方向词还是横排写的，和手势对不上；
+        //  ② 一块三行教学卡：方向对上了，但它压在照片正中间偏下，
+        //     而且文字要**透过照片**读 —— 浅色照片上直接糊（用户实机反馈）；
+        //  ③ 现在：拆成三条边。顶部一条"上滑删掉"、左右各一个箭头，
+        //     "下滑退出"并进底部说明。不透明底，不吃照片当背景，也不占画面中间。
+        //
+        // 只管第一次用的人：`hintsShown` 在滑过一张后就置 false（见上面的 LaunchedEffect）。
 
         // ---- 底部：信息 + 胶片条 + 提示 ----
         val currentForInfo = list.getOrNull(index)
@@ -1316,7 +1341,10 @@ fun PhotoSessionScreen(
                 if (!filmstripVisible && !hintDismissed) {
                     Text(
                         text = buildString {
-                            append("单击展开缩略图")
+                            // 「下滑退出」从手势提示那里挪进来：它就是一条操作说明，
+                            // 和下面几条同一性质，挂在这行末尾最省地方。
+                            append("下滑退出")
+                            append(" · 单击展开缩略图")
                             append(" · 双指放大")
                             append(" · 缩回后捏合回到那天")
                             if (looksLikeMotion) append(" · 长按看实况")
@@ -1332,21 +1360,56 @@ fun PhotoSessionScreen(
             }
         }
 
-        // ---- 前三张：手势教学 ----
+        // ---- 手势提示：贴在三条边上，不占画面中间 ----
         //
-        // 只在"这一组的前三张"出现：`hintDismissed` 在 index 走到 3 时置位，
-        // 之后整场都不再显示 —— 学过一次就够了，常驻就变成噪音。
-        //
-        // 放在**底部**而不是正中：照片主体在中间，教学卡压在那儿等于不让人看。
-        // 它浮在信息胶囊上方、胶片条收起的默认状态里，正好是拇指够不到的那一条。
-        if (!filmstripVisible && !hintDismissed) {
-            GestureTutorial(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .graphicsLayer { alpha = chromeAlpha.value * (1f - pullAlpha()) }
-                    .navigationBarsPadding()
-                    .padding(bottom = 172.dp),
+        // 之前是一块半透明卡片压在画面下方。两个实机问题：
+        //  · 字要**透过照片**读 —— 碰上浅色照片，11sp 的灰字直接糊掉；
+        //  · 它挡住的正是照片本身，而这是唯一一页"用户是来看图"的地方。
+        // 现在拆成三块，各回各的方向：顶部一条"上滑删掉"、左右各一个箭头，
+        // "下滑退出"并进底部那行说明里（那里本来就有一行操作提示）。
+        // 三块都用**不透明**的底（OverlayStrong），不再拿照片当背景。
+        if (!filmstripVisible && hintsShown) {
+            val hintAlpha = chromeAlpha.value * (1f - pullAlpha())
+            val transition = rememberInfiniteTransition(label = "hints")
+            val nudge by transition.animateFloat(
+                initialValue = -4f,
+                targetValue = 4f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "nudge",
             )
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .graphicsLayer { alpha = hintAlpha }
+                    .statusBarsPadding()
+                    .padding(top = 52.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(OverlayStrong)
+                    .padding(start = 10.dp, end = 13.dp, top = 5.dp, bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = null,
+                    tint = TextSecondary,
+                    modifier = Modifier
+                        .size(15.dp)
+                        .graphicsLayer { translationY = -nudge },
+                )
+                Text(
+                    text = if (swipeUpDeletes) "上滑删掉" else "上滑收藏",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextSecondary,
+                )
+            }
+
+            SideNudge(left = true, nudge = -nudge, alpha = hintAlpha)
+            SideNudge(left = false, nudge = nudge, alpha = hintAlpha)
         }
 
         motionHint?.let { hint ->
@@ -2073,118 +2136,31 @@ private const val BEHIND_FADE_FRACTION = 1.2f
 private val BADGE_SLOT_WIDTH = 56.dp
 
 /**
- * 前三张才出现的手势教学。
+ * 左右两侧的箭头提示。
  *
- * ---- 为什么不是一行字 ----
- * 原来是顶部一行"左右滑下一张 · 上滑删除 · 下滑退出"。三个动作挤在一条线上，
- * 而且"左右 / 上 / 下"是横排写的，和它描述的手势方向对不上 ——
- * 读的人得在脑子里转一道弯。这里一行一个方向，箭头还沿着那个方向来回动。
- *
- * ---- 为什么很轻 ----
- * 前 3 张是"正在看照片"的时刻，不是教程页。所以只有一块半透明浮层、
- * 三行字、5dp 的往复位移：不铺全屏、不加遮罩、不需要点"我知道了"。
+ * 圆形底 + 箭头，压在画面左右边缘的中段 —— 位置本身就是说明
+ * （"左右滑"发生在两侧）。不写文字：这两个方向不需要解释，
+ * 写上了反而要占掉照片两边一大条。
  */
 @Composable
-private fun GestureTutorial(modifier: Modifier = Modifier) {
-    val transition = rememberInfiniteTransition(label = "tutorial")
-    val shift by transition.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 1050, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "shift",
-    )
-    val shape = RoundedCornerShape(18.dp)
-    Column(
-        modifier = modifier
-            .width(258.dp)
-            .clip(shape)
-            .background(OverlaySoft)
-            // 浅色下这块半透白压在照片上会和照片糊成一片，2dp 淡阴影把它抬起来
-            .overlayShadow(shape, 6.dp)
-            .padding(horizontal = 16.dp, vertical = 14.dp),
-        verticalArrangement = Arrangement.spacedBy(11.dp),
+private fun BoxScope.SideNudge(left: Boolean, nudge: Float, alpha: Float) {
+    Box(
+        modifier = Modifier
+            .align(if (left) Alignment.CenterStart else Alignment.CenterEnd)
+            .graphicsLayer { this.alpha = alpha }
+            .padding(horizontal = 5.dp)
+            .size(30.dp)
+            .clip(CircleShape)
+            .background(OverlayStrong),
+        contentAlignment = Alignment.Center,
     ) {
-        TutorialRow(
-            title = "左右滑",
-            hint = "看下一张",
-            accent = AccentKeep,
-            offset = shift,
-            icon = null,
-        )
-        TutorialRow(
-            title = "上滑",
-            hint = "删掉这一张",
-            accent = AccentDelete,
-            offset = -shift,
-            icon = Icons.Filled.KeyboardArrowUp,
-        )
-        TutorialRow(
-            title = "下滑",
-            hint = "退出整理",
-            accent = TextSecondary,
-            offset = shift,
-            icon = Icons.Filled.KeyboardArrowDown,
-        )
-    }
-}
-
-/**
- * 教学卡里的一行：左边一个会动的方向提示，右边"动作 + 结果"。
- *
- * `offset` 由外面统一驱动，三行共用同一个时钟 —— 各自起一个动画的话，
- * 三条箭头会不同步，看着像卡了。
- */
-@Composable
-private fun TutorialRow(
-    title: String,
-    hint: String,
-    accent: Color,
-    offset: Float,
-    /** null 表示左右双箭头。 */
-    icon: ImageVector?,
-) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(modifier = Modifier.width(38.dp), contentAlignment = Alignment.CenterStart) {
-            if (icon == null) {
-                Row(modifier = Modifier.graphicsLayer { translationX = offset }) {
-                    Icon(
-                        imageVector = Icons.Filled.KeyboardArrowLeft,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(15.dp),
-                    )
-                    Icon(
-                        imageVector = Icons.Filled.KeyboardArrowRight,
-                        contentDescription = null,
-                        tint = accent,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-            } else {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = accent,
-                    modifier = Modifier
-                        .size(17.dp)
-                        .graphicsLayer { translationY = offset },
-                )
-            }
-        }
-        Text(
-            text = title,
-            style = MaterialTheme.typography.bodyMedium,
-            color = TextPrimary,
-            fontWeight = FontWeight.Medium,
-        )
-        Spacer(Modifier.weight(1f))
-        Text(
-            text = hint,
-            style = MaterialTheme.typography.labelSmall,
-            color = TextTertiary,
+        Icon(
+            imageVector = if (left) Icons.Filled.KeyboardArrowLeft else Icons.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = TextSecondary,
+            modifier = Modifier
+                .size(18.dp)
+                .graphicsLayer { translationX = nudge },
         )
     }
 }

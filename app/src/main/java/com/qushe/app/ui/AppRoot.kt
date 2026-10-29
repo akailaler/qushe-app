@@ -851,6 +851,10 @@ fun AppRoot(
                         loadDayItems = {
                             container.repo.allImagesOnDay(it, dayRadius = 1)
                         },
+                        // 手势提示只给第一次用的人看。读完就写回偏好，
+                        // 之后每开一组都不再冒出来（边缘提示也一样会分心）。
+                        showGestureHints = !prefs.gestureHintSeen,
+                        onGestureHintsSeen = { prefs.gestureHintSeen = true },
                         onConclude = { result -> conclude(result) },
                     )
                 } else {

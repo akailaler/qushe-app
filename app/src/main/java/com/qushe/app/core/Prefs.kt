@@ -78,6 +78,19 @@ class Prefs(context: Context) {
         set(value) = sp.edit().putBoolean(KEY_ONLY_UNSEEN, value).apply()
 
     /**
+     * 整理页的手势提示**是不是已经露过一次**。
+     *
+     * 只看一次：这三条提示对第二次用的人来说全是噪音 —— 而且它们贴在画面边缘，
+     * 每开一组就冒出来一次，实机上比"挡一点"更烦。看过一次就永久收起。
+     *
+     * 写在"翻过第 2 张"的时候，而不是进页面就写：进页面可能只是误触，
+     * 真滑过一张才算真的看到了。
+     */
+    var gestureHintSeen: Boolean
+        get() = sp.getBoolean(KEY_GESTURE_HINT, false)
+        set(value) = sp.edit().putBoolean(KEY_GESTURE_HINT, value).apply()
+
+    /**
      * 删除去向。true = 系统回收站（30 天内可恢复，安全）；
      * false = 彻底删除。默认走回收站，本地文件删掉是不可逆的。
      */
@@ -274,6 +287,7 @@ class Prefs(context: Context) {
         private const val SKIN_MAX = 4
         private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
         private const val KEY_ONLY_UNSEEN = "only_unseen"
+        private const val KEY_GESTURE_HINT = "gesture_hint_seen"
         private const val KEY_DELETE_TO_TRASH = "delete_to_trash"
         private const val KEY_VIDEO_MUTED = "video_muted"
         private const val KEY_AUTO_PLAY = "auto_play"
