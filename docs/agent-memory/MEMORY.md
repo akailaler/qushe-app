@@ -62,10 +62,11 @@ export JAVA_HOME="C:\Users\<用户名>\.workbuddy\binaries\jdk17\jdk-17.0.20.1+1
 - **★ 主色必须能被当文字读**：`AccentKeep` 同时是底部导航选中标签（12sp）的颜色，
   浅色版对底色 **≥4.5:1**；删除 ≥4.2、信息/文件夹 ≥4.0、紫 ≥3.6、正文 ≥10、次要 ≥4.6。
   设计稿给的柔和色一律按对比度反算压深（暖桃 #E8BFB0 → #9C6454 才够）。
-  改配色后跑 `Temp/skinfinal.py` 那类脚本复核，不要凭眼睛。
+  改配色后**跑脚本算对比度**，不要凭眼睛判断"看起来还行"。
 - **新配色的取色方法**：油画的彩度不能直接搬（会变糖水），只取**明度关系**；
   每套只挑一个色相，四个分类色做小幅偏移，不从别的色系借色，否则 10 套会串味。
-  预览页 `docs/skins.html`（浅/深并排 + 真实界面缩略）改配色后要同步更新。
+  预览页 `docs/skins.html` **由 `skins_page.py` 从 Theme.kt 生成**（纯静态、无 JS），
+  改了配色重跑 `python skins_page.py`；忘了会被 `verify.py` §6 拦下。
 - **颜色一律走 `QusheColors.palette`**：`val Ink: Color get() = QusheColors.palette.ink`，
   **不要再加 `val X = Color(...)` 这种常量**——浅色主题下它不会变。
   两套调色板在 `ui/theme/Theme.kt`，默认 `THEME_DARK`，设置在「外观」。
