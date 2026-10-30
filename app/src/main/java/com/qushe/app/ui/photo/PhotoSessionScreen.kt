@@ -20,11 +20,12 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.qushe.app.ui.theme.overlayShadow
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
@@ -129,6 +130,8 @@ import com.qushe.app.ui.common.rememberPageGap
 import com.qushe.app.ui.theme.AccentDelete
 import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.Ink
+import com.qushe.app.ui.theme.OverlayBorder
+import com.qushe.app.ui.theme.Surface1
 import com.qushe.app.ui.theme.Surface2
 import com.qushe.app.ui.theme.Surface3
 import com.qushe.app.ui.theme.TextPrimary
@@ -197,15 +200,6 @@ fun PhotoSessionScreen(
      * 不该因为用户从"整理照片"还是"整理截屏"入口进来就只看一半（用户报）。
      */
     loadDayItems: suspend (Long) -> List<MediaItem>,
-    /**
-     * 手势提示还该不该露出来。只在**第一次用**时为 true（见 `Prefs.gestureHintSeen`）。
-     *
-     * 这三个提示贴在画面三条边上，虽然不挡主体，但每开一组就冒出来一次仍然很烦 ——
-     * 真正需要它的只有第一次。
-     */
-    showGestureHints: Boolean = false,
-    /** 提示已经露过一次了，写回偏好，以后不再打扰。 */
-    onGestureHintsSeen: () -> Unit = {},
     onConclude: (SessionResult) -> Unit,
 ) {
     val context = LocalContext.current
@@ -261,16 +255,8 @@ fun PhotoSessionScreen(
 
     /** 底部那行操作提示是否已经收起来（翻过三张就收）。 */
     var hintDismissed by remember { mutableStateOf(false) }
-    /** 手势提示这一次还要不要显示 —— 滑过一张就认为看过了。 */
-    var hintsShown by remember { mutableStateOf(showGestureHints) }
     LaunchedEffect(index) {
         if (index >= 3) hintDismissed = true
-        // 滑过一张就算"看到了"：进页面可能只是误触，真滑了一下才算数。
-        // 写回偏好之后，下一次打开整理页就再也不出现 —— 用户第二次用它已经不需要提示了。
-        if (index >= 1 && hintsShown) {
-            hintsShown = false
-            onGestureHintsSeen()
-        }
     }
 
     fun advanceChromeStage() {
@@ -1249,7 +1235,8 @@ fun PhotoSessionScreen(
         //  ③ 现在：拆成三条边。顶部一条"上滑删掉"、左右各一个箭头，
         //     "下滑退出"并进底部说明。不透明底，不吃照片当背景，也不占画面中间。
         //
-        // 只管第一次用的人：`hintsShown` 在滑过一张后就置 false（见上面的 LaunchedEffect）。
+        // 它和前 3 张绑定（`hintDismissed`）：学过一次就够了。贴在边上、不挡主体，
+        // 所以每开一组短暂出现一下并不烦人 —— 真正烦的是压在照片上那种。
 
         // ---- 底部：信息 + 胶片条 + 提示 ----
         val currentForInfo = list.getOrNull(index)
@@ -1362,13 +1349,21 @@ fun PhotoSessionScreen(
 
         // ---- 手势提示：贴在三条边上，不占画面中间 ----
         //
-        // 之前是一块半透明卡片压在画面下方。两个实机问题：
-        //  · 字要**透过照片**读 —— 碰上浅色照片，11sp 的灰字直接糊掉；
-        //  · 它挡住的正是照片本身，而这是唯一一页"用户是来看图"的地方。
-        // 现在拆成三块，各回各的方向：顶部一条"上滑删掉"、左右各一个箭头，
-        // "下滑退出"并进底部那行说明里（那里本来就有一行操作提示）。
-        // 三块都用**不透明**的底（OverlayStrong），不再拿照片当背景。
-        if (!filmstripVisible && hintsShown) {
+        // 这一块改过三代，每一代都是被实机否掉的，原因记下来免得再走回去：
+        //  ① 一行顶部胶囊（"左右滑下一张 · 上滑删除 · 下滑退出"）——
+        //     三个动作挤成一句，方向词还是横排写的，和手势对不上；
+        //  ② 三行教学卡 —— 方向对上了，但它压在照片上，字要透过照片读，
+        //     浅色照片上直接糊；
+        //  ③ 现在：拆成三条边（顶部"上滑删掉"、左右各一个箭头），
+        //     "下滑退出"并进底部那行说明。
+        //
+        // ---- 两条硬要求（踩过才知道）----
+        // · 底色必须**不透明**：`OverlayStrong` 是 70% 黑，压在暗照片边缘等于没有。
+        //   改用 `Surface1`（深色下 #1D1D21、浅色下接近白）—— 它本来就是这个 App
+        //   的"卡片面"，在两种模式下都是实心的，而且和页面同族。
+        // · 顶部那条要避开顶栏：顶栏是 statusBar + 6 + 48 + 6 ≈ 90dp，
+        //   原来放在 statusBarPadding + 52dp 处，正好和顶栏叠在一起。
+        if (!filmstripVisible && !hintDismissed) {
             val hintAlpha = chromeAlpha.value * (1f - pullAlpha())
             val transition = rememberInfiniteTransition(label = "hints")
             val nudge by transition.animateFloat(
@@ -1386,9 +1381,10 @@ fun PhotoSessionScreen(
                     .align(Alignment.TopCenter)
                     .graphicsLayer { alpha = hintAlpha }
                     .statusBarsPadding()
-                    .padding(top = 52.dp)
+                    .padding(top = 70.dp)
                     .clip(RoundedCornerShape(50))
-                    .background(OverlayStrong)
+                    .background(Surface1)
+                    .border(1.dp, OverlayBorder, RoundedCornerShape(50))
                     .padding(start = 10.dp, end = 13.dp, top = 5.dp, bottom = 5.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -1396,7 +1392,7 @@ fun PhotoSessionScreen(
                 Icon(
                     imageVector = Icons.Filled.KeyboardArrowUp,
                     contentDescription = null,
-                    tint = TextSecondary,
+                    tint = AccentKeep,
                     modifier = Modifier
                         .size(15.dp)
                         .graphicsLayer { translationY = -nudge },
@@ -1404,7 +1400,7 @@ fun PhotoSessionScreen(
                 Text(
                     text = if (swipeUpDeletes) "上滑删掉" else "上滑收藏",
                     style = MaterialTheme.typography.labelSmall,
-                    color = TextSecondary,
+                    color = TextPrimary,
                 )
             }
 
@@ -2148,16 +2144,18 @@ private fun BoxScope.SideNudge(left: Boolean, nudge: Float, alpha: Float) {
         modifier = Modifier
             .align(if (left) Alignment.CenterStart else Alignment.CenterEnd)
             .graphicsLayer { this.alpha = alpha }
-            .padding(horizontal = 5.dp)
-            .size(30.dp)
+            .padding(horizontal = 6.dp)
+            .size(34.dp)
             .clip(CircleShape)
-            .background(OverlayStrong),
+            .background(Surface1)
+            .border(1.dp, OverlayBorder, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(
-            imageVector = if (left) Icons.Filled.KeyboardArrowLeft else Icons.Filled.KeyboardArrowRight,
+            imageVector = if (left) Icons.AutoMirrored.Filled.KeyboardArrowLeft
+            else Icons.AutoMirrored.Filled.KeyboardArrowRight,
             contentDescription = null,
-            tint = TextSecondary,
+            tint = AccentKeep,
             modifier = Modifier
                 .size(18.dp)
                 .graphicsLayer { translationX = nudge },
