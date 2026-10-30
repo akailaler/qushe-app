@@ -184,7 +184,10 @@ private fun skinPalette(
 }
 
 /**
- * 浅色五套。
+ * 浅色八套 —— 按**色相顺序**排：中性 → 赤 → 橙 → 黄 → 绿 → 青 → 蓝 → 紫。
+ *
+ * 排序是有意的：用户来挑配色时，先看到的是"今天想要什么颜色"，
+ * 而不是"这个 App 有几套"。色相挨着排，一眼能扫完。
  *
  * 主色全部压到"对底色 ≥4.5:1" —— `AccentKeep` 不只是色块，底部导航的选中标签
  * （12sp）、星形图标、"已收藏"数字都用它上色，浅底上一淡就读不清。
@@ -195,7 +198,7 @@ private fun skinPalette(
 val LightSkins: List<QusheSkin> = listOf(
     QusheSkin(
         id = 0,
-        name = "月石初白",
+        name = "月石初白",  // 中性暖白，什么照片都不抢
         palette = skinPalette(
             dark = false,
             bg = Color(0xFFF7F5F1),
@@ -212,24 +215,58 @@ val LightSkins: List<QusheSkin> = listOf(
     ),
     QusheSkin(
         id = 1,
-        name = "波罗的海",
+        name = "胭脂山茶",  // 红得不艳，像旧绸子
         palette = skinPalette(
             dark = false,
-            bg = Color(0xFFF1F5F8),
-            surface = Color(0xFFF9FBFD),
-            main = Color(0xFF4F7288),
-            delete = Color(0xFFA0665F),
-            info = Color(0xFF46789F),
-            purple = Color(0xFF77789F),
-            folder = Color(0xFF8B7345),
-            textPrimary = Color(0xFF2A343C),
-            textSecondary = Color(0xFF5F6C76),
-            textTertiary = Color(0xFF7E8A94),
+            bg = Color(0xFFFBF3F1),
+            surface = Color(0xFFFEF9F7),
+            main = Color(0xFF964757),
+            delete = Color(0xFFB4392F),
+            info = Color(0xFF5B7A93),
+            purple = Color(0xFF85608F),
+            folder = Color(0xFF96703F),
+            textPrimary = Color(0xFF3A2A2C),
+            textSecondary = Color(0xFF755F62),
+            textTertiary = Color(0xFF95807F),
         ),
     ),
     QusheSkin(
         id = 2,
-        name = "亚马逊晨",
+        name = "托斯卡纳",  // 日落后的赤陶墙
+        palette = skinPalette(
+            dark = false,
+            bg = Color(0xFFFBF3E9),
+            surface = Color(0xFFFEF9F2),
+            main = Color(0xFF96603C),
+            delete = Color(0xFFA2544A),
+            info = Color(0xFF5E7A8A),
+            purple = Color(0xFF86708C),
+            folder = Color(0xFF8A7340),
+            textPrimary = Color(0xFF33291F),
+            textSecondary = Color(0xFF726353),
+            textTertiary = Color(0xFF91826E),
+        ),
+    ),
+    QusheSkin(
+        id = 3,
+        name = "麦浪金风",  // 熟透的麦子，风一过就低头
+        palette = skinPalette(
+            dark = false,
+            bg = Color(0xFFFBF7EC),
+            surface = Color(0xFFFEFBF3),
+            main = Color(0xFF8A6A1E),
+            delete = Color(0xFFA05A50),
+            info = Color(0xFF5E7A8C),
+            purple = Color(0xFF85778F),
+            folder = Color(0xFF6E7345),
+            textPrimary = Color(0xFF332C1E),
+            textSecondary = Color(0xFF6F6552),
+            textTertiary = Color(0xFF918872),
+        ),
+    ),
+    QusheSkin(
+        id = 4,
+        name = "亚马逊晨",  // 雨林醒来那半小时
         palette = skinPalette(
             dark = false,
             bg = Color(0xFFF3F6EF),
@@ -245,8 +282,42 @@ val LightSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 3,
-        name = "普罗旺斯",
+        id = 5,
+        name = "雨过天青",  // 青瓷开片里那一道水色
+        palette = skinPalette(
+            dark = false,
+            bg = Color(0xFFF0F6F6),
+            surface = Color(0xFFF8FCFC),
+            main = Color(0xFF2F7370),
+            delete = Color(0xFFA05A55),
+            info = Color(0xFF4A7396),
+            purple = Color(0xFF7A7299),
+            folder = Color(0xFF8A7040),
+            textPrimary = Color(0xFF26323A),
+            textSecondary = Color(0xFF5F7370),
+            textTertiary = Color(0xFF7A8D8A),
+        ),
+    ),
+    QusheSkin(
+        id = 6,
+        name = "波罗的海",  // 冷海，雾里的蓝
+        palette = skinPalette(
+            dark = false,
+            bg = Color(0xFFF1F5F8),
+            surface = Color(0xFFF9FBFD),
+            main = Color(0xFF4F7288),
+            delete = Color(0xFFA0665F),
+            info = Color(0xFF46789F),
+            purple = Color(0xFF77789F),
+            folder = Color(0xFF8B7345),
+            textPrimary = Color(0xFF2A343C),
+            textSecondary = Color(0xFF5F6C76),
+            textTertiary = Color(0xFF7E8A94),
+        ),
+    ),
+    QusheSkin(
+        id = 7,
+        name = "普罗旺斯",  // 薰衣草田的灰紫
         palette = skinPalette(
             dark = false,
             bg = Color(0xFFF7F4F8),
@@ -261,38 +332,18 @@ val LightSkins: List<QusheSkin> = listOf(
             textTertiary = Color(0xFF8C8196),
         ),
     ),
-    QusheSkin(
-        id = 4,
-        name = "托斯卡纳",
-        palette = skinPalette(
-            dark = false,
-            bg = Color(0xFFFBF3E9),
-            surface = Color(0xFFFEF9F2),
-            main = Color(0xFF96603C),
-            delete = Color(0xFFA2544A),
-            info = Color(0xFF5E7A8A),
-            purple = Color(0xFF86708C),
-            folder = Color(0xFF8A7340),
-            textPrimary = Color(0xFF33291F),
-            textSecondary = Color(0xFF726353),
-            textTertiary = Color(0xFF91826E),
-        ),
-    ),
 )
 
 /**
- * 深色五套 —— 这才是"氛围灯"该在的地方。
+ * 深色八套，同样按色相排：中性 → 红 → 橙 → 黄 → 绿 → 青 → 蓝 → 紫。
  *
  * 底色都是**极深但带色相**（不是纯黑）：纯黑会把照片衬得发脏，也让色相没处着落。
- * 主色反过来比浅色版更亮 —— 夜里那一束光要自己发光，而不是白天的墨。
- *
- * 五套分别是：中性暖白（石墨之夜）、蓝（午夜蓝调）、紫（紫罗兰夜）、
- * 绿（森林晨雾）、酒红衬暖金（勃艮第红）。
+ * 主色比浅色版更亮 —— 夜里那一束光要自己发光，而不是白天的墨。
  */
 val DarkSkins: List<QusheSkin> = listOf(
     QusheSkin(
         id = 0,
-        name = "石墨之夜",
+        name = "石墨之夜",  // 关灯后的书房
         palette = skinPalette(
             dark = true,
             bg = Color(0xFF131316),
@@ -309,41 +360,58 @@ val DarkSkins: List<QusheSkin> = listOf(
     ),
     QusheSkin(
         id = 1,
-        name = "午夜蓝调",
+        name = "勃艮第红",  // 酒杯边的一点金
         palette = skinPalette(
             dark = true,
-            bg = Color(0xFF101620),
-            surface = Color(0xFF1A2230),
-            main = Color(0xFFA8C8E8),
-            delete = Color(0xFFE0919A),
-            info = Color(0xFF7FAEDA),
-            purple = Color(0xFFA8A9D6),
-            folder = Color(0xFFC8A878),
-            textPrimary = Color(0xFFE6ECF4),
-            textSecondary = Color(0xFF9BA8B8),
-            textTertiary = Color(0xFF66737F),
+            bg = Color(0xFF1E1214),
+            surface = Color(0xFF2A1B1D),
+            main = Color(0xFFD6B78F),
+            delete = Color(0xFFE28C93),
+            info = Color(0xFF93AABB),
+            purple = Color(0xFFBBA3C0),
+            folder = Color(0xFFC9A470),
+            textPrimary = Color(0xFFF2E7E6),
+            textSecondary = Color(0xFFB3A1A1),
+            textTertiary = Color(0xFF7C6868),
         ),
     ),
     QusheSkin(
         id = 2,
-        name = "紫罗兰夜",
+        name = "篝火余烬",  // 火灭了，炭还亮着
         palette = skinPalette(
             dark = true,
-            bg = Color(0xFF17121F),
-            surface = Color(0xFF221A2D),
-            main = Color(0xFFB49BE0),
-            delete = Color(0xFFE094A6),
-            info = Color(0xFF8FAFD6),
-            purple = Color(0xFFD896BE),
-            folder = Color(0xFFC9A878),
-            textPrimary = Color(0xFFEDE7F5),
-            textSecondary = Color(0xFFA79CB8),
-            textTertiary = Color(0xFF6F6580),
+            bg = Color(0xFF1E1613),
+            surface = Color(0xFF2A201B),
+            main = Color(0xFFE0A26B),
+            delete = Color(0xFFE0808F),
+            info = Color(0xFF93AABA),
+            purple = Color(0xFFB9A3B8),
+            folder = Color(0xFF7FA8A0),
+            textPrimary = Color(0xFFF2E6DD),
+            textSecondary = Color(0xFFB3A192),
+            textTertiary = Color(0xFF7D6B5E),
         ),
     ),
     QusheSkin(
         id = 3,
-        name = "森林晨雾",
+        name = "琥珀夜灯",  // 台灯罩透出来的那层黄
+        palette = skinPalette(
+            dark = true,
+            bg = Color(0xFF1C1910),
+            surface = Color(0xFF272216),
+            main = Color(0xFFD6B96E),
+            delete = Color(0xFFDE8C86),
+            info = Color(0xFF8FAEC2),
+            purple = Color(0xFFB2A6C4),
+            folder = Color(0xFF8C9A5C),
+            textPrimary = Color(0xFFF0E9D8),
+            textSecondary = Color(0xFFAFA48F),
+            textTertiary = Color(0xFF7A7059),
+        ),
+    ),
+    QusheSkin(
+        id = 4,
+        name = "森林晨雾",  // 树影里的水汽
         palette = skinPalette(
             dark = true,
             bg = Color(0xFF111A17),
@@ -359,20 +427,54 @@ val DarkSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 4,
-        name = "勃艮第红",
+        id = 5,
+        name = "青瓷夜色",  // 夜里那件青瓷，凉而润
         palette = skinPalette(
             dark = true,
-            bg = Color(0xFF1E1214),
-            surface = Color(0xFF2A1B1D),
-            main = Color(0xFFD6B78F),
-            delete = Color(0xFFE28C93),
-            info = Color(0xFF93AABB),
-            purple = Color(0xFFBBA3C0),
-            folder = Color(0xFFC9A470),
-            textPrimary = Color(0xFFF2E7E6),
-            textSecondary = Color(0xFFB3A1A1),
-            textTertiary = Color(0xFF7C6868),
+            bg = Color(0xFF0F1C1C),
+            surface = Color(0xFF182726),
+            main = Color(0xFF8FC4BE),
+            delete = Color(0xFFE08E88),
+            info = Color(0xFF8FB0CE),
+            purple = Color(0xFFA9A6C8),
+            folder = Color(0xFFC4A470),
+            textPrimary = Color(0xFFE2EFEC),
+            textSecondary = Color(0xFF9BB2AE),
+            textTertiary = Color(0xFF64807C),
+        ),
+    ),
+    QusheSkin(
+        id = 6,
+        name = "午夜蓝调",  // 凌晨一点的街
+        palette = skinPalette(
+            dark = true,
+            bg = Color(0xFF101620),
+            surface = Color(0xFF1A2230),
+            main = Color(0xFFA8C8E8),
+            delete = Color(0xFFE0919A),
+            info = Color(0xFF7FAEDA),
+            purple = Color(0xFFA8A9D6),
+            folder = Color(0xFFC8A878),
+            textPrimary = Color(0xFFE6ECF4),
+            textSecondary = Color(0xFF9BA8B8),
+            textTertiary = Color(0xFF66737F),
+        ),
+    ),
+    QusheSkin(
+        id = 7,
+        name = "紫罗兰夜",  // 暗处的一束紫
+        palette = skinPalette(
+            dark = true,
+            bg = Color(0xFF17121F),
+            surface = Color(0xFF221A2D),
+            main = Color(0xFFB49BE0),
+            delete = Color(0xFFE094A6),
+            info = Color(0xFF8FAFD6),
+            purple = Color(0xFFD896BE),
+            folder = Color(0xFFC9A878),
+            textPrimary = Color(0xFFEDE7F5),
+            textSecondary = Color(0xFFA79CB8),
+            textTertiary = Color(0xFF6F6580),
         ),
     ),
 )

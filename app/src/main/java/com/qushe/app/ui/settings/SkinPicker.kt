@@ -132,7 +132,7 @@ fun SkinPickerSheet(
                     Box(
                         modifier = Modifier
                             .width(1.dp)
-                            .height(452.dp)
+                            .height(488.dp)
                             .background(OverlayBorder),
                     )
                     SkinColumn(
@@ -158,7 +158,7 @@ private fun SkinColumn(
     onPick: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(
             modifier = Modifier.padding(bottom = 2.dp),
             verticalAlignment = Alignment.Bottom,
@@ -200,7 +200,7 @@ private fun SkinCard(skin: QusheSkin, selected: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(62.dp)
+            .height(56.dp)
             .clip(shape)
             .background(p.ink)
             .border(
@@ -209,7 +209,7 @@ private fun SkinCard(skin: QusheSkin, selected: Boolean, onClick: () -> Unit) {
                 shape = shape,
             )
             .clickable(onClick = onClick)
-            .padding(horizontal = 11.dp, vertical = 9.dp),
+            .padding(horizontal = 11.dp, vertical = 7.dp),
     ) {
         Column {
             Text(
@@ -219,7 +219,7 @@ private fun SkinCard(skin: QusheSkin, selected: Boolean, onClick: () -> Unit) {
                 fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
                 letterSpacing = 0.5.sp,
             )
-            Spacer(Modifier.height(7.dp))
+            Spacer(Modifier.height(5.dp))
             // 三个色块：卡片面、主色、删除色 —— 一眼看出这套的"纸、光、红"。
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Box(

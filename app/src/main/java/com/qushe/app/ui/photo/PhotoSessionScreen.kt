@@ -81,6 +81,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
@@ -1352,47 +1353,58 @@ fun PhotoSessionScreen(
             }
         }
 
-        // ---- 手势提示：三条边各一个半透明箭头 ----
+        // ---- 手势提示 ----
         //
-        // 这一块改了很多代，每一代都被实机否掉一次，过程记下来免得再走回去：
-        //  ① 一行顶部胶囊 —— 三个动作挤成一句，方向词还是横排的，和手势对不上；
+        // 这一块改了五代，每一代都是被实机否掉的，过程记下来免得再走回去：
+        //  ① 一行顶部胶囊 —— 三个动作挤成一句，方向词横排，和手势对不上；
         //  ② 三行教学卡 —— 压在照片上，字要透过照片读，浅色照片上直接糊；
-        //  ③ 实心圆 + 主色箭头 —— 看得清了，但像三个按钮钉在照片上，太跳；
-        //  ④ 现在：只有箭头。没有圆底、没有文字、半透明。
+        //  ③ 实心圆 + 主色箭头 —— 看清了，但像三个按钮钉在照片上，太跳；
+        //  ④ 只剩三个白箭头 —— 不跳了，但顶部那个没字，"上滑会怎样"完全靠猜；
+        //  ⑤ 现在：**顶部恢复胶囊**（它承载文字，必须说清结果），
+        //     左右只留箭头（"左右滑"不需要解释），而且**只走一趟**。
         //
-        // ---- 半透明还能看得清，靠的是**双层描边** ----
-        // 白箭头外面套一圈半透明黑（就是给文字加阴影的同一个办法）：
-        // 亮照片上靠黑边勾轮廓，暗照片上靠白线本身。单色箭头做不到两头都清楚。
-        //
-        // 只在「这一组的前 3 张」出现（`hintDismissed`），和底部那行说明同寿。
+        // 顶部为什么必须有字：左右滑的结果是"换一张"，看一次就懂；
+        // 上滑的结果是"删掉"或"收藏"（取决于设置），猜错了代价很大。
         if (!filmstripVisible && !hintDismissed) {
             val hintAlpha = chromeAlpha.value * (1f - pullAlpha())
-            val transition = rememberInfiniteTransition(label = "hints")
-            val nudge by transition.animateFloat(
-                initialValue = -3.5f,
-                targetValue = 3.5f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
-                    repeatMode = RepeatMode.Reverse,
-                ),
-                label = "nudge",
-            )
 
-            // 上：上滑（删掉 / 收藏，取设置里那个词，但图上一律只画箭头 ——
-            // 文字交给底部那行说明，箭头只负责方向）
-            GhostArrow(
-                direction = GhostDirection.UP,
-                nudge = -nudge,
+            Row(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .graphicsLayer { alpha = hintAlpha }
                     .statusBarsPadding()
-                    .padding(top = 52.dp)
-                    .size(50.dp),
-            )
+                    .padding(top = 66.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(Surface1)
+                    .border(1.dp, OverlayBorder, RoundedCornerShape(50))
+                    .padding(start = 10.dp, end = 13.dp, top = 5.dp, bottom = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.KeyboardArrowUp,
+                    contentDescription = null,
+                    tint = AccentKeep,
+                    modifier = Modifier.size(15.dp),
+                )
+                Text(
+                    text = if (swipeUpDeletes) "上滑删掉" else "上滑收藏",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = TextPrimary,
+                )
+            }
+
+            // 左右箭头：**只走一趟**（出去 0.42 秒、回来 0.5 秒），之后完全静止。
+            // 原来是一直来回走 —— 看两张之后那条不停动的东西比照片还抓眼。
+            val nudge = remember { Animatable(0f) }
+            LaunchedEffect(Unit) {
+                nudge.animateTo(1f, tween(durationMillis = 420, easing = FastOutSlowInEasing))
+                nudge.animateTo(0f, tween(durationMillis = 500, easing = FastOutSlowInEasing))
+            }
+
             GhostArrow(
                 direction = GhostDirection.LEFT,
-                nudge = -nudge,
+                progress = nudge.value,
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .graphicsLayer { alpha = hintAlpha }
@@ -1401,7 +1413,7 @@ fun PhotoSessionScreen(
             )
             GhostArrow(
                 direction = GhostDirection.RIGHT,
-                nudge = nudge,
+                progress = nudge.value,
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .graphicsLayer { alpha = hintAlpha }
@@ -2136,30 +2148,40 @@ private val BADGE_SLOT_WIDTH = 56.dp
 private enum class GhostDirection { UP, DOWN, LEFT, RIGHT }
 
 /**
- * 浮在照片上的半透明箭头。
+ * 浮在照片上的箭头 —— **不上纯白**。
  *
- * ---- 为什么不直接用 `Icons.Filled.KeyboardArrowX` ----
- * 那个图标是一条细线，放大到 50dp 就是一根 2dp 的白棍，压在浅色照片上看不见。
- * 这里自己画：**同一条路径画两遍** —— 先画 9dp 的半透明黑做轮廓，再画 4dp 的白。
- * 相当于给箭头套了一层阴影，亮照片上靠黑边、暗照片上靠白线，两头都读得出来。
+ * ---- 颜色 ----
+ * 纯白在照片上是一块"亮斑"，特别抢眼；纯黑的柔边又会在浅色照片上像脏点。
+ * 这里用**暖灰白 + 渐变**：从 `#DCD6CA`（偏灰的米白）渐到 `#F6F2EA`（略亮），
+ * 叠在半透明深灰的柔边上。看着像"一道光"而不是"一个图形"。
  *
- * 线宽用 dp 转 px，不写死像素：同一个 52dp 的框在不同密度屏上看到的粗细一致。
+ * ---- 三层柔边 ----
+ * 单层硬描边在浅色照片上会像"双线"。三层不同宽度叠起来才有投在照片上的柔感：
+ * 亮照片靠这圈晕勾轮廓，暗照片靠中间那道亮线，两头都读得出来。
  */
 @Composable
 private fun GhostArrow(
     direction: GhostDirection,
-    nudge: Float,
+    /** 0..1 的推动进度，一次播放结束后停在 0。 */
+    progress: Float,
     modifier: Modifier = Modifier,
 ) {
-    // 三层：外柔边 → 内柔边 → 白线。
-    // 单层的硬描边在浅色照片上会像"双线"，三层不同宽度叠起来才像"投在照片上"的阴影。
-    val halo = Color.Black.copy(alpha = 0.16f)
-    val outline = Color.Black.copy(alpha = 0.34f)
-    val body = Color.White.copy(alpha = 0.99f)
-    Canvas(modifier = modifier.graphicsLayer {
-        translationX = if (direction == GhostDirection.LEFT || direction == GhostDirection.RIGHT) nudge else 0f
-        translationY = if (direction == GhostDirection.UP || direction == GhostDirection.DOWN) nudge else 0f
-    }) {
+    val near = Color(0xFFDCD6CA)
+    val far = Color(0xFFF6F2EA)
+    val shade = Color(0xFF14141A)
+
+    Canvas(
+        modifier = modifier.graphicsLayer {
+            // 位移只有 7dp：够看出方向，又不至于像在"飞"
+            val step = progress * 7.dp.toPx()
+            when (direction) {
+                GhostDirection.UP -> translationY = -step
+                GhostDirection.DOWN -> translationY = step
+                GhostDirection.LEFT -> translationX = -step
+                GhostDirection.RIGHT -> translationX = step
+            }
+        },
+    ) {
         val w = size.width
         val h = size.height
         val path = Path().apply {
@@ -2186,19 +2208,40 @@ private fun GhostArrow(
                 }
             }
         }
+
+        // 渐变沿手势方向：起手那头偏灰、指向那头偏亮。
+        val brush = when (direction) {
+            GhostDirection.UP -> Brush.linearGradient(
+                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                start = Offset(0f, h), end = Offset(0f, 0f),
+            )
+            GhostDirection.DOWN -> Brush.linearGradient(
+                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                start = Offset(0f, 0f), end = Offset(0f, h),
+            )
+            GhostDirection.LEFT -> Brush.linearGradient(
+                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                start = Offset(w, 0f), end = Offset(0f, 0f),
+            )
+            GhostDirection.RIGHT -> Brush.linearGradient(
+                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                start = Offset(0f, 0f), end = Offset(w, 0f),
+            )
+        }
+
         drawPath(
             path = path,
-            color = halo,
+            color = shade.copy(alpha = 0.14f),
             style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
         drawPath(
             path = path,
-            color = outline,
+            color = shade.copy(alpha = 0.26f),
             style = Stroke(width = 7.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
         drawPath(
             path = path,
-            color = body,
+            brush = brush,
             style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }

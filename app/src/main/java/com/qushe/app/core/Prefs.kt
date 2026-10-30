@@ -272,7 +272,7 @@ class Prefs(context: Context) {
          * 放在 core 层不能直接读 ui 层的那两张表，所以两处都得写 —— 由 `verify.py` 核对，
          * 加皮肤时忘了改这里会直接报错，而不是"新皮肤选完又跳回默认"。
          */
-        private const val SKIN_MAX = 4
+        private const val SKIN_MAX = 7
         private const val KEY_SWIPE_UP_DELETES = "swipe_up_deletes"
         private const val KEY_ONLY_UNSEEN = "only_unseen"
         private const val KEY_DELETE_TO_TRASH = "delete_to_trash"
