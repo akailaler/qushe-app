@@ -1408,8 +1408,8 @@ fun PhotoSessionScreen(
                 modifier = Modifier
                     .align(Alignment.CenterStart)
                     .graphicsLayer { alpha = hintAlpha }
-                    .padding(start = 6.dp)
-                    .size(56.dp),
+                    .padding(start = 8.dp)
+                    .size(44.dp),
             )
             GhostArrow(
                 direction = GhostDirection.RIGHT,
@@ -1417,8 +1417,8 @@ fun PhotoSessionScreen(
                 modifier = Modifier
                     .align(Alignment.CenterEnd)
                     .graphicsLayer { alpha = hintAlpha }
-                    .padding(end = 6.dp)
-                    .size(56.dp),
+                    .padding(end = 8.dp)
+                    .size(44.dp),
             )
         }
 
@@ -2212,37 +2212,37 @@ private fun GhostArrow(
         // 渐变沿手势方向：起手那头偏灰、指向那头偏亮。
         val brush = when (direction) {
             GhostDirection.UP -> Brush.linearGradient(
-                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                listOf(near.copy(alpha = 0.70f), far.copy(alpha = 0.92f)),
                 start = Offset(0f, h), end = Offset(0f, 0f),
             )
             GhostDirection.DOWN -> Brush.linearGradient(
-                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                listOf(near.copy(alpha = 0.70f), far.copy(alpha = 0.92f)),
                 start = Offset(0f, 0f), end = Offset(0f, h),
             )
             GhostDirection.LEFT -> Brush.linearGradient(
-                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                listOf(near.copy(alpha = 0.70f), far.copy(alpha = 0.92f)),
                 start = Offset(w, 0f), end = Offset(0f, 0f),
             )
             GhostDirection.RIGHT -> Brush.linearGradient(
-                listOf(near.copy(alpha = 0.62f), far.copy(alpha = 0.95f)),
+                listOf(near.copy(alpha = 0.70f), far.copy(alpha = 0.92f)),
                 start = Offset(0f, 0f), end = Offset(w, 0f),
             )
         }
 
         drawPath(
             path = path,
-            color = shade.copy(alpha = 0.14f),
-            style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            color = shade.copy(alpha = 0.18f),
+            style = Stroke(width = 14.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
         drawPath(
             path = path,
-            color = shade.copy(alpha = 0.26f),
-            style = Stroke(width = 7.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            color = shade.copy(alpha = 0.32f),
+            style = Stroke(width = 8.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
         drawPath(
             path = path,
             brush = brush,
-            style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+            style = Stroke(width = 3.6.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }
 }
