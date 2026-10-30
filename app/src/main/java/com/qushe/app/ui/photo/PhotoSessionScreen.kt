@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.qushe.app.ui.theme.overlayShadow
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -85,6 +86,10 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.input.pointer.positionChange
@@ -1347,28 +1352,25 @@ fun PhotoSessionScreen(
             }
         }
 
-        // ---- 手势提示：贴在三条边上，不占画面中间 ----
+        // ---- 手势提示：三条边各一个半透明箭头 ----
         //
-        // 这一块改过三代，每一代都是被实机否掉的，原因记下来免得再走回去：
-        //  ① 一行顶部胶囊（"左右滑下一张 · 上滑删除 · 下滑退出"）——
-        //     三个动作挤成一句，方向词还是横排写的，和手势对不上；
-        //  ② 三行教学卡 —— 方向对上了，但它压在照片上，字要透过照片读，
-        //     浅色照片上直接糊；
-        //  ③ 现在：拆成三条边（顶部"上滑删掉"、左右各一个箭头），
-        //     "下滑退出"并进底部那行说明。
+        // 这一块改了很多代，每一代都被实机否掉一次，过程记下来免得再走回去：
+        //  ① 一行顶部胶囊 —— 三个动作挤成一句，方向词还是横排的，和手势对不上；
+        //  ② 三行教学卡 —— 压在照片上，字要透过照片读，浅色照片上直接糊；
+        //  ③ 实心圆 + 主色箭头 —— 看得清了，但像三个按钮钉在照片上，太跳；
+        //  ④ 现在：只有箭头。没有圆底、没有文字、半透明。
         //
-        // ---- 两条硬要求（踩过才知道）----
-        // · 底色必须**不透明**：`OverlayStrong` 是 70% 黑，压在暗照片边缘等于没有。
-        //   改用 `Surface1`（深色下 #1D1D21、浅色下接近白）—— 它本来就是这个 App
-        //   的"卡片面"，在两种模式下都是实心的，而且和页面同族。
-        // · 顶部那条要避开顶栏：顶栏是 statusBar + 6 + 48 + 6 ≈ 90dp，
-        //   原来放在 statusBarPadding + 52dp 处，正好和顶栏叠在一起。
+        // ---- 半透明还能看得清，靠的是**双层描边** ----
+        // 白箭头外面套一圈半透明黑（就是给文字加阴影的同一个办法）：
+        // 亮照片上靠黑边勾轮廓，暗照片上靠白线本身。单色箭头做不到两头都清楚。
+        //
+        // 只在「这一组的前 3 张」出现（`hintDismissed`），和底部那行说明同寿。
         if (!filmstripVisible && !hintDismissed) {
             val hintAlpha = chromeAlpha.value * (1f - pullAlpha())
             val transition = rememberInfiniteTransition(label = "hints")
             val nudge by transition.animateFloat(
-                initialValue = -4f,
-                targetValue = 4f,
+                initialValue = -3.5f,
+                targetValue = 3.5f,
                 animationSpec = infiniteRepeatable(
                     animation = tween(durationMillis = 1100, easing = FastOutSlowInEasing),
                     repeatMode = RepeatMode.Reverse,
@@ -1376,36 +1378,36 @@ fun PhotoSessionScreen(
                 label = "nudge",
             )
 
-            Row(
+            // 上：上滑（删掉 / 收藏，取设置里那个词，但图上一律只画箭头 ——
+            // 文字交给底部那行说明，箭头只负责方向）
+            GhostArrow(
+                direction = GhostDirection.UP,
+                nudge = -nudge,
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .graphicsLayer { alpha = hintAlpha }
                     .statusBarsPadding()
-                    .padding(top = 70.dp)
-                    .clip(RoundedCornerShape(50))
-                    .background(Surface1)
-                    .border(1.dp, OverlayBorder, RoundedCornerShape(50))
-                    .padding(start = 10.dp, end = 13.dp, top = 5.dp, bottom = 5.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.KeyboardArrowUp,
-                    contentDescription = null,
-                    tint = AccentKeep,
-                    modifier = Modifier
-                        .size(15.dp)
-                        .graphicsLayer { translationY = -nudge },
-                )
-                Text(
-                    text = if (swipeUpDeletes) "上滑删掉" else "上滑收藏",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = TextPrimary,
-                )
-            }
-
-            SideNudge(left = true, nudge = -nudge, alpha = hintAlpha)
-            SideNudge(left = false, nudge = nudge, alpha = hintAlpha)
+                    .padding(top = 52.dp)
+                    .size(50.dp),
+            )
+            GhostArrow(
+                direction = GhostDirection.LEFT,
+                nudge = -nudge,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .graphicsLayer { alpha = hintAlpha }
+                    .padding(start = 6.dp)
+                    .size(56.dp),
+            )
+            GhostArrow(
+                direction = GhostDirection.RIGHT,
+                nudge = nudge,
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .graphicsLayer { alpha = hintAlpha }
+                    .padding(end = 6.dp)
+                    .size(56.dp),
+            )
         }
 
         motionHint?.let { hint ->
@@ -2131,34 +2133,73 @@ private const val BEHIND_FADE_FRACTION = 1.2f
  */
 private val BADGE_SLOT_WIDTH = 56.dp
 
+private enum class GhostDirection { UP, DOWN, LEFT, RIGHT }
+
 /**
- * 左右两侧的箭头提示。
+ * 浮在照片上的半透明箭头。
  *
- * 圆形底 + 箭头，压在画面左右边缘的中段 —— 位置本身就是说明
- * （"左右滑"发生在两侧）。不写文字：这两个方向不需要解释，
- * 写上了反而要占掉照片两边一大条。
+ * ---- 为什么不直接用 `Icons.Filled.KeyboardArrowX` ----
+ * 那个图标是一条细线，放大到 50dp 就是一根 2dp 的白棍，压在浅色照片上看不见。
+ * 这里自己画：**同一条路径画两遍** —— 先画 9dp 的半透明黑做轮廓，再画 4dp 的白。
+ * 相当于给箭头套了一层阴影，亮照片上靠黑边、暗照片上靠白线，两头都读得出来。
+ *
+ * 线宽用 dp 转 px，不写死像素：同一个 52dp 的框在不同密度屏上看到的粗细一致。
  */
 @Composable
-private fun BoxScope.SideNudge(left: Boolean, nudge: Float, alpha: Float) {
-    Box(
-        modifier = Modifier
-            .align(if (left) Alignment.CenterStart else Alignment.CenterEnd)
-            .graphicsLayer { this.alpha = alpha }
-            .padding(horizontal = 6.dp)
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(Surface1)
-            .border(1.dp, OverlayBorder, CircleShape),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = if (left) Icons.AutoMirrored.Filled.KeyboardArrowLeft
-            else Icons.AutoMirrored.Filled.KeyboardArrowRight,
-            contentDescription = null,
-            tint = AccentKeep,
-            modifier = Modifier
-                .size(18.dp)
-                .graphicsLayer { translationX = nudge },
+private fun GhostArrow(
+    direction: GhostDirection,
+    nudge: Float,
+    modifier: Modifier = Modifier,
+) {
+    // 三层：外柔边 → 内柔边 → 白线。
+    // 单层的硬描边在浅色照片上会像"双线"，三层不同宽度叠起来才像"投在照片上"的阴影。
+    val halo = Color.Black.copy(alpha = 0.16f)
+    val outline = Color.Black.copy(alpha = 0.34f)
+    val body = Color.White.copy(alpha = 0.99f)
+    Canvas(modifier = modifier.graphicsLayer {
+        translationX = if (direction == GhostDirection.LEFT || direction == GhostDirection.RIGHT) nudge else 0f
+        translationY = if (direction == GhostDirection.UP || direction == GhostDirection.DOWN) nudge else 0f
+    }) {
+        val w = size.width
+        val h = size.height
+        val path = Path().apply {
+            when (direction) {
+                GhostDirection.UP -> {
+                    moveTo(w * 0.24f, h * 0.62f)
+                    lineTo(w * 0.50f, h * 0.34f)
+                    lineTo(w * 0.76f, h * 0.62f)
+                }
+                GhostDirection.DOWN -> {
+                    moveTo(w * 0.24f, h * 0.38f)
+                    lineTo(w * 0.50f, h * 0.66f)
+                    lineTo(w * 0.76f, h * 0.38f)
+                }
+                GhostDirection.LEFT -> {
+                    moveTo(w * 0.62f, h * 0.24f)
+                    lineTo(w * 0.34f, h * 0.50f)
+                    lineTo(w * 0.62f, h * 0.76f)
+                }
+                GhostDirection.RIGHT -> {
+                    moveTo(w * 0.38f, h * 0.24f)
+                    lineTo(w * 0.66f, h * 0.50f)
+                    lineTo(w * 0.38f, h * 0.76f)
+                }
+            }
+        }
+        drawPath(
+            path = path,
+            color = halo,
+            style = Stroke(width = 12.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
+        drawPath(
+            path = path,
+            color = outline,
+            style = Stroke(width = 7.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
+        )
+        drawPath(
+            path = path,
+            color = body,
+            style = Stroke(width = 4.2.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round),
         )
     }
 }
