@@ -30,8 +30,8 @@ android {
         // 直接操作文件，完全另一套代码路径。回留同样只支持 Android 11+。
         minSdk = 30
         targetSdk = 35
-        versionCode = 165
-        versionName = "2.0.0"
+        versionCode = 166
+        versionName = "2.1.0"
         // 只打包中文资源：工程里没有 values-en，声明 "en" 只是让
         // `aapt` 去翻译一堆空资源，在多语言系统上还会误判"支持英文"。
         resourceConfigurations += listOf("zh")
