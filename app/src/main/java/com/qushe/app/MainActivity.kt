@@ -53,15 +53,10 @@ class MainActivity : ComponentActivity() {
             // 外观由这里持有：设置页改完要立刻换色，而 SharedPreferences 读
             // 不是 Compose 的可观察状态（直接读会"改了没反应"）。
             var themeMode by remember { mutableIntStateOf(prefs.themeMode) }
-            // 两套皮肤各存各的：白天用哪套、夜里用哪套互不影响。
-            // 改完立刻换色，再落盘（SharedPreferences 读不是 Compose 状态）。
-            var lightSkinId by remember { mutableIntStateOf(prefs.lightSkinId) }
-            var darkSkinId by remember { mutableIntStateOf(prefs.darkSkinId) }
-            QusheTheme(
-                mode = themeMode,
-                lightSkinId = lightSkinId,
-                darkSkinId = darkSkinId,
-            ) {
+            // 配色：一套含浅深两版，只挑一次。改完立刻换色，再落盘
+            // （SharedPreferences 读不是 Compose 状态）。
+            var skinId by remember { mutableIntStateOf(prefs.skinId) }
+            QusheTheme(mode = themeMode, skinId = skinId) {
                 AppRoot(
                     container = container,
                     themeMode = themeMode,
@@ -69,15 +64,10 @@ class MainActivity : ComponentActivity() {
                         themeMode = it
                         prefs.themeMode = it
                     },
-                    lightSkinId = lightSkinId,
-                    darkSkinId = darkSkinId,
-                    onLightSkinChange = {
-                        lightSkinId = it
-                        prefs.lightSkinId = it
-                    },
-                    onDarkSkinChange = {
-                        darkSkinId = it
-                        prefs.darkSkinId = it
+                    skinId = skinId,
+                    onSkinIdChange = {
+                        skinId = it
+                        prefs.skinId = it
                     },
                 )
             }

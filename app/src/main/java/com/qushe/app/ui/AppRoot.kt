@@ -134,12 +134,9 @@ fun AppRoot(
     /** 外观（跟随系统 / 浅色 / 深色）。由 `MainActivity` 持有，见那里的说明。 */
     themeMode: Int = Prefs.THEME_DARK,
     onThemeModeChange: (Int) -> Unit = {},
-    /** 浅色皮肤（见 `LightSkins`）。和 [darkSkinId] 各选各的。 */
-    lightSkinId: Int = 0,
-    /** 深色皮肤（见 `DarkSkins`）。 */
-    darkSkinId: Int = 0,
-    onLightSkinChange: (Int) -> Unit = {},
-    onDarkSkinChange: (Int) -> Unit = {},
+    /** 配色（见 `QusheSkins`）：一套含浅深两版。 */
+    skinId: Int = 0,
+    onSkinIdChange: (Int) -> Unit = {},
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -769,10 +766,8 @@ fun AppRoot(
                         onFolderColumnsChange = { folderColumns = it },
                         themeMode = themeMode,
                         onThemeModeChange = onThemeModeChange,
-                        lightSkinId = lightSkinId,
-                        darkSkinId = darkSkinId,
-                        onLightSkinChange = onLightSkinChange,
-                        onDarkSkinChange = onDarkSkinChange,
+                        skinId = skinId,
+                        onSkinIdChange = onSkinIdChange,
                         onStatsReset = resetStats,
                         onSyncFavoritesNow = {
                             // 手动同步走的是和自动同步**同一条链路**（`startFavoriteSync`），

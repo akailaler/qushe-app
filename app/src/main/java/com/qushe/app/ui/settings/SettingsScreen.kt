@@ -65,8 +65,7 @@ import androidx.compose.foundation.layout.width
 import com.qushe.app.BuildConfig
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
-import com.qushe.app.ui.theme.darkSkinOf
-import com.qushe.app.ui.theme.lightSkinOf
+import com.qushe.app.ui.theme.skinOf
 
 private val GROUP_SIZE_CHOICES = Prefs.GROUP_SIZE_CHOICES
 private val FOLDER_COLUMNS_CHOICES = Prefs.FOLDER_COLUMNS_CHOICES
@@ -104,12 +103,9 @@ fun SettingsScreen(
     /** 外观：跟随系统 / 浅色 / 深色（`Prefs.THEME_*`）。 */
     themeMode: Int,
     onThemeModeChange: (Int) -> Unit,
-    /** 浅色皮肤 id（见 `LightSkins`）。 */
-    lightSkinId: Int = 0,
-    /** 深色皮肤 id（见 `DarkSkins`）。 */
-    darkSkinId: Int = 0,
-    onLightSkinChange: (Int) -> Unit = {},
-    onDarkSkinChange: (Int) -> Unit = {},
+    /** 配色 id（见 `QusheSkins`，一套含浅深两版）。 */
+    skinId: Int = 0,
+    onSkinIdChange: (Int) -> Unit = {},
     /** 统计清零。长按「到目前为止」里的「已删除」触发，和首页同一个实现。 */
     onStatsReset: () -> Unit = {},
 ) {
@@ -218,14 +214,14 @@ fun SettingsScreen(
             // 现在给它一行、一个标题、一个右箭头 —— 和设置页其它"点进去"的条目同构。
             SettingBlock(
                 title = "配色",
-                subtitle = "左边浅色、右边深色，各选一套",
+                subtitle = "每张色卡左半是浅色、右半是深色",
                 onClick = { showSkinPicker = true },
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(
                         // 两个名字都给出来：跟随系统时两套都会用到，只显示一套会让人
                         // 以为另一套没设过。中间用间隔号，读作"白天这套 / 夜里这套"。
-                        text = "${lightSkinOf(lightSkinId).name} · ${darkSkinOf(darkSkinId).name}",
+                        text = skinOf(skinId).name,
                         style = MaterialTheme.typography.labelLarge,
                         color = TextSecondary,
                     )
@@ -760,15 +756,10 @@ fun SettingsScreen(
 
     if (showSkinPicker) {
         SkinPickerSheet(
-            lightId = lightSkinId,
-            darkId = darkSkinId,
-            onPickLight = { id ->
-                onLightSkinChange(id)
-                prefs.lightSkinId = id
-            },
-            onPickDark = { id ->
-                onDarkSkinChange(id)
-                prefs.darkSkinId = id
+            currentId = skinId,
+            onPick = { id ->
+                onSkinIdChange(id)
+                prefs.skinId = id
             },
             onDismiss = { showSkinPicker = false },
         )

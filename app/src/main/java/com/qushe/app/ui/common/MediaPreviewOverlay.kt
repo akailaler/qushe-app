@@ -234,7 +234,7 @@ fun MediaPreviewOverlay(
         val before = QusheColors.palette
         // 用**用户选的那套深色**，不是写死一套 —— 选了「紫罗兰夜」的人
         // 一进视频预览就掉回石墨灰，会很突兀。
-        if (pageIsVideo) QusheColors.palette = QusheColors.darkSkin.palette
+        if (pageIsVideo) QusheColors.palette = QusheColors.skin.dark
         onDispose { if (pageIsVideo) QusheColors.palette = before }
     }
 

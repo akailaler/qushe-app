@@ -372,10 +372,10 @@ def check_legacy():
 
 def check_skins():
     """
-    配色表的两处真源必须对齐：`LightSkins` / `DarkSkins`（ui 层）与 `Prefs.SKIN_MAX`（core 层）。
+    配色表的真源：`QusheSkins`（ui 层）与 `Prefs.SKIN_MAX`（core 层）。
 
     ---- 为什么值得单独做一项 ----
-    core 层不能读 ui 层的那两张表，所以上限只能另写一个常量。
+    core 层不能读 ui 层的那张表，所以上限只能另写一个常量。
     这类"同一个数写在两处"的坑在这个工程已经出过好几次（版本号、角标、文件夹列数）。
     一旦忘了改：新皮肤点下去存进去，下次读出来被 `coerceIn` 夹回默认 ——
     表现是"选了没反应"，而且不崩、不报错，最难查。
@@ -384,48 +384,48 @@ def check_skins():
     theme = read(os.path.join(JAVA_SRC, "com/qushe/app/ui/theme/Theme.kt"))
     prefs = read(os.path.join(JAVA_SRC, "com/qushe/app/core/Prefs.kt"))
 
-    def skins_in(marker):
-        start = theme.index(marker)
-        # listOf 的收尾是顶格的 `)` —— 里面 skinPalette 的收尾都带缩进
-        end = theme.index("\n)", start)
-        seg = theme[start:end]
-        ids = [int(x) for x in re.findall(r"id\s*=\s*([0-9]+)", seg)]
-        names = re.findall(r'name\s*=\s*"([^"]+)"', seg)
-        return ids, names
-
     try:
-        light_ids, light_names = skins_in("val LightSkins: List<QusheSkin>")
-        dark_ids, dark_names = skins_in("val DarkSkins: List<QusheSkin>")
+        start = theme.index("val QusheSkins: List<QusheSkin>")
+        end = theme.index("\n)", start)
     except ValueError:
-        bad("解析不到肤色表", "Theme.kt 里 LightSkins / DarkSkins 的写法变了？")
+        bad("解析不到配色表", "Theme.kt 里 QusheSkins 的写法变了？")
         return
+    seg = theme[start:end]
 
-    if not light_ids or not dark_ids:
-        bad("肤色表是空的", f"浅 {len(light_ids)} 套 / 深 {len(dark_ids)} 套")
+    ids = [int(x) for x in re.findall(r"id\s*=\s*([0-9]+)", seg)]
+    names = re.findall(r'name\s*=\s*"([^"]+)"', seg)
+    # 每套必须**两版**（light / dark），少一版会在深色模式下取不到色
+    halves = seg.count("skinPalette(")
+
+    if not ids:
+        bad("配色表是空的")
         return
+    if sorted(ids) != list(range(len(ids))):
+        bad("配色 id 不连续", f"实际 {sorted(ids)}")
+    elif len(names) != len(ids):
+        bad("名字数量和 id 数量不一致", f"{len(names)} / {len(ids)}")
+    else:
+        ok("配色表", f"0..{len(ids) - 1}，共 {len(ids)} 套")
 
-    for label, ids, names in (("浅色", light_ids, light_names), ("深色", dark_ids, dark_names)):
-        if sorted(ids) != list(range(len(ids))):
-            bad(f"{label}皮肤 id 不连续", f"实际 {sorted(ids)}")
-        elif len(names) != len(ids):
-            bad(f"{label}皮肤名数量和 id 数量不一致", f"{len(names)} 个名字 / {len(ids)} 个 id")
-        else:
-            ok(f"{label}皮肤", f"0..{len(ids) - 1}，共 {len(ids)} 套")
+    if halves != len(ids) * 2:
+        bad("有配色缺一版", f"{halves} 个调色板，应为 {len(ids) * 2}（每套浅深各一）")
+    else:
+        ok("每套都有浅色和深色", f"{len(ids)} 套 × 2")
 
-        odd = [n for n in names if len(n) != 4]
-        for n in odd:
-            warn(f"{label}皮肤名不是四个字：{n}", f"{len(n)} 字")
-        if not odd and names:
-            ok(f"{label}皮肤名都是四个字")
+    odd = [n for n in names if len(n) != 4]
+    for n in odd:
+        warn(f"配色名不是四个字：{n}", f"{len(n)} 字")
+    if not odd and names:
+        ok("配色名都是四个字")
 
     m = re.search(r"SKIN_MAX\s*=\s*(\d+)", prefs)
-    last = max(len(light_ids), len(dark_ids)) - 1
+    last = len(ids) - 1
     if not m:
         bad("Prefs 里找不到 SKIN_MAX")
     elif int(m.group(1)) != last:
         bad(
-            "SKIN_MAX 与皮肤数量不一致",
-            f"SKIN_MAX={m.group(1)}，最后一套 id={last} —— 新皮肤会被夹回默认："
+            "SKIN_MAX 与配色数量不一致",
+            f"SKIN_MAX={m.group(1)}，最后一套 id={last} —— 新配色会被夹回默认："
             "表现是「选了没反应」",
         )
     else:

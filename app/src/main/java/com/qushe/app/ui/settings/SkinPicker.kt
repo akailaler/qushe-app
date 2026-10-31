@@ -6,8 +6,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -16,10 +18,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Check
@@ -34,36 +37,33 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
-import com.qushe.app.ui.theme.DarkSkins
+import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.Ink
-import com.qushe.app.ui.theme.LightSkins
 import com.qushe.app.ui.theme.OverlayBorder
+import com.qushe.app.ui.theme.QushePalette
 import com.qushe.app.ui.theme.QusheSkin
+import com.qushe.app.ui.theme.QusheSkins
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.theme.TextTertiary
 
 /**
- * 配色页：**左边浅色、右边深色，各选一套**。
+ * 配色页。
  *
- * ---- 为什么不再是一个皮肤含两版 ----
- * 白天要的是一张纸，夜里要的是一盏灯 —— 两者的关系不是"压暗"，是"换一套"。
- * 拆开之后，白天可以留白（月石初白），夜里换「紫罗兰夜」，互不牵制。
- * 跟随系统时两套都会用到，所以两列都要选。
+ * ---- 一张卡为什么是"左右各一半" ----
+ * 每套配色自带浅色和深色两版，是同一种调子的两种光。把它们并排放在一张卡里，
+ * 用户一眼就能看到"这套白天什么样、夜里什么样"，挑一次就够 ——
+ * 不用先选浅色再选深色（那会变成两道题，而且两套撞在一起很容易打架）。
  *
- * ---- 每张卡为什么不用当前主题画 ----
- * 用当前主题画的话，五张浅色卡会一模一样（都是此刻那套底色）。
- * 所以卡片内部的底色/文字/色条全部取自**它自己那套**，
- * 整张卡本身就是一张样张：看到什么，选中后就是什么。
+ * 卡片里的色块取自**它自己那套**，不是当前主题 —— 否则八张卡会一模一样。
+ *
+ * 用 Dialog 而不是导航目的地：这一页不需要返回栈，也不参与底栏切换。
  */
 @Composable
 fun SkinPickerSheet(
-    lightId: Int,
-    darkId: Int,
-    onPickLight: (Int) -> Unit,
-    onPickDark: (Int) -> Unit,
+    currentId: Int,
+    onPick: (Int) -> Unit,
     onDismiss: () -> Unit,
 ) {
     Dialog(
@@ -75,12 +75,7 @@ fun SkinPickerSheet(
         ),
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Ink) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .navigationBarsPadding(),
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 // ---- 顶栏 ----
                 Row(
                     modifier = Modifier
@@ -105,44 +100,30 @@ fun SkinPickerSheet(
                         )
                         Spacer(Modifier.height(2.dp))
                         Text(
-                            // 只说"怎么用"，不解释机制。
-                            text = "左边白天用，右边夜里用，各选一套",
+                            // 说清这张卡怎么读，和"点一下就整套生效"。
+                            text = "左半是浅色、右半是深色，点一下整套生效",
                             style = MaterialTheme.typography.labelSmall,
                             color = TextTertiary,
                         )
                     }
                 }
 
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 20.dp),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize().navigationBarsPadding(),
+                    contentPadding = PaddingValues(
+                        start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp,
+                    ),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
                 ) {
-                    SkinColumn(
-                        title = "浅色",
-                        hint = "白天",
-                        skins = LightSkins,
-                        selectedId = lightId,
-                        onPick = onPickLight,
-                        modifier = Modifier.weight(1f),
-                    )
-                    // 一条竖线把两栏分开：这一页的核心就是"两件不同的事"，
-                    // 光靠标题分不够，视觉上要有一条界线。
-                    Box(
-                        modifier = Modifier
-                            .width(1.dp)
-                            .height(488.dp)
-                            .background(OverlayBorder),
-                    )
-                    SkinColumn(
-                        title = "深色",
-                        hint = "夜里",
-                        skins = DarkSkins,
-                        selectedId = darkId,
-                        onPick = onPickDark,
-                        modifier = Modifier.weight(1f),
-                    )
+                    items(QusheSkins, key = { it.id }) { skin ->
+                        SkinCard(
+                            skin = skin,
+                            selected = skin.id == currentId,
+                            onClick = { onPick(skin.id) },
+                        )
+                    }
                 }
             }
         }
@@ -150,120 +131,94 @@ fun SkinPickerSheet(
 }
 
 @Composable
-private fun SkinColumn(
-    title: String,
-    hint: String,
-    skins: List<QusheSkin>,
-    selectedId: Int,
-    onPick: (Int) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+private fun SkinCard(skin: QusheSkin, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+            .padding(2.dp),
+    ) {
         Row(
-            modifier = Modifier.padding(bottom = 2.dp),
-            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(88.dp)
+                .clip(RoundedCornerShape(14.dp))
+                .border(
+                    width = if (selected) 2.dp else 1.dp,
+                    color = if (selected) AccentKeep else OverlayBorder,
+                    shape = RoundedCornerShape(14.dp),
+                ),
         ) {
-            Text(
-                text = title,
-                style = MaterialTheme.typography.titleMedium,
-                color = TextPrimary,
-                fontWeight = FontWeight.Medium,
-            )
-            Spacer(Modifier.width(6.dp))
-            Text(
-                text = hint,
-                style = MaterialTheme.typography.labelSmall,
-                color = TextTertiary,
-                modifier = Modifier.padding(bottom = 2.dp),
-            )
+            MiniSwatch(palette = skin.light, modifier = Modifier.weight(1f))
+            MiniSwatch(palette = skin.dark, modifier = Modifier.weight(1f))
         }
-        skins.forEach { skin ->
-            SkinCard(
-                skin = skin,
-                selected = skin.id == selectedId,
-                onClick = { onPick(skin.id) },
+        Spacer(Modifier.height(7.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = skin.name,
+                style = MaterialTheme.typography.bodyMedium,
+                color = if (selected) AccentKeep else TextPrimary,
+                modifier = Modifier.weight(1f),
             )
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = AccentKeep,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }
 
 /**
- * 一张色卡 = 一份样张。
+ * 半张色卡的示意：底色 + 一张"照片卡" + 一条主色 + 一个删除色点 + 一条文字条。
  *
- * 卡里的底色、字色、色条全部来自**它自己那套皮肤**，所以十张卡彼此不同，
- * 也不用先切过去才知道长什么样。
+ * 只用这几块，是因为它们正好覆盖了 App 里最显眼的四个颜色角色
+ * （页面底、卡片、主色、删除），画得越多越看不出区别。
  */
 @Composable
-private fun SkinCard(skin: QusheSkin, selected: Boolean, onClick: () -> Unit) {
-    val p = skin.palette
-    val shape = RoundedCornerShape(12.dp)
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(56.dp)
-            .clip(shape)
-            .background(p.ink)
-            .border(
-                width = if (selected) 2.dp else 1.dp,
-                color = if (selected) p.accentKeep else OverlayBorder,
-                shape = shape,
-            )
-            .clickable(onClick = onClick)
-            .padding(horizontal = 11.dp, vertical = 7.dp),
-    ) {
-        Column {
-            Text(
-                text = skin.name,
-                color = p.textPrimary,
-                fontSize = 13.sp,
-                fontWeight = if (selected) FontWeight.Medium else FontWeight.Normal,
-                letterSpacing = 0.5.sp,
-            )
-            Spacer(Modifier.height(5.dp))
-            // 三个色块：卡片面、主色、删除色 —— 一眼看出这套的"纸、光、红"。
-            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                Box(
-                    Modifier
-                        .width(22.dp)
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(p.surface1),
-                )
-                Box(
-                    Modifier
-                        .width(15.dp)
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(p.accentKeep),
-                )
-                Box(
-                    Modifier
-                        .width(7.dp)
-                        .height(5.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(p.accentDelete),
-                )
-            }
-        }
-        if (selected) {
-            Icon(
-                imageVector = Icons.Filled.Check,
-                contentDescription = null,
-                tint = p.accentKeep,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .size(15.dp),
-            )
-        } else {
-            // 未选中也占一个位置，五张卡的右上角才对齐
-            Box(
-                Modifier
-                    .align(Alignment.TopEnd)
-                    .size(15.dp)
-                    .padding(5.dp)
-                    .clip(CircleShape)
-                    .background(p.textTertiary.copy(alpha = 0.25f)),
-            )
-        }
+private fun MiniSwatch(palette: QushePalette, modifier: Modifier = Modifier) {
+    Box(modifier = modifier.fillMaxHeight().background(palette.ink)) {
+        // 图片卡
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 9.dp, top = 9.dp)
+                .width(38.dp)
+                .height(27.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(palette.surface1),
+        )
+        // 文字条
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .padding(start = 9.dp, top = 41.dp)
+                .width(28.dp)
+                .height(4.dp)
+                .clip(CircleShape)
+                .background(palette.textTertiary),
+        )
+        // 主色（选中态）
+        Box(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .padding(start = 9.dp, bottom = 11.dp)
+                .width(34.dp)
+                .height(7.dp)
+                .clip(CircleShape)
+                .background(palette.accentKeep),
+        )
+        // 删除色
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(end = 9.dp, top = 9.dp)
+                .size(9.dp)
+                .clip(CircleShape)
+                .background(palette.accentDelete),
+        )
     }
 }
