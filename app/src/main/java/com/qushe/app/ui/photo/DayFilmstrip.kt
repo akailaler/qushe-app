@@ -1073,15 +1073,23 @@ internal fun FilmstripRow(
 
             // 只组合可见区间里的格子。
             //
-            // 必须按格子本身（global）给 key：区间每平移一格，所有格子的
-            // **循环位置**都会跟着挪一位。没有 key 的话，位置 i 上的状态
-            // （收缩动画、图片请求）会错到另一张图上 —— 表现为每越过一格
-            // 边界，整屏图片请求全部重来一遍。有了 key，状态跟着格子走，
-            // 每边只真实组合 / 销毁各一格。
+            // key 必须用**照片自己的 storeKey**，不能用列表下标。
+            //
+            // 用下标（`global`）时，删掉一张照片会让它后面所有照片的
+            // 下标整体前移一位 —— key 全变 ⇒ Compose 认为"整排都换了新内容"，
+            // 把每个格子的组合销毁重建，连同 `imageRequest` 的 remember 一起重来，
+            // 于是整屏缩略图重新排进解码队列。用户连续清理几十张，就连续重建几十轮，
+            // 表现就是"删完一片，回来卡着白一下才慢慢亮出来"。
+            //
+            // 用 storeKey 后，节点身份跟着照片走：删一张只销毁那一格，
+            // 其余格子原地不动，图片请求一次都不重发。
+            //
+            // （区间平移这件事同样靠 key 保证：越过一格边界时只会组合/销毁各一格，
+            //  这是原来就在解决的问题，换 key 不影响它。）
             for (localIndex in rangeFrom..rangeTo) {
                 val global = indices.getOrNull(localIndex) ?: continue
                 val item = items.getOrNull(global) ?: continue
-                key(global) {
+                key(item.storeKey()) {
                     // 焦点格在这一排里的**局部**序号就是 focusRowItem（见上面的计算）。
                     val isFocusCell = ownsFocusRow && localIndex == focusRowItem
                     CellSlot(

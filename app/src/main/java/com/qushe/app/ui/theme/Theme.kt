@@ -213,8 +213,49 @@ private fun skinPalette(
  * 李白的秉烛、林逋的梅影 —— 一个名字先给一幅画，但**名字服从配色**，不反过来。
  */
 val QusheSkins: List<QusheSkin> = listOf(
+
+    // ---- 最初那一版 ----
+    //
+    // 取舍 1.0 ~ 1.6 一直是这套：近黑底 + 一个青绿的主色。
+    // 用户要它回来，作为第一套。
+    //
+    // 两处和原始值不同，都是**为了能读**：
+    //  · `main` 原本是 `#0E9C77`，对 #F5F5F7 只有 3.19 ——
+    //    而它同时是底部导航选中标签（12sp）的颜色。压深到 #0B8062 才到 4.5。
+    //  · `folder` 原本是 `#B0741D`，对底色 3.60，压深到 #9A6416（4.58）。
+    // 其余色值原样搬过来，深色那版一个没动。
     QusheSkin(
         id = 0,
+        name = "初始测试",  // 取舍最开始那版：近黑 + 青绿
+        light = skinPalette(
+            dark = false,
+            bg = Color(0xFFF5F5F7),
+            surface = Color(0xFFFFFFFF),
+            main = Color(0xFF0B8062),
+            delete = Color(0xFFD8324F),
+            info = Color(0xFF2C6FD1),
+            purple = Color(0xFF6259BE),
+            folder = Color(0xFF9A6416),
+            textPrimary = Color(0xFF17171B),
+            textSecondary = Color(0xFF5C5C66),
+            textTertiary = Color(0xFF8A8A94),
+        ),
+        dark = skinPalette(
+            dark = true,
+            bg = Color(0xFF0B0B0D),
+            surface = Color(0xFF16161A),
+            main = Color(0xFF35D0A5),
+            delete = Color(0xFFFF5C7A),
+            info = Color(0xFF6BA8FF),
+            purple = Color(0xFFAFA9EC),
+            folder = Color(0xFFF0B65C),
+            textPrimary = Color(0xFFF2F2F5),
+            textSecondary = Color(0xFF9A9AA5),
+            textTertiary = Color(0xFF63636E),
+        ),
+    ),
+    QusheSkin(
+        id = 1,
         name = "见素抱朴",  // 几乎无色，只剩灰的层次
         light = skinPalette(
             dark = false,
@@ -244,7 +285,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 1,
+        id = 2,
         name = "空山新雨",  // 雨后松针的绿，纸是湿的
         light = skinPalette(
             dark = false,
@@ -274,7 +315,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 2,
+        id = 3,
         name = "寒江独钓",  // 雪光映着的蓝，冷而干净
         light = skinPalette(
             dark = false,
@@ -304,7 +345,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 3,
+        id = 4,
         name = "沧浪之水",  // 青碧，水清见底
         light = skinPalette(
             dark = false,
@@ -334,7 +375,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 4,
+        id = 5,
         name = "暮山凝紫",  // 烟光凝而暮山紫
         light = skinPalette(
             dark = false,
@@ -364,7 +405,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 5,
+        id = 6,
         name = "落霞孤鹜",  // 暖橘，塔影压着豆沙红
         light = skinPalette(
             dark = false,
@@ -394,7 +435,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 6,
+        id = 7,
         name = "秉烛夜游",  // 一盏灯，纸上落着暖黄
         light = skinPalette(
             dark = false,
@@ -424,7 +465,7 @@ val QusheSkins: List<QusheSkin> = listOf(
         ),
     ),
     QusheSkin(
-        id = 7,
+        id = 8,
         name = "疏影暗香",  // 梅影落在纸上
         light = skinPalette(
             dark = false,

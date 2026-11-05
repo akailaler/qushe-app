@@ -56,6 +56,7 @@ import coil.request.ImageRequest
 import com.qushe.app.core.MediaKind
 import com.qushe.app.core.LongThumbnailFetcher
 import com.qushe.app.core.SystemThumbnailFetcher
+import com.qushe.app.core.ThumbnailPlaceholderLoader
 import com.qushe.app.core.formatDuration
 import com.qushe.app.core.storeKey
 import com.qushe.app.ui.common.ZoomableImage
@@ -491,6 +492,16 @@ internal fun DayCell(
         Box(
             modifier = Modifier
                 .fillMaxSize()
+                // ---- 底色兜底：这一格永远不是"洞" ----
+                //
+                // 占位图（系统缩略图）和主图都还没就绪时，之前这里什么都不画，
+                // 透出来的是页面底色 —— 一屏里有几格没加载完，看起来就是
+                // "照片墙上破了几个洞"。补一个卡片面色的底，加载期间是
+                // 一张安静的深色卡片，出图后直接盖上，中间没有空白期。
+                //
+                // 长图格子尤其需要：它拿不到系统缩略图（`systemPlaceholder=false`），
+                // 只能等区域解码，这段时间原来是纯空白。
+                .background(Surface2)
                 .graphicsLayer {
                     translationY = -slide.value
                     // 滑出时略微缩小：强化"这张要被拿走了"的语义，
@@ -612,5 +623,10 @@ internal fun rememberSystemThumbnailPlaceholder(
             .crossfade(false)
             .build()
     }
-    return rememberAsyncImagePainter(model = request)
+    // 走**独立的** loader：垫底图不能和高清图挤同一条解码队列
+    // （原因见 `ThumbnailPlaceholderLoader` 的注释）。
+    return rememberAsyncImagePainter(
+        model = request,
+        imageLoader = ThumbnailPlaceholderLoader.get(context),
+    )
 }
