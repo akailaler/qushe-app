@@ -47,5 +47,13 @@ class QusheApp : Application(), ImageLoaderFactory {
                 add(ImageDecoderDecoder.Factory())
             }
             .crossfade(true)
+            // 缩略图墙一天几百张，默认 25% 的堆上限只装得下五十来张，
+            // 滑过一屏之后往回滑就开始重新解码（用户看到的"滑回去还要等"）。
+            // 提到 30% —— 再多就挤占解码本身的临时内存了。
+            .memoryCache {
+                coil.memory.MemoryCache.Builder(this@QusheApp)
+                    .maxSizePercent(0.30)
+                    .build()
+            }
             .build()
 }

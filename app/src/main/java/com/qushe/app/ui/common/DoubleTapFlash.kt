@@ -24,9 +24,25 @@ import com.qushe.app.ui.theme.AccentKeep
 import com.qushe.app.ui.theme.TextPrimary
 import com.qushe.app.ui.common.StarFilledIcon
 
-/** 双击之后要显示的那一下：[liked] 是"喜欢"还是"收藏"，[on] 是操作后的状态。 */
+/**
+ * 双击之后要显示的那一下：[liked] 是"喜欢"还是"收藏"，[on] 是操作后的状态，
+ * [targetKey] 是**这一下属于哪张图**。
+ *
+ * ---- 为什么必须带 targetKey ----
+ *
+ * 这三个页面的反馈状态都挂在**页面级**（不是每张图各一份），而动画要跑 1.2 秒。
+ * 用户双击完立刻滑到下一张时，如果只判断"有没有 flash"，那颗心会直接画到
+ * 下一张脸上 —— 用户报的就是这个（"动画出现在下一张上"）。
+ *
+ * 带上目标 key 之后，渲染处只认"当前这张的 flash"，翻页那一瞬间它自己就不画了，
+ * 不依赖清空 state 的时机（那个时机很难挑对：滑得快的时候根本轮不到清）。
+ */
 @Immutable
-data class DoubleTapFlash(val liked: Boolean, val on: Boolean)
+data class DoubleTapFlash(
+    val targetKey: Long,
+    val liked: Boolean,
+    val on: Boolean,
+)
 
 /**
  * 双击的反馈动画：**只有一颗图标**，从 0.72 弹到 1.0，同时渐显。

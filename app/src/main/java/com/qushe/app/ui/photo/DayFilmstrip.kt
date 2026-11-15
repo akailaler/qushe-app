@@ -1,5 +1,6 @@
 package com.qushe.app.ui.photo
 
+import coil.imageLoader
 import android.net.Uri
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animate
@@ -48,6 +49,7 @@ import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
@@ -893,6 +895,27 @@ internal fun FilmstripRow(
         val rangeFrom = visibleRange.first
         val rangeTo = visibleRange.last
 
+        // ---- 预取：把"马上要滑到的几张"提前解出来 ----
+        //
+        // 用户报「滑得多了往后就开始空白、追不上」。原因不在预组合 ——
+        // 这里已经前后各伸了 0.5 屏，格子早就组合好了；问题在**解码发生在
+        // 进入视野之后**：滑动速度 8000px/s 时，0.5 屏（约 160ms）只够解
+        // 三四张，一屏进来五六张，后面那两张就赶不上，露出底色。
+        //
+        // 补的办法是**再往前解几张**：只发请求、不组合节点，
+        // 结果直接落进 Coil 的内存缓存，真正滑到时是 0 延迟命中。
+        // 不占布局开销，这是它和"把组合区间再扩一屏"的关键区别。
+        //
+        // 重复请求由 Coil 自己去重（同 data + 同 size 的并发请求共用一个结果），
+        // 所以每帧调一次也不会把队列灌爆。
+        PreloadAhead(
+            rangeTo = rangeTo,
+            indices = indices,
+            items = items,
+            cellWidths = cellWidths,
+            cellHeight = cellHeight,
+        )
+
         Row(
             modifier = Modifier
                 .fillMaxSize()
@@ -1454,3 +1477,56 @@ internal fun FloatArray.slotAt(px: Float): Int {
     }
     return ans
 }
+
+/**
+ * 见调用点：把可见区间**之后**的几张缩略图提前解出来，只请求不显示。
+ *
+ * 尺寸必须和 `DayCell` 的主请求**完全一致**（`wPx * THUMB_DECODE_SCALE`），
+ * 否则 memoryCacheKey 对不上，解出来的东西滑到时用不上 —— 等于白解。
+ * 这条是这个方案唯一的失败点，改 `DayCell` 的解码倍数时**这里要跟着改**。
+ *
+ * 动图和长图跳过：它们的请求参数特殊（动图不能给 size、长图走区域解码），
+ * 预取收益小、出错风险大。
+ */
+@Composable
+private fun PreloadAhead(
+    rangeTo: Int,
+    indices: List<Int>,
+    items: List<MediaItem>,
+    cellWidths: List<androidx.compose.ui.unit.Dp>,
+    cellHeight: androidx.compose.ui.unit.Dp,
+) {
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val loader = context.imageLoader
+    // 已经预取过的照片。**必须去重**：`rangeTo` 每帧都在变，
+    // 不去重的话一次快速滑动会给同一张发出几十个请求 —— Coil 虽然会合并，
+    // 但每个都建协程、查一遍缓存，反而把当前屏的请求拖慢。
+    val done = remember(items) { HashSet<Long>() }
+
+    LaunchedEffect(rangeTo, indices, cellHeight) {
+        val hPx = with(density) { cellHeight.roundToPx() }.coerceAtLeast(1)
+        val last = (rangeTo + PRELOAD_CELLS).coerceAtMost(indices.lastIndex)
+        if (last <= rangeTo) return@LaunchedEffect
+        for (i in (rangeTo + 1)..last) {
+            val item = items.getOrNull(indices.getOrNull(i) ?: continue) ?: continue
+            if (item.isAnimated || item.isLongImage) continue
+            if (!done.add(item.storeKey())) continue
+            val wDp = cellWidths.getOrNull(i) ?: continue
+            val wPx = with(density) { wDp.roundToPx() }.coerceAtLeast(1)
+            loader.enqueue(
+                ImageRequest.Builder(context)
+                    .data(item.uri)
+                    .size(
+                        (wPx * THUMB_DECODE_SCALE).toInt().coerceAtLeast(1),
+                        (hPx * THUMB_DECODE_SCALE).toInt().coerceAtLeast(1),
+                    )
+                    .build(),
+            )
+        }
+    }
+}
+
+/** 预取的格数：约半屏。再多会跟可见请求抢解码通道，反而拖慢当前屏。 */
+private const val PRELOAD_CELLS = 6
+

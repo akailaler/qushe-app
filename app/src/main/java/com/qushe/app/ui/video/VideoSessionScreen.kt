@@ -100,6 +100,7 @@ import com.qushe.app.ui.common.findActivity
 import com.qushe.app.ui.common.VolumeOffIcon
 import com.qushe.app.ui.common.VolumeUpIcon
 import com.qushe.app.ui.common.DoubleTapFlash
+import com.qushe.app.ui.common.ImmersiveSystemBars
 import com.qushe.app.ui.common.DoubleTapFlashOverlay
 import com.qushe.app.ui.common.detectTapsWithoutConsuming
 import com.qushe.app.ui.theme.AccentDelete
@@ -179,10 +180,15 @@ fun VideoSessionScreen(
         delay(1200L)
         actionFlash = null
     }
+    // 翻到下一个视频时收掉上一条反馈（渲染处还有 targetKey 校验兜底）。
+    LaunchedEffect(index) { actionFlash = null }
 
     // 全屏：把 Activity 转成横屏。横屏视频在竖屏里只占中间一条，
     // 把手机（或界面）转过来才真正看得清。
     var fullscreen by remember { mutableStateOf(false) }
+
+    // 横屏全屏 = 沉浸：系统栏一起藏，画面顶到物理边缘。
+    ImmersiveSystemBars(owner = "video-fullscreen", hidden = fullscreen)
 
     // 左右滑动快进 / 快退
     var seeking by remember { mutableStateOf(false) }
@@ -498,7 +504,11 @@ fun VideoSessionScreen(
         favoriteTick++
 
         // 只有图标，没有文字 —— 用户要求"单纯的图标动画就够了，要简约"。
-        actionFlash = DoubleTapFlash(liked = doubleTapLikes, on = nowOn)
+        actionFlash = DoubleTapFlash(
+            targetKey = item.storeKey(),
+            liked = doubleTapLikes,
+            on = nowOn,
+        )
         actionFlashTick++
     }
 
@@ -865,7 +875,7 @@ fun VideoSessionScreen(
             // 必须画在**所有内容之上**，而且刻意放在画面正中偏上：
             // 侧栏那边同时也在响应（图标会变），但用户的视线通常在画面中央，
             // 不在屏幕边角上。这一块就是用来"把双击的结果说出来"的。
-            actionFlash?.let { flash ->
+            actionFlash?.takeIf { it.targetKey == current?.storeKey() }?.let { flash ->
                 DoubleTapFlashOverlay(flash, modifier = Modifier.align(Alignment.Center))
             }
         }

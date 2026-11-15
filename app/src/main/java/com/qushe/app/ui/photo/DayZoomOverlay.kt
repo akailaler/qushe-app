@@ -50,6 +50,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.qushe.app.core.MediaItem
 import com.qushe.app.ui.common.DoubleTapFlash
+import com.qushe.app.ui.common.ImmersiveSystemBars
 import com.qushe.app.ui.common.DoubleTapFlashOverlay
 import com.qushe.app.ui.common.rememberContentCorner
 import com.qushe.app.ui.photo.infoPillPrimary
@@ -95,6 +96,9 @@ internal fun DayZoomView(
     onClose: () -> Unit,
 ) {
     var chromeVisible by remember { mutableStateOf(true) }
+
+    // chrome 收起来 = 沉浸，系统栏也跟着藏（和整理页、视频全屏同一套）。
+    ImmersiveSystemBars(owner = "day-zoom", hidden = !chromeVisible)
     var infoExpanded by remember { mutableStateOf(false) }
     // 拍摄地点：异步读，读到之前胶囊不占第三行
     var locationName by remember(item.storeKey()) { mutableStateOf<String?>(null) }
@@ -117,6 +121,8 @@ internal fun DayZoomView(
         delay(1200L)
         dtFlash = null
     }
+    // 这一屏会换图（同一份 composable 复用于不同 item），换图就收掉上一条反馈。
+    LaunchedEffect(item.storeKey()) { dtFlash = null }
 
     // ---- 下滑返回瀑布流 ----
     //
@@ -373,7 +379,11 @@ internal fun DayZoomView(
                 onDoubleTap = {
                     onToggleLike?.invoke()
                     // 切换后的状态就是取反 —— 此刻 isLiked 还是切换前那一版。
-                    dtFlash = DoubleTapFlash(liked = true, on = !isLiked)
+                    dtFlash = DoubleTapFlash(
+                        targetKey = item.storeKey(),
+                        liked = true,
+                        on = !isLiked,
+                    )
                     dtFlashTick++
                 },
             )
@@ -404,7 +414,7 @@ internal fun DayZoomView(
 
         // ④ 双击反馈：画在**最上面**（chrome 之后），所以不会被照片或胶囊挡住。
         // 上一版漏了这一段 —— 状态会切、但什么都不显示。
-        dtFlash?.let { flash ->
+        dtFlash?.takeIf { it.targetKey == item.storeKey() }?.let { flash ->
             DoubleTapFlashOverlay(flash, modifier = Modifier.align(Alignment.Center))
         }
     }

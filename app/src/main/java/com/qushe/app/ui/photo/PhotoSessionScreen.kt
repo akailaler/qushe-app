@@ -128,6 +128,7 @@ import com.qushe.app.ui.common.createVideoPlayerView
 import com.qushe.app.ui.common.StarBorderIcon
 import com.qushe.app.ui.common.ZoomableImage
 import com.qushe.app.ui.common.DoubleTapFlash
+import com.qushe.app.ui.common.ImmersiveSystemBars
 import com.qushe.app.ui.common.DoubleTapFlashOverlay
 import com.qushe.app.ui.common.flingTo
 import com.qushe.app.ui.common.settleToPage
@@ -245,6 +246,10 @@ fun PhotoSessionScreen(
     // 之前只有"放大才隐藏"，单击没参与 —— 于是想安静看一张图只能先去放大，
     // 规则和瀑布流放大页对不上（用户要求统一）。
     var chromeHidden by remember { mutableStateOf(false) }
+
+    // 沉浸态连**系统状态栏**一起藏（原来只淡出了自己的控件，
+    // 顶上那条系统栏还占着一截，看竖图时画面永远缺一块）。
+    ImmersiveSystemBars(owner = "photo-session", hidden = chromeHidden)
 
     // ---- chrome 三态：由 [advanceChromeStage] 单击推进 ----
     // ① 胶片栏收 + chrome 显（默认，专注看当前这张）
@@ -524,11 +529,18 @@ fun PhotoSessionScreen(
         delay(1200L)
         dtFlash = null
     }
+    // 翻页时立刻收掉上一条反馈。渲染处还有一道 targetKey 校验兜底，
+    // 这里只是让它干净点（少一个仍在跑的状态）。
+    LaunchedEffect(index) { dtFlash = null }
 
     fun runDoubleTap(target: MediaItem) {
         val nowOn = if (doubleTapLikes) onToggleLike(target) else onToggleFavorite(target)
         favoriteTick++
-        dtFlash = DoubleTapFlash(liked = doubleTapLikes, on = nowOn)
+        dtFlash = DoubleTapFlash(
+            targetKey = target.storeKey(),
+            liked = doubleTapLikes,
+            on = nowOn,
+        )
         dtFlashTick++
     }
     val currentIsFavorite = remember(current?.id, favoriteTick) {
@@ -1103,7 +1115,9 @@ fun PhotoSessionScreen(
             // 读 `.value`，会把整棵子树登记成观察者、拖动的每一帧整屏重组
             // （这是之前"滑动卡顿"最大的一笔，见函数注释）。
             // 双击反馈：和整理视频页**同一个**组件（只有一颗图标，没有文字）。
-            dtFlash?.let { flash ->
+            // 只画**当前这张**的那一下：动画跑到一半滑走时，
+            // 不能让这颗心跟着画到下一张上（见 [DoubleTapFlash.targetKey]）。
+            dtFlash?.takeIf { it.targetKey == current?.storeKey() }?.let { flash ->
                 DoubleTapFlashOverlay(
                     flash = flash,
                     modifier = Modifier.align(Alignment.Center),
